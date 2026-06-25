@@ -1,5 +1,28 @@
-const backendUrl =
-  process.env.BACKEND_API_URL ?? "http://127.0.0.1:8000";
+import axios from "axios";
+
+export const AUTH_TOKEN_KEY = "face_attendance_token";
+export const AUTH_USER_KEY = "face_attendance_user";
+
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  company_id: number;
+}
+
+export interface LoginResponse {
+  access_token: string;
+  token_type: "bearer";
+  user: User;
+}
+
+export interface SignupInput {
+  company_name: string;
+  name: string;
+  email: string;
+  password: string;
+}
 
 export interface Employee {
   id: number;
@@ -23,36 +46,72 @@ export interface AttendanceRecord {
   created_at: string;
 }
 
-export class BackendUnavailableError extends Error {
-  constructor() {
-    super("The backend API is unavailable.");
-    this.name = "BackendUnavailableError";
-  }
-}
+const api = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000",
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
 
-async function getJson<T>(path: string): Promise<T> {
-  try {
-    const response = await fetch(`${backendUrl}${path}`, {
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      throw new BackendUnavailableError();
+api.interceptors.request.use((config) => {
+  if (typeof window !== "undefined") {
+    const token = window.localStorage.getItem(AUTH_TOKEN_KEY);
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
-
-    return (await response.json()) as T;
-  } catch (error) {
-    if (error instanceof BackendUnavailableError) {
-      throw error;
-    }
-    throw new BackendUnavailableError();
   }
+  return config;
+});
+
+api.interceptors.response.use(
+  (response) => response,
+  (error: unknown) => {
+    if (
+      axios.isAxiosError(error) &&
+      error.response?.status === 401 &&
+      typeof window !== "undefined"
+    ) {
+      window.localStorage.removeItem(AUTH_TOKEN_KEY);
+      window.localStorage.removeItem(AUTH_USER_KEY);
+      if (window.location.pathname !== "/login") {
+        window.location.assign("/login");
+      }
+    }
+    return Promise.reject(error);
+  },
+);
+
+export async function loginRequest(
+  email: string,
+  password: string,
+): Promise<LoginResponse> {
+  const response = await api.post<LoginResponse>("/auth/login", {
+    email,
+    password,
+  });
+  return response.data;
 }
 
-export function getEmployees(): Promise<Employee[]> {
-  return getJson<Employee[]>("/employees");
+export async function signupRequest(
+  input: SignupInput,
+): Promise<LoginResponse> {
+  const response = await api.post<LoginResponse>("/auth/signup", input);
+  return response.data;
 }
 
-export function getAttendance(): Promise<AttendanceRecord[]> {
-  return getJson<AttendanceRecord[]>("/attendance");
+export async function getCurrentUser(): Promise<User> {
+  const response = await api.get<User>("/auth/me");
+  return response.data;
 }
+
+export async function getEmployees(): Promise<Employee[]> {
+  const response = await api.get<Employee[]>("/employees");
+  return response.data;
+}
+
+export async function getAttendance(): Promise<AttendanceRecord[]> {
+  const response = await api.get<AttendanceRecord[]>("/attendance");
+  return response.data;
+}
+
+export default api;

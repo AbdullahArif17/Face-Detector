@@ -1,4 +1,4 @@
-"""initial schema
+"""initial_tables
 
 Revision ID: 1e5df06012a5
 Revises: 

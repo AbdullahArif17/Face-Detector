@@ -10,15 +10,16 @@ Last updated: 2026-06-25
 ## Current State
 - Repository memory structure initialized.
 - Application scaffold lives in `face-attendance/`.
-- Frontend: Next.js 14, strict TypeScript, Tailwind CSS, App Router, shadcn/ui configuration.
-- Backend: FastAPI, async SQLAlchemy, Neon Postgres, Alembic, JWT login, and basic company/employee/attendance routes.
+- Frontend: Next.js 16.2.9, React 19.2.7, strict TypeScript, Tailwind CSS, App Router, shadcn/ui configuration.
+- Backend: FastAPI, async SQLAlchemy, Neon Postgres, Alembic, JWT authentication, and tenant-filtered company/employee/attendance routes.
 - AI service: FastAPI, DeepFace Facenet512 with RetinaFace detection, OpenCV, and local NumPy embedding files for the MVP.
 - Backend and AI-service dependencies are installed locally.
-- The initial Neon migration is applied.
-- Neon contains an idempotent demo dataset: one company, one branch, one admin, eight employees, and eight attendance records.
+- The `initial_tables` Alembic migration is generated and verified against the current development database.
+- `backend/.env` contains a working Neon pooled connection with SSL enabled.
 - Employee `1` has a local 512-dimensional face embedding enrolled from a consented test image.
 - Recognition was verified with a second consented image, matching employee `1` at cosine confidence `0.8948`.
-- Frontend dependencies are installed and the dashboard, employee list, and attendance list render live backend/Neon data.
+- Frontend dependencies are installed with Axios, AuthContext, signup/login flows, protected dashboard routes, and authenticated data requests.
+- This workstation uses backend port 8002 in `frontend/.env.local` because an orphaned Windows listener occupies port 8000; project defaults remain port 8000.
 
 ## Working Assumptions
 - Project knowledge must remain portable across chat agents and IDEs.
@@ -44,12 +45,11 @@ Last updated: 2026-06-25
 | Frontend run | `cd face-attendance/frontend && npm run dev` |
 | Frontend checks | `cd face-attendance/frontend && npm run typecheck && npm run lint` |
 | Backend run | `cd face-attendance/backend && uvicorn main:app --reload --port 8000` |
-| Seed demo data | `cd face-attendance/backend && .\.venv\Scripts\python.exe -m scripts.seed` |
+| Seed demo data | `cd face-attendance/backend && .\.venv\Scripts\python.exe -m app.seed` |
 | AI service run | `cd face-attendance/ai-service && uvicorn main:app --reload --port 8001` |
 
 ## Active Work
-- Connect the login form to JWT authentication and protect dashboard routes.
-- Add tenant-scoped authorization, tests, and CI.
+- Keep the Neon connection healthy and add authorization tests, CI, login rate limiting, email verification, and a refresh-token or secure-cookie strategy.
 - Define biometric consent, retention, deletion, encryption, and audit requirements.
 
 ## Open Questions
@@ -60,6 +60,7 @@ Last updated: 2026-06-25
 
 ## Handoff
 - Start with `face-attendance/README.md`.
-- Use `python -m scripts.seed` to refresh missing demo records without creating duplicates.
-- Frontend server components use `BACKEND_API_URL` from `frontend/.env.local`; default is `http://127.0.0.1:8000`.
-- Do not treat local embedding files or the current unauthenticated CRUD routes as production security boundaries.
+- Use `python -m app.seed` to create the Phase 2 company and super administrator.
+- Frontend uses `NEXT_PUBLIC_API_URL` from `frontend/.env.local`.
+- On this workstation, start the backend on port 8002 or restore `.env.local` to port 8000 after clearing the orphaned listener.
+- Do not treat local embedding files or client-side route guards as sufficient production security boundaries.

@@ -13,13 +13,14 @@ class Settings:
     database_url: str
     secret_key: str
     algorithm: str
+    access_token_expire_minutes: int
 
 
 def normalize_database_url(database_url: str) -> str:
-    """Convert a standard Neon URL into SQLAlchemy's asyncpg format."""
-    if database_url.startswith("postgresql://"):
+    """Convert a standard PostgreSQL URL into SQLAlchemy's asyncpg format."""
+    if database_url.startswith(("postgresql://", "postgres://")):
         database_url = database_url.replace(
-            "postgresql://",
+            database_url.split("://", 1)[0] + "://",
             "postgresql+asyncpg://",
             1,
         )
@@ -32,7 +33,9 @@ def normalize_database_url(database_url: str) -> str:
     if ssl_mode:
         query["ssl"] = ssl_mode
 
-    # asyncpg does not accept libpq's channel_binding query parameter.
+    if parsed.hostname and parsed.hostname.endswith("supabase.co"):
+        query.setdefault("ssl", "require")
+
     query.pop("channel_binding", None)
 
     return urlunsplit(
@@ -60,6 +63,9 @@ def get_settings() -> Settings:
         database_url=normalize_database_url(database_url),
         secret_key=secret_key,
         algorithm=os.getenv("ALGORITHM", "HS256"),
+        access_token_expire_minutes=int(
+            os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"),
+        ),
     )
 
 
