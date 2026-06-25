@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+sqlalchemy>=2.0.33
+psycopg2-binary
+asyncpg
+python-jose
+passlib
+bcrypt==4.0.1
+python-dotenv
+alembic
+email-validator

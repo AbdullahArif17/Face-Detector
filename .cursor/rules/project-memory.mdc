@@ -1,0 +1,8 @@
+---
+description: Load and maintain canonical project memory
+alwaysApply: true
+---
+
+Read and follow `AGENTS.md` before making changes.
+Use `PROJECT_CONTEXT.md`, `docs/DECISIONS.md`, and `docs/SESSION_LOG.md` as canonical project memory.
+Update those files as required by `AGENTS.md`.
