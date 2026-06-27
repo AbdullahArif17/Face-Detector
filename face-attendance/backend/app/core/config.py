@@ -14,6 +14,7 @@ class Settings:
     secret_key: str
     algorithm: str
     access_token_expire_minutes: int
+    ai_service_url: str
 
 
 def normalize_database_url(database_url: str) -> str:
@@ -66,6 +67,7 @@ def get_settings() -> Settings:
         access_token_expire_minutes=int(
             os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"),
         ),
+        ai_service_url=os.getenv("AI_SERVICE_URL", "http://localhost:8001").rstrip("/"),
     )
 
 

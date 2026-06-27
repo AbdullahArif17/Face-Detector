@@ -1,10 +1,6 @@
-import base64
-import binascii
 import os
 import sys
-from pathlib import Path
 
-import cv2
 import numpy as np
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, status
@@ -18,21 +14,19 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-from deepface import DeepFace  # noqa: E402
-
 load_dotenv()
 
-BASE_DIR = Path(__file__).resolve().parent
-EMBEDDINGS_DIR = BASE_DIR / os.getenv("EMBEDDINGS_DIR", "embeddings")
-RECOGNITION_THRESHOLD = float(os.getenv("RECOGNITION_THRESHOLD", "0.65"))
-DEEPFACE_MODEL = os.getenv("DEEPFACE_MODEL", "Facenet512")
-DETECTOR_BACKEND = os.getenv("DETECTOR_BACKEND", "retinaface")
+from deepface import DeepFace  # noqa: E402
 
-EMBEDDINGS_DIR.mkdir(parents=True, exist_ok=True)
+from utils import base64_to_image, cosine_similarity  # noqa: E402
+
+RECOGNITION_THRESHOLD = float(os.getenv("RECOGNITION_THRESHOLD", "0.7"))
+DEEPFACE_MODEL = os.getenv("DEEPFACE_MODEL", "Facenet")
+DETECTOR_BACKEND = os.getenv("DETECTOR_BACKEND", "retinaface")
 
 app = FastAPI(
     title="Face Attendance AI Service",
-    version="0.1.0",
+    version="0.2.0",
     description="Face enrollment and recognition service for the MVP.",
 )
 
@@ -48,34 +42,26 @@ class EnrollRequest(FaceImageRequest):
 class EnrollResponse(BaseModel):
     employee_id: str
     embedding: list[float]
+    model: str
+
+
+class EmbeddingCandidate(BaseModel):
+    employee_id: str
+    vector: list[float] = Field(min_length=1)
+
+
+class RecognizeRequest(FaceImageRequest):
+    embeddings: list[EmbeddingCandidate]
 
 
 class RecognitionResponse(BaseModel):
-    employee_id: str
-    confidence_score: float
+    matched: bool
+    employee_id: str | None = None
+    confidence: float | None = None
 
 
-def decode_image(image_base64: str) -> np.ndarray:
-    encoded = image_base64.split(",", 1)[-1]
-    try:
-        image_bytes = base64.b64decode(encoded, validate=True)
-    except (binascii.Error, ValueError) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Image is not valid base64",
-        ) from exc
-
-    image_array = np.frombuffer(image_bytes, dtype=np.uint8)
-    image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
-    if image is None:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Image could not be decoded",
-        )
-    return image
-
-
-def extract_embedding(image: np.ndarray) -> np.ndarray:
+def extract_embedding(image_base64: str) -> list[float]:
+    image = base64_to_image(image_base64)
     try:
         representations = DeepFace.represent(
             img_path=image,
@@ -90,10 +76,15 @@ def extract_embedding(image: np.ndarray) -> np.ndarray:
             detail="No usable face was detected in the image",
         ) from exc
 
-    if len(representations) != 1:
+    if len(representations) == 0:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Exactly one face is required",
+            detail="No face was detected in the image",
+        )
+    if len(representations) > 1:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Multiple faces were detected; exactly one face is required",
         )
 
     embedding = np.asarray(representations[0]["embedding"], dtype=np.float32)
@@ -103,27 +94,26 @@ def extract_embedding(image: np.ndarray) -> np.ndarray:
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Generated face embedding is invalid",
         )
-    return embedding / norm
+    return (embedding / norm).tolist()
 
 
-def find_best_match(query_embedding: np.ndarray) -> tuple[str | None, float]:
+def find_best_match(
+    query_embedding: list[float],
+    candidates: list[EmbeddingCandidate],
+) -> tuple[str | None, float | None]:
     best_employee_id: str | None = None
-    best_score = -1.0
+    best_score: float | None = None
 
-    for embedding_path in EMBEDDINGS_DIR.glob("*.npy"):
+    for candidate in candidates:
         try:
-            stored_embedding = np.load(embedding_path, allow_pickle=False)
-            stored_norm = np.linalg.norm(stored_embedding)
-            if stored_norm == 0 or stored_embedding.shape != query_embedding.shape:
-                continue
-            score = float(np.dot(query_embedding, stored_embedding / stored_norm))
-        except (OSError, ValueError):
-            # TODO: Emit structured logs and quarantine malformed embedding files.
+            score = cosine_similarity(query_embedding, candidate.vector)
+        except ValueError:
+            # TODO: Emit structured logs for malformed candidate embeddings.
             continue
 
-        if score > best_score:
+        if best_score is None or score > best_score:
             best_score = score
-            best_employee_id = embedding_path.stem
+            best_employee_id = candidate.employee_id
 
     return best_employee_id, best_score
 
@@ -135,38 +125,35 @@ async def health_check() -> dict[str, str]:
 
 @app.post("/enroll", response_model=EnrollResponse)
 async def enroll(payload: EnrollRequest) -> EnrollResponse:
-    image = decode_image(payload.image)
-    embedding = await run_in_threadpool(extract_embedding, image)
-
-    # TODO: Move encrypted embeddings to tenant-isolated persistent storage.
-    await run_in_threadpool(
-        np.save,
-        EMBEDDINGS_DIR / f"{payload.employee_id}.npy",
-        embedding,
-    )
-
+    embedding = await run_in_threadpool(extract_embedding, payload.image)
     return EnrollResponse(
         employee_id=payload.employee_id,
-        embedding=embedding.tolist(),
+        embedding=embedding,
+        model=DEEPFACE_MODEL,
     )
 
 
-@app.post("/recognize", response_model=RecognitionResponse)
-async def recognize(payload: FaceImageRequest) -> RecognitionResponse:
-    image = decode_image(payload.image)
-    query_embedding = await run_in_threadpool(extract_embedding, image)
+@app.post(
+    "/recognize",
+    response_model=RecognitionResponse,
+    response_model_exclude_none=True,
+)
+async def recognize(payload: RecognizeRequest) -> RecognitionResponse:
+    if not payload.embeddings:
+        return RecognitionResponse(matched=False)
+
+    query_embedding = await run_in_threadpool(extract_embedding, payload.image)
     best_employee_id, best_score = await run_in_threadpool(
         find_best_match,
         query_embedding,
+        payload.embeddings,
     )
 
-    if best_employee_id is None or best_score < RECOGNITION_THRESHOLD:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No matching employee found",
-        )
+    if best_employee_id is None or best_score is None or best_score <= RECOGNITION_THRESHOLD:
+        return RecognitionResponse(matched=False)
 
     return RecognitionResponse(
+        matched=True,
         employee_id=best_employee_id,
-        confidence_score=round(max(0.0, min(best_score, 1.0)), 4),
+        confidence=round(max(0.0, min(best_score, 1.0)), 4),
     )

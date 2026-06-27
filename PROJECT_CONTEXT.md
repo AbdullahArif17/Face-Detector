@@ -1,10 +1,10 @@
 # Project Context
 
-Last updated: 2026-06-25
+Last updated: 2026-06-27
 
 ## Project
 - Name: Face Attendance
-- Stage: Initial monorepo scaffold
+- Stage: Phase 3 employee management and DB-backed face enrollment
 - Objective: Build a multi-tenant AI face-recognition attendance SaaS.
 
 ## Current State
@@ -12,13 +12,15 @@ Last updated: 2026-06-25
 - Application scaffold lives in `face-attendance/`.
 - Frontend: Next.js 16.2.9, React 19.2.7, strict TypeScript, Tailwind CSS, App Router, shadcn/ui configuration.
 - Backend: FastAPI, async SQLAlchemy, Neon Postgres, Alembic, JWT authentication, and tenant-filtered company/employee/attendance routes.
-- AI service: FastAPI, DeepFace Facenet512 with RetinaFace detection, OpenCV, and local NumPy embedding files for the MVP.
+- AI service: FastAPI, DeepFace Facenet with RetinaFace detection, OpenCV, and stateless embedding extraction/comparison endpoints.
 - Backend and AI-service dependencies are installed locally.
-- The `initial_tables` Alembic migration is generated and verified against the current development database.
+- The `initial_tables` and `employee_department_face_embeddings` Alembic migrations are generated and applied to the current Neon development database.
 - `backend/.env` contains a working Neon pooled connection with SSL enabled.
-- Employee `1` has a local 512-dimensional face embedding enrolled from a consented test image.
-- Recognition was verified with a second consented image, matching employee `1` at cosine confidence `0.8948`.
+- Backend Phase 3 stores face vectors in the `face_embeddings` table as JSON for the MVP.
+- Historical Phase 1 local `.npy` enrollment/recognition tests succeeded, but local AI-service embedding files are no longer the active Phase 3 storage contract.
 - Frontend dependencies are installed with Axios, AuthContext, signup/login flows, protected dashboard routes, and authenticated data requests.
+- Frontend Phase 3 includes employee search/filter/table management, add/edit employee modal, webcam face enrollment modal, and enrollment-focused dashboard stats.
+- `python -m app.seed` now creates the demo company, default branch, admin user, 8 dummy employees, today's attendance rows, and 4 synthetic placeholder face enrollment rows for UI testing.
 - This workstation uses backend port 8002 in `frontend/.env.local` because an orphaned Windows listener occupies port 8000; project defaults remain port 8000.
 
 ## Working Assumptions
@@ -28,15 +30,15 @@ Last updated: 2026-06-25
 
 ## Architecture
 - `face-attendance/frontend`: browser dashboard on port 3000.
-- `face-attendance/backend`: business API and Neon Postgres access on port 8000.
-- `face-attendance/ai-service`: isolated biometric inference API on port 8001.
+- `face-attendance/backend`: business API, Neon Postgres access, JWT auth, employee CRUD, and DB-backed face enrollment on port 8000.
+- `face-attendance/ai-service`: isolated biometric inference API on port 8001; returns embeddings and compares supplied candidate vectors.
 - Services are independently installable and runnable; no root workspace runner is configured.
 
 ## Constraints
 - Do not place secrets or sensitive personal/biometric data in repository memory.
 - Record privacy, consent, storage, and retention requirements before handling real face data.
 - Do not add payment or billing code until explicitly requested.
-- Local `.npy` embedding storage is MVP-only and must be replaced before production.
+- JSON embedding storage in Neon is MVP-only and must be replaced with encrypted tenant-isolated biometric storage before production.
 
 ## Canonical Commands
 | Task | Command |
@@ -45,12 +47,15 @@ Last updated: 2026-06-25
 | Frontend run | `cd face-attendance/frontend && npm run dev` |
 | Frontend checks | `cd face-attendance/frontend && npm run typecheck && npm run lint` |
 | Backend run | `cd face-attendance/backend && uvicorn main:app --reload --port 8000` |
+| Backend migrate | `cd face-attendance/backend && .\.venv\Scripts\python.exe -m alembic upgrade head` |
 | Seed demo data | `cd face-attendance/backend && .\.venv\Scripts\python.exe -m app.seed` |
 | AI service run | `cd face-attendance/ai-service && uvicorn main:app --reload --port 8001` |
 
 ## Active Work
-- Keep the Neon connection healthy and add authorization tests, CI, login rate limiting, email verification, and a refresh-token or secure-cookie strategy.
-- Define biometric consent, retention, deletion, encryption, and audit requirements.
+- Complete end-to-end webcam enrollment testing with the backend and AI service running together.
+- Add attendance recognition flow that sends enrolled vectors to the AI service and marks attendance on a match.
+- Add authorization tests, CI, login rate limiting, email verification, and a refresh-token or secure-cookie strategy.
+- Define biometric consent, retention, deletion, encryption, and audit requirements before production use.
 
 ## Open Questions
 - What tenant-isolation and role-permission rules are required?
@@ -60,7 +65,8 @@ Last updated: 2026-06-25
 
 ## Handoff
 - Start with `face-attendance/README.md`.
-- Use `python -m app.seed` to create the Phase 2 company and super administrator.
+- Apply migrations with `python -m alembic upgrade head`; latest revision is `4bb92f37879c_employee_department_face_embeddings`.
+- Use `python -m app.seed` to create the demo company, default branch, super administrator, dummy employees, attendance rows, and placeholder enrollment status rows.
 - Frontend uses `NEXT_PUBLIC_API_URL` from `frontend/.env.local`.
 - On this workstation, start the backend on port 8002 or restore `.env.local` to port 8000 after clearing the orphaned listener.
-- Do not treat local embedding files or client-side route guards as sufficient production security boundaries.
+- Do not treat JSON embedding storage, local embedding files, or client-side route guards as sufficient production security boundaries.

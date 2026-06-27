@@ -1,0 +1,171 @@
+"use client";
+
+import axios from "axios";
+import { useRef, useState } from "react";
+import Webcam from "react-webcam";
+
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { enrollEmployeeFace, type Employee } from "@/lib/api";
+
+interface FaceEnrollModalProps {
+  open: boolean;
+  employee: Employee | null;
+  onOpenChange: (open: boolean) => void;
+  onEnrolled: (employeeId: number, headshotUrl: string) => void;
+}
+
+const videoConstraints = {
+  facingMode: "user",
+};
+
+function getErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    const detail = error.response?.data?.detail;
+    if (typeof detail === "string") {
+      return detail;
+    }
+  }
+  return "Face enrollment failed. Capture a clear front-facing photo and try again.";
+}
+
+function stripDataUrlPrefix(image: string): string {
+  return image.includes(",") ? image.split(",", 2)[1] : image;
+}
+
+export function FaceEnrollModal({
+  open,
+  employee,
+  onOpenChange,
+  onEnrolled,
+}: FaceEnrollModalProps) {
+  const webcamRef = useRef<Webcam>(null);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [isCameraActive, setIsCameraActive] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function handleCapture(): void {
+    const screenshot = webcamRef.current?.getScreenshot();
+    if (!screenshot) {
+      setError("Unable to capture photo from webcam.");
+      return;
+    }
+
+    setCapturedImage(screenshot);
+    setIsCameraActive(false);
+    setStatusMessage("Photo captured. Review it before enrolling.");
+    setError(null);
+  }
+
+  async function handleEnroll(): Promise<void> {
+    if (!employee || !capturedImage || isSubmitting) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+    setStatusMessage("Enrolling face...");
+
+    try {
+      await enrollEmployeeFace(employee.id, stripDataUrlPrefix(capturedImage));
+      setStatusMessage("Face enrolled successfully ✓");
+      onEnrolled(employee.id, capturedImage);
+    } catch (enrollError) {
+      setError(getErrorMessage(enrollError));
+      setStatusMessage(null);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Enroll face</DialogTitle>
+          <DialogDescription>
+            {employee
+              ? `Capture a clear face image for ${employee.name}.`
+              : "Select an employee before enrolling a face."}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="overflow-hidden rounded-lg border bg-muted">
+            {isCameraActive ? (
+              <Webcam
+                ref={webcamRef}
+                audio={false}
+                mirrored
+                screenshotFormat="image/jpeg"
+                videoConstraints={videoConstraints}
+                className="aspect-video w-full object-cover"
+              />
+            ) : capturedImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                alt="Captured employee face preview"
+                src={capturedImage}
+                className="aspect-video w-full object-cover"
+              />
+            ) : (
+              <div className="flex aspect-video items-center justify-center text-sm text-muted-foreground">
+                Webcam preview will appear here.
+              </div>
+            )}
+          </div>
+
+          {statusMessage ? (
+            <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+              {statusMessage}
+            </p>
+          ) : null}
+
+          {error ? (
+            <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </p>
+          ) : null}
+
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setCapturedImage(null);
+                setStatusMessage(null);
+                setError(null);
+                setIsCameraActive(true);
+              }}
+            >
+              Retake
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!isCameraActive}
+              onClick={handleCapture}
+            >
+              Capture Photo
+            </Button>
+            <Button
+              type="button"
+              disabled={!capturedImage || isSubmitting}
+              onClick={handleEnroll}
+            >
+              {isSubmitting ? "Enrolling..." : "Enroll Face"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

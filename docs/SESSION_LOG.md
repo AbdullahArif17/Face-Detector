@@ -74,6 +74,18 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Environment: Local frontend now targets backend port 8002 because an unresolvable orphaned Windows listener occupies port 8000.
 - Pending: Monitor the two moderate transitive PostCSS advisories bundled through the current stable Next.js release.
 
+## 2026-06-27 — Phase 3 employee management and face enrollment
+- Completed: Added tenant-scoped employee CRUD, department support, soft delete, DB-backed face enrollment routes, default branch bootstrap, AI-service embedding extraction/comparison contract, employee management UI, webcam enrollment modal, and enrollment dashboard stats.
+- Changed: Added `face_embeddings`, migration `4bb92f37879c_employee_department_face_embeddings`, `AI_SERVICE_URL`, `httpx`, `react-webcam`, Radix Dialog/Label primitives, and README updates.
+- Verified: Applied Alembic migration to Neon, ran seed, backend smoke tested login/employee CRUD/enrollment-status with cleanup, AI service import passed, backend and AI Python compile passed, Alembic check reports no drift, frontend typecheck/lint/build pass.
+- Pending: Run a full webcam enrollment against live backend + AI service, add recognition-to-attendance flow, and design production biometric encryption/consent/retention controls.
+
+## 2026-06-27 — Dummy demo data
+- Completed: Extended the backend seed to create 8 dummy employees, today's attendance rows, and 4 synthetic placeholder face enrollment rows for frontend UI testing.
+- Changed: Updated seed email domains to valid addresses and migrated the initial `@demo.local` rows created during this session to valid demo addresses.
+- Verified: Ran seed against Neon, authenticated as the demo admin, confirmed 8 new demo employees and 4 enrolled placeholders are visible through `GET /employees`, reran seed to confirm idempotency, and compiled backend Python files.
+- Pending: Replace placeholder enrollment rows by enrolling real consented test images through the webcam flow when testing biometric behavior.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

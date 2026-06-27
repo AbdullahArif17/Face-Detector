@@ -7,7 +7,7 @@ Production-oriented monorepo scaffold for a multi-tenant AI face-recognition att
 | Service | Stack | Default URL |
 |---|---|---|
 | `frontend` | Next.js 16, React 19, TypeScript, Tailwind CSS, shadcn/ui | `http://localhost:3000` |
-| `backend` | FastAPI, async SQLAlchemy, PostgreSQL, JWT | `http://localhost:8000` |
+| `backend` | FastAPI, async SQLAlchemy, Neon PostgreSQL, JWT | `http://localhost:8000` |
 | `ai-service` | FastAPI, OpenCV, DeepFace, NumPy | `http://localhost:8001` |
 
 ## Prerequisites
@@ -25,7 +25,7 @@ copy .env.example .env.local
 npm run dev
 ```
 
-Set `NEXT_PUBLIC_API_URL=http://localhost:8000` in `.env.local`.
+Set `NEXT_PUBLIC_API_URL=http://localhost:8000` in `.env.local`. On the current Windows workstation, use `http://localhost:8002` if port `8000` is still occupied by the orphaned listener noted in the project context.
 
 Useful checks:
 
@@ -65,15 +65,14 @@ Set a strong application secret:
 python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
-Paste that value into `SECRET_KEY`, then run:
+Paste that value into `SECRET_KEY`, confirm `AI_SERVICE_URL=http://localhost:8001`, then run:
 
 ```bash
-alembic revision --autogenerate -m "initial_tables"
 alembic upgrade head
 uvicorn main:app --reload --port 8000
 ```
 
-Create the Phase 2 demo company and super administrator:
+Create the demo company, default branch, super administrator, dummy employees, attendance rows, and placeholder enrollment status rows:
 
 ```bash
 python -m app.seed
@@ -81,13 +80,25 @@ python -m app.seed
 
 The seed is idempotent and stores its demo password as a bcrypt hash. The demo credentials are defined only in `app/seed.py`.
 
-Authentication endpoints:
+### Backend endpoints
+
+Authentication:
 
 - `POST /auth/signup`
 - `POST /auth/login`
 - `GET /auth/me` with a Bearer token
 
-Employee, attendance, and company endpoints require a valid access token.
+Employee, attendance, face enrollment, and company endpoints require a valid access token. Employee write operations require an `admin` or `super_admin` role.
+
+Phase 3 employee and face endpoints:
+
+- `GET /employees`
+- `POST /employees`
+- `PUT /employees/{id}`
+- `DELETE /employees/{id}` soft-deletes by setting `status = "inactive"`
+- `POST /face/enroll/{employee_id}`
+- `GET /face/enrollment-status/{employee_id}`
+- `DELETE /face/unenroll/{employee_id}`
 
 ## AI Service
 
@@ -104,16 +115,15 @@ copy .env.example .env
 uvicorn main:app --reload --port 8001
 ```
 
-`POST /enroll` stores one normalized `.npy` embedding per employee under `ai-service/embeddings/`. `POST /recognize` performs cosine-similarity matching against those files.
+`POST /enroll` returns a DeepFace embedding vector to the backend. The backend stores that vector in the `face_embeddings` database table. `POST /recognize` accepts a request image plus candidate vectors and returns the best cosine-similarity match above the configured threshold.
 
-DeepFace downloads the configured model weights on first use to the current user's `.deepface/weights` directory. The initial download for Facenet512 is approximately 95 MB.
+DeepFace downloads the configured model weights on first use to the current user's `.deepface/weights` directory.
 
 ## Production Follow-ups
 
-- Add tenant-scoped authentication and authorization dependencies.
-- Add database migrations, seed tooling, tests, and CI.
-- Use Neon’s pooled connection URL for the application runtime and review direct-connection requirements before running production migrations.
-- Replace local embedding files with encrypted tenant-isolated storage.
+- Add automated backend and frontend tests in CI.
+- Use Neon's pooled connection URL for the application runtime and review direct-connection requirements before running production migrations.
+- Replace JSON embedding storage with encrypted tenant-isolated biometric storage before production.
 - Add liveness/readiness probes, structured logs, tracing, and rate limits.
 - Define biometric consent, retention, deletion, and audit policies before collecting real face data.
 

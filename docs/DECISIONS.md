@@ -16,7 +16,7 @@
 
 ## D-003: Use local normalized NumPy embeddings for the MVP only
 - Date: 2026-06-25
-- Status: Accepted
+- Status: Superseded by D-008
 - Context: The initial scaffold needs functional enrollment and recognition without introducing external infrastructure.
 - Decision: Store one normalized `.npy` face embedding per employee in `ai-service/embeddings/`.
 - Consequences: This is not a production biometric store; encryption, tenant isolation, access controls, lifecycle management, and scalable retrieval must be added before real deployment.
@@ -48,6 +48,13 @@
 - Context: Next.js 14 was selected by the initial scaffold request but is outdated and affected by known security advisories.
 - Decision: Upgrade to Next.js 16.2.9, React 19.2.7, ESLint 9 flat configuration, and Turbopack production builds.
 - Consequences: `next lint` is replaced by the ESLint CLI. Two moderate transitive PostCSS advisories remain in the current stable Next.js package and should be monitored upstream.
+
+## D-008: Store Phase 3 face embeddings through the backend database contract
+- Date: 2026-06-27
+- Status: Accepted
+- Context: Phase 3 requires employee face enrollment from the dashboard and tenant-scoped enrollment status in the business API.
+- Decision: Keep the AI service stateless for embedding extraction/comparison and store enrolled vectors in the backend `face_embeddings` table as JSON for the MVP.
+- Consequences: The backend can report enrollment status and enforce tenant ownership. JSON biometric storage is not production-ready; encryption, tenant isolation, audit logging, retention, and deletion controls must be designed before real biometric deployment.
 
 ## Decision Template
 ```markdown

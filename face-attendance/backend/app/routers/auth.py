@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.security import create_access_token, hash_password, verify_password
 from app.dependencies import get_current_user
+from app.models.branch import Branch
 from app.models.company import Company
 from app.models.user import User
 from app.schemas.auth import LoginRequest, SignupRequest, TokenResponse
@@ -56,6 +57,15 @@ async def signup(
         )
         session.add(company)
         await session.flush()
+
+        # TODO: Replace this default branch bootstrap with a full branch setup flow.
+        session.add(
+            Branch(
+                company_id=company.id,
+                name="Main Branch",
+                location=None,
+            ),
+        )
 
         user = User(
             name=payload.name.strip(),

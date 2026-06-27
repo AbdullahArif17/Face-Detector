@@ -32,7 +32,31 @@ export interface Employee {
   email: string;
   phone: string | null;
   designation: string | null;
+  department: string | null;
+  headshot_url: string | null;
   status: string;
+  has_face_enrolled: boolean;
+}
+
+export interface EmployeeInput {
+  name: string;
+  email: string;
+  phone: string | null;
+  designation: string | null;
+  department: string | null;
+  headshot_url?: string | null;
+  branch_id?: number;
+}
+
+export interface EmployeeUpdateInput {
+  name?: string;
+  email?: string;
+  phone?: string | null;
+  designation?: string | null;
+  department?: string | null;
+  headshot_url?: string | null;
+  branch_id?: number;
+  status?: string;
 }
 
 export interface AttendanceRecord {
@@ -106,6 +130,40 @@ export async function getCurrentUser(): Promise<User> {
 
 export async function getEmployees(): Promise<Employee[]> {
   const response = await api.get<Employee[]>("/employees");
+  return response.data;
+}
+
+export async function createEmployee(input: EmployeeInput): Promise<Employee> {
+  const response = await api.post<Employee>("/employees", input);
+  return response.data;
+}
+
+export async function updateEmployee(
+  employeeId: number,
+  input: EmployeeUpdateInput,
+): Promise<Employee> {
+  const response = await api.put<Employee>(`/employees/${employeeId}`, input);
+  return response.data;
+}
+
+export async function deleteEmployee(employeeId: number): Promise<void> {
+  await api.delete(`/employees/${employeeId}`);
+}
+
+export interface FaceEnrollResponse {
+  success: boolean;
+  employee_id: number;
+  message: string;
+}
+
+export async function enrollEmployeeFace(
+  employeeId: number,
+  image: string,
+): Promise<FaceEnrollResponse> {
+  const response = await api.post<FaceEnrollResponse>(
+    `/face/enroll/${employeeId}`,
+    { image },
+  );
   return response.data;
 }
 
