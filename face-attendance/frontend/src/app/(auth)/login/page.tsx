@@ -17,7 +17,8 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  async function handleLogin(): Promise<void> {
+  async function handleLogin(e?: React.FormEvent): Promise<void> {
+    e?.preventDefault();
     setError("");
     setIsSubmitting(true);
 
@@ -48,47 +49,48 @@ export default function LoginPage() {
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium" htmlFor="email">
-              Email
-            </label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium" htmlFor="password">
-              Password
-            </label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-            />
-          </div>
-          {error ? (
-            <p className="text-sm text-red-600 text-pretty" role="alert">
-              {error}
-            </p>
-          ) : null}
-          <Button
-            className="w-full"
-            type="button"
-            disabled={isSubmitting || !email || !password}
-            onClick={() => void handleLogin()}
-          >
-            {isSubmitting ? "Signing in..." : "Sign in"}
-          </Button>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="email">
+                Email
+              </label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="password">
+                Password
+              </label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+              />
+            </div>
+            {error ? (
+              <p className="text-sm text-red-600 text-pretty" role="alert">
+                {error}
+              </p>
+            ) : null}
+            <Button
+              className="w-full"
+              type="submit"
+              disabled={isSubmitting || !email || !password}
+            >
+              {isSubmitting ? "Signing in..." : "Sign in"}
+            </Button>
+          </form>
           <p className="text-center text-sm text-muted-foreground text-pretty">
             New organization?{" "}
             <Link className="font-medium text-primary hover:underline" href="/signup">

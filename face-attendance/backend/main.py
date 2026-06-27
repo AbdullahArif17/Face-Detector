@@ -3,11 +3,27 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import attendance, auth, companies, employees, face
 
+from contextlib import asynccontextmanager
+import httpx
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
+
+from app.core.rate_limit import limiter
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.http_client = httpx.AsyncClient()
+    yield
+    await app.state.http_client.aclose()
+
 app = FastAPI(
     title="Face Attendance API",
     version="0.1.0",
     description="Core API for the AI Face Recognition Attendance SaaS.",
+    lifespan=lifespan,
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # TODO: Restrict origins to configured frontend domains before production deployment.
 app.add_middleware(

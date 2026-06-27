@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,13 +15,18 @@ router = APIRouter(prefix="/attendance", tags=["attendance"])
 
 @router.get("", response_model=list[AttendanceRead])
 async def list_attendance(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(25, ge=1, le=100),
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[Attendance]:
+    offset = (page - 1) * per_page
     result = await session.execute(
         select(Attendance)
         .where(Attendance.company_id == current_user.company_id)
-        .order_by(Attendance.created_at.desc()),
+        .order_by(Attendance.created_at.desc())
+        .offset(offset)
+        .limit(per_page),
     )
     return list(result.scalars().all())
 

@@ -3,7 +3,7 @@ import sys
 
 import numpy as np
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, Header, Depends
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
@@ -123,7 +123,12 @@ async def health_check() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.post("/enroll", response_model=EnrollResponse)
+def verify_api_key(x_api_key: str = Header(...)):
+    expected_key = os.getenv("AI_API_KEY", "dev_ai_secret_key")
+    if x_api_key != expected_key:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API Key")
+
+@app.post("/enroll", response_model=EnrollResponse, dependencies=[Depends(verify_api_key)])
 async def enroll(payload: EnrollRequest) -> EnrollResponse:
     embedding = await run_in_threadpool(extract_embedding, payload.image)
     return EnrollResponse(
@@ -137,6 +142,7 @@ async def enroll(payload: EnrollRequest) -> EnrollResponse:
     "/recognize",
     response_model=RecognitionResponse,
     response_model_exclude_none=True,
+    dependencies=[Depends(verify_api_key)]
 )
 async def recognize(payload: RecognizeRequest) -> RecognitionResponse:
     if not payload.embeddings:

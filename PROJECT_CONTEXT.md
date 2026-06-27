@@ -14,7 +14,7 @@ Last updated: 2026-06-27
 - Backend: FastAPI, async SQLAlchemy, Neon Postgres, Alembic, JWT authentication, and tenant-filtered company/employee/attendance routes.
 - AI service: FastAPI, DeepFace Facenet with RetinaFace detection, OpenCV, and stateless embedding extraction/comparison endpoints.
 - Backend and AI-service dependencies are installed locally.
-- The `initial_tables` and `employee_department_face_embeddings` Alembic migrations are generated and applied to the current Neon development database.
+- The `initial_tables`, `employee_department_face_embeddings`, and `9428e714984a` Alembic migrations are generated and applied to the current Neon development database.
 - `backend/.env` contains a working Neon pooled connection with SSL enabled.
 - Backend Phase 3 stores face vectors in the `face_embeddings` table as JSON for the MVP.
 - Historical Phase 1 local `.npy` enrollment/recognition tests succeeded, but local AI-service embedding files are no longer the active Phase 3 storage contract.
@@ -65,7 +65,7 @@ Last updated: 2026-06-27
 
 ## Handoff
 - Start with `face-attendance/README.md`.
-- Apply migrations with `python -m alembic upgrade head`; latest revision is `4bb92f37879c_employee_department_face_embeddings`.
+- Apply migrations with `python -m alembic upgrade head`; latest revision is `9428e714984a_add_timestamps_and_fix_unique_`.
 - Use `python -m app.seed` to create the demo company, default branch, super administrator, dummy employees, attendance rows, and placeholder enrollment status rows.
 - Frontend uses `NEXT_PUBLIC_API_URL` from `frontend/.env.local`.
 - On this workstation, start the backend on port 8002 or restore `.env.local` to port 8000 after clearing the orphaned listener.

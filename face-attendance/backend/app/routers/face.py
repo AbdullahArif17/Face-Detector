@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -77,6 +77,7 @@ def extract_ai_error(payload: Any) -> str:
 
 @router.post("/enroll/{employee_id}", response_model=FaceEnrollResponse)
 async def enroll_face(
+    request: Request,
     employee_id: int,
     payload: FaceEnrollRequest,
     session: AsyncSession = Depends(get_db),
@@ -90,11 +91,13 @@ async def enroll_face(
     headshot_url = normalize_headshot_image(payload.image)
 
     try:
-        async with httpx.AsyncClient(timeout=AI_SERVICE_TIMEOUT_SECONDS) as client:
-            response = await client.post(
-                f"{settings.ai_service_url}/enroll",
-                json={"employee_id": str(employee_id), "image": payload.image},
-            )
+        client: httpx.AsyncClient = request.app.state.http_client
+        response = await client.post(
+            f"{settings.ai_service_url}/enroll",
+            json={"employee_id": str(employee_id), "image": payload.image},
+            headers={"X-API-Key": "dev_ai_secret_key"},
+            timeout=AI_SERVICE_TIMEOUT_SECONDS,
+        )
     except httpx.RequestError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,

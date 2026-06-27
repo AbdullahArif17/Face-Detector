@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status, Query
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -98,9 +98,12 @@ async def employee_has_face_embedding(
 
 @router.get("", response_model=list[EmployeeResponse])
 async def list_employees(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(25, ge=1, le=100),
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[EmployeeResponse]:
+    offset = (page - 1) * per_page
     face_exists = (
         select(FaceEmbedding.id)
         .where(FaceEmbedding.employee_id == Employee.id)
@@ -109,7 +112,9 @@ async def list_employees(
     result = await session.execute(
         select(Employee, face_exists.label("has_face_enrolled"))
         .where(Employee.company_id == current_user.company_id)
-        .order_by(Employee.id),
+        .order_by(Employee.id)
+        .offset(offset)
+        .limit(per_page),
     )
     return [
         employee_to_response(

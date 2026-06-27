@@ -5,7 +5,9 @@ export default function SettingsPage() {
       <p className="mt-2 text-muted-foreground text-pretty">
         Organization and attendance settings will be configured here.
       </p>
-      {/* TODO: Add company, branch, security, and attendance policy settings. */}
+      <div className="mt-6 border border-dashed border-border rounded-lg p-12 text-center text-muted-foreground">
+        <p>Settings panel is under construction.</p>
+      </div>
     </section>
   );
 }

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +11,7 @@ from app.models.company import Company
 from app.models.user import User
 from app.schemas.auth import LoginRequest, SignupRequest, TokenResponse
 from app.schemas.user import UserRead
+from app.core.rate_limit import limiter
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -34,7 +35,9 @@ def build_token_response(user: User) -> TokenResponse:
     response_model=TokenResponse,
     status_code=status.HTTP_201_CREATED,
 )
+@limiter.limit("5/minute")
 async def signup(
+    request: Request,
     payload: SignupRequest,
     session: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
@@ -88,7 +91,9 @@ async def signup(
 
 
 @router.post("/login", response_model=TokenResponse)
+@limiter.limit("10/minute")
 async def login(
+    request: Request,
     credentials: LoginRequest,
     session: AsyncSession = Depends(get_db),
 ) -> TokenResponse:

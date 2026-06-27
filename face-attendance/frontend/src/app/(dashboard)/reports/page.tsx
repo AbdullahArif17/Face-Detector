@@ -5,7 +5,9 @@ export default function ReportsPage() {
       <p className="mt-2 text-muted-foreground text-pretty">
         Attendance analytics and exports will be available here.
       </p>
-      {/* TODO: Add reporting periods, charts, and export actions. */}
+      <div className="mt-6 border border-dashed border-border rounded-lg p-12 text-center text-muted-foreground">
+        <p>Reporting dashboard is under construction.</p>
+      </div>
     </section>
   );
 }

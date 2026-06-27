@@ -1,12 +1,13 @@
 fastapi
 uvicorn
 sqlalchemy>=2.0.33
-psycopg2-binary
 asyncpg
-python-jose
+PyJWT
+cryptography
 passlib
-bcrypt==4.0.1
+bcrypt
 python-dotenv
 alembic
 email-validator
 httpx
+slowapi

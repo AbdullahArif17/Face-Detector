@@ -86,6 +86,12 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: Ran seed against Neon, authenticated as the demo admin, confirmed 8 new demo employees and 4 enrolled placeholders are visible through `GET /employees`, reran seed to confirm idempotency, and compiled backend Python files.
 - Pending: Replace placeholder enrollment rows by enrolling real consented test images through the webcam flow when testing biometric behavior.
 
+## 2026-06-27 — Security and quality updates from code review
+- Completed: Implemented missing audit timestamps on 4/6 models, migrated to PyJWT and DeclarativeBase, added slowapi rate limiting to auth endpoints, API key check in AI service, and offset pagination on employee/attendance list endpoints.
+- Changed: Updated models to use `created_at/updated_at`, altered employee email constraint to be tenant-scoped `(company_id, email)`, injected httpx AsyncClient from lifespan in backend, replaced python-jose with PyJWT, fixed frontend login form for enter key submission, added global Next.js error boundary, and replaced stub Reports/Settings pages.
+- Verified: Ran Alembic autogenerate, applied migration 9428e714984a successfully, installed new pip dependencies (slowapi, PyJWT, cryptography), and validated Next.js frontend fixes.
+- Pending: Design production biometric encryption, connect recognition-to-attendance flow.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title
