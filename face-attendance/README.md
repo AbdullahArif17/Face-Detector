@@ -65,7 +65,7 @@ Set a strong application secret:
 python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
-Paste that value into `SECRET_KEY`, confirm `AI_SERVICE_URL=http://localhost:8001`, then run:
+Paste that value into `SECRET_KEY`, set `AI_API_KEY`, confirm `AI_SERVICE_URL=http://localhost:8001`, then run:
 
 ```bash
 alembic upgrade head
@@ -114,6 +114,8 @@ pip install -r requirements.txt
 copy .env.example .env
 uvicorn main:app --reload --port 8001
 ```
+
+Set the same `AI_API_KEY` value in `backend/.env` and `ai-service/.env` so the backend can call protected AI-service endpoints.
 
 `POST /enroll` returns a DeepFace embedding vector to the backend. The backend stores that vector in the `face_embeddings` database table. `POST /recognize` accepts a request image plus candidate vectors and returns the best cosine-similarity match above the configured threshold.
 

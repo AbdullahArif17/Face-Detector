@@ -95,7 +95,7 @@ async def enroll_face(
         response = await client.post(
             f"{settings.ai_service_url}/enroll",
             json={"employee_id": str(employee_id), "image": payload.image},
-            headers={"X-API-Key": "dev_ai_secret_key"},
+            headers={"X-API-Key": settings.ai_api_key},
             timeout=AI_SERVICE_TIMEOUT_SECONDS,
         )
     except httpx.RequestError as exc:

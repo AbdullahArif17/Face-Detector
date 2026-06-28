@@ -92,6 +92,36 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: Ran Alembic autogenerate, applied migration 9428e714984a successfully, installed new pip dependencies (slowapi, PyJWT, cryptography), and validated Next.js frontend fixes.
 - Pending: Design production biometric encryption, connect recognition-to-attendance flow.
 
+## 2026-06-28 — Phase 3 gap fixes
+- Completed: Fixed the reviewed Phase 3 gaps: env-driven AI-service API key, tenant-scoped employee email update check, frontend fetch-all pagination helpers, dashboard/table headshot rendering, and immediate headshot update after webcam enrollment.
+- Changed: Added `AI_API_KEY` to environment examples, made backend require/send `settings.ai_api_key`, made AI service require `AI_API_KEY`, switched frontend dashboard/employees/attendance pages to fetch all pages, and rendered `EmployeeAvatar` in dashboard and employee table.
+- Verified: Backend compile, AI-service compile, Alembic drift check, frontend typecheck, frontend lint, frontend production build, backend login/employees/attendance smoke, and AI-service API-key function check all pass.
+- Pending: Manual browser webcam enrollment against live services and production biometric storage/compliance design.
+
+## 2026-06-28 — Uploaded photo enrollment
+- Completed: Added an existing-photo upload option to the face enrollment modal alongside webcam capture.
+- Changed: The modal now accepts image files, validates file type and 2 MB max size, previews the uploaded image, and sends the full data URL to preserve MIME type for stored headshots.
+- Verified: Frontend typecheck, lint, and production build pass.
+- Pending: Manual browser enrollment test with a real consented image while backend and AI service are running.
+
+## 2026-06-28 — Optional face enrollment during employee creation
+- Completed: Added optional face-photo upload to the Add/Edit Employee modal.
+- Changed: Creating or updating an employee can now also enroll a face photo in the same modal; Branch field label now clarifies it expects an optional numeric Branch ID and can be left blank for Main Branch.
+- Verified: Frontend typecheck, lint, and production build pass.
+- Pending: Manual add-employee-with-photo test while backend and AI service are running.
+
+## 2026-06-28 â€” Create-employee face enrollment retry
+- Completed: Diagnosed create-employee face enrollment and confirmed backend plus AI service are healthy.
+- Changed: The Add/Edit Employee modal now keeps the already-created employee open when face enrollment fails, locks profile fields, shows the specific enrollment error, and allows retrying face enrollment without creating a duplicate employee.
+- Verified: AI-service `/enroll` accepted the local test image, backend login/create/enroll/status succeeded with a temporary employee and cleanup, and frontend typecheck, lint, and production build pass.
+- Pending: Browser retest with the user's selected upload while both backend and AI service are running.
+
+## 2026-06-28 - Enrolled face UI cleanup
+- Completed: Removed misleading inline face upload from the Edit Employee modal when the employee already has a face enrolled.
+- Changed: Enrolled employee rows now show `Update Face` instead of `Enroll Face`, and the face modal/toasts use update wording when replacing an existing enrollment.
+- Verified: Frontend typecheck, lint, production build, and diff whitespace check pass.
+- Pending: Browser retest after refreshing the running Next.js dev server.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

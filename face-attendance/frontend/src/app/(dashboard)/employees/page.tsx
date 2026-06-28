@@ -5,13 +5,14 @@ import { useEffect, useMemo, useState } from "react";
 
 import { ApiError } from "@/components/api-error";
 import { AddEmployeeModal } from "@/components/employees/AddEmployeeModal";
+import { EmployeeAvatar } from "@/components/employees/EmployeeAvatar";
 import { FaceEnrollModal } from "@/components/employees/FaceEnrollModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
   deleteEmployee,
-  getEmployees,
+  getAllEmployees,
   type Employee,
 } from "@/lib/api";
 
@@ -70,7 +71,7 @@ export default function EmployeesPage() {
   useEffect(() => {
     let isCancelled = false;
 
-    void getEmployees()
+    void getAllEmployees()
       .then((records) => {
         if (!isCancelled) {
           setEmployees(records);
@@ -120,6 +121,7 @@ export default function EmployeesPage() {
   function handleSavedEmployee(
     savedEmployee: Employee,
     mode: "created" | "updated",
+    message?: string,
   ): void {
     setEmployees((currentEmployees) => {
       const exists = currentEmployees.some(
@@ -136,7 +138,7 @@ export default function EmployeesPage() {
     });
     setEditingEmployee(null);
     setToastMessage(
-      mode === "created" ? "Employee added" : "Employee updated",
+      message ?? (mode === "created" ? "Employee added" : "Employee updated"),
     );
   }
 
@@ -165,15 +167,27 @@ export default function EmployeesPage() {
     }
   }
 
-  function handleFaceEnrolled(employeeId: number): void {
+  function handleFaceEnrolled(employeeId: number, headshotUrl: string): void {
+    const wasAlreadyEnrolled =
+      employees.find((employee) => employee.id === employeeId)
+        ?.has_face_enrolled === true;
+
     setEmployees((currentEmployees) =>
       currentEmployees.map((employee) =>
         employee.id === employeeId
-          ? { ...employee, has_face_enrolled: true }
+          ? {
+              ...employee,
+              has_face_enrolled: true,
+              headshot_url: headshotUrl,
+            }
           : employee,
       ),
     );
-    setToastMessage("Face enrolled successfully");
+    setToastMessage(
+      wasAlreadyEnrolled
+        ? "Face updated successfully"
+        : "Face enrolled successfully",
+    );
   }
 
   return (
@@ -265,7 +279,12 @@ export default function EmployeesPage() {
 
             {filteredEmployees.map((employee) => (
               <tr className="border-b last:border-0" key={employee.id}>
-                <td className="px-4 py-3 font-medium">{employee.name}</td>
+                <td className="px-4 py-3 font-medium">
+                  <div className="flex items-center gap-3">
+                    <EmployeeAvatar employee={employee} />
+                    <span>{employee.name}</span>
+                  </div>
+                </td>
                 <td className="px-4 py-3 text-muted-foreground">
                   {employee.email}
                 </td>
@@ -302,7 +321,7 @@ export default function EmployeesPage() {
                       variant="outline"
                       onClick={() => setEnrollingEmployee(employee)}
                     >
-                      Enroll Face
+                      {employee.has_face_enrolled ? "Update Face" : "Enroll Face"}
                     </Button>
                     <Button
                       type="button"

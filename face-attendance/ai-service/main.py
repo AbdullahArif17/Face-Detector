@@ -1,9 +1,10 @@
+import hmac
 import os
 import sys
 
 import numpy as np
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, status, Header, Depends
+from fastapi import Depends, FastAPI, Header, HTTPException, status
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
@@ -23,6 +24,10 @@ from utils import base64_to_image, cosine_similarity  # noqa: E402
 RECOGNITION_THRESHOLD = float(os.getenv("RECOGNITION_THRESHOLD", "0.7"))
 DEEPFACE_MODEL = os.getenv("DEEPFACE_MODEL", "Facenet")
 DETECTOR_BACKEND = os.getenv("DETECTOR_BACKEND", "retinaface")
+AI_API_KEY = os.getenv("AI_API_KEY")
+
+if not AI_API_KEY:
+    raise RuntimeError("AI_API_KEY is not configured")
 
 app = FastAPI(
     title="Face Attendance AI Service",
@@ -123,10 +128,10 @@ async def health_check() -> dict[str, str]:
     return {"status": "ok"}
 
 
-def verify_api_key(x_api_key: str = Header(...)):
-    expected_key = os.getenv("AI_API_KEY", "dev_ai_secret_key")
-    if x_api_key != expected_key:
+def verify_api_key(x_api_key: str = Header(...)) -> None:
+    if not hmac.compare_digest(x_api_key, AI_API_KEY):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API Key")
+
 
 @app.post("/enroll", response_model=EnrollResponse, dependencies=[Depends(verify_api_key)])
 async def enroll(payload: EnrollRequest) -> EnrollResponse:
@@ -142,7 +147,7 @@ async def enroll(payload: EnrollRequest) -> EnrollResponse:
     "/recognize",
     response_model=RecognitionResponse,
     response_model_exclude_none=True,
-    dependencies=[Depends(verify_api_key)]
+    dependencies=[Depends(verify_api_key)],
 )
 async def recognize(payload: RecognizeRequest) -> RecognitionResponse:
     if not payload.embeddings:

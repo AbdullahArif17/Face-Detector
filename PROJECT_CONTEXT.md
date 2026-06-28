@@ -1,6 +1,6 @@
 # Project Context
 
-Last updated: 2026-06-27
+Last updated: 2026-06-28
 
 ## Project
 - Name: Face Attendance
@@ -19,7 +19,9 @@ Last updated: 2026-06-27
 - Backend Phase 3 stores face vectors in the `face_embeddings` table as JSON for the MVP.
 - Historical Phase 1 local `.npy` enrollment/recognition tests succeeded, but local AI-service embedding files are no longer the active Phase 3 storage contract.
 - Frontend dependencies are installed with Axios, AuthContext, signup/login flows, protected dashboard routes, and authenticated data requests.
-- Frontend Phase 3 includes employee search/filter/table management, add/edit employee modal, webcam face enrollment modal, and enrollment-focused dashboard stats.
+- Frontend Phase 3 includes employee search/filter/table management, add/edit employee modal with optional face-photo enrollment and retry-on-failure handling, enrolled-state-aware face enrollment/update UI, webcam or uploaded-photo face enrollment modal, enrollment-focused dashboard stats, and employee headshot display.
+- Backend and AI service share `AI_API_KEY` through environment configuration; backend no longer hardcodes the AI-service key.
+- Frontend list consumers fetch all employee/attendance pages so dashboard stats are not truncated by backend pagination.
 - `python -m app.seed` now creates the demo company, default branch, admin user, 8 dummy employees, today's attendance rows, and 4 synthetic placeholder face enrollment rows for UI testing.
 - This workstation uses backend port 8002 in `frontend/.env.local` because an orphaned Windows listener occupies port 8000; project defaults remain port 8000.
 
@@ -52,7 +54,8 @@ Last updated: 2026-06-27
 | AI service run | `cd face-attendance/ai-service && uvicorn main:app --reload --port 8001` |
 
 ## Active Work
-- Complete end-to-end webcam enrollment testing with the backend and AI service running together.
+- Complete manual end-to-end webcam and uploaded-photo enrollment testing in the browser with the backend and AI service running together.
+- If create-employee face enrollment fails in the modal, the employee profile remains saved and the modal stays open so enrollment can be retried without creating a duplicate employee.
 - Add attendance recognition flow that sends enrolled vectors to the AI service and marks attendance on a match.
 - Add authorization tests, CI, login rate limiting, email verification, and a refresh-token or secure-cookie strategy.
 - Define biometric consent, retention, deletion, encryption, and audit requirements before production use.
@@ -66,6 +69,7 @@ Last updated: 2026-06-27
 ## Handoff
 - Start with `face-attendance/README.md`.
 - Apply migrations with `python -m alembic upgrade head`; latest revision is `9428e714984a_add_timestamps_and_fix_unique_`.
+- Ensure backend and AI service `.env` files use the same `AI_API_KEY`.
 - Use `python -m app.seed` to create the demo company, default branch, super administrator, dummy employees, attendance rows, and placeholder enrollment status rows.
 - Frontend uses `NEXT_PUBLIC_API_URL` from `frontend/.env.local`.
 - On this workstation, start the backend on port 8002 or restore `.env.local` to port 8000 after clearing the orphaned listener.

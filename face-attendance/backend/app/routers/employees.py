@@ -145,8 +145,11 @@ async def create_employee(
         )
     )
 
+    employee_data = payload.model_dump(exclude={"branch_id"})
+    employee_data["email"] = str(employee_data["email"]).lower()
+
     employee = Employee(
-        **payload.model_dump(exclude={"branch_id"}),
+        **employee_data,
         company_id=current_user.company_id,
         branch_id=branch_id,
         status="active",
@@ -178,6 +181,9 @@ async def update_employee(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
 
     update_data = payload.model_dump(exclude_unset=True)
+    if "email" in update_data and update_data["email"] is not None:
+        update_data["email"] = str(update_data["email"]).lower()
+
     if "branch_id" in update_data:
         await ensure_branch_belongs_to_company(
             session,
@@ -188,6 +194,7 @@ async def update_employee(
     if "email" in update_data and update_data["email"] is not None:
         duplicate_id = await session.scalar(
             select(Employee.id).where(
+                Employee.company_id == current_user.company_id,
                 func.lower(Employee.email) == str(update_data["email"]).lower(),
                 Employee.id != employee.id,
             ),

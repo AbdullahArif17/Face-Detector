@@ -70,6 +70,8 @@ export interface AttendanceRecord {
   created_at: string;
 }
 
+const API_PAGE_SIZE = 100;
+
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000",
   headers: {
@@ -128,9 +130,37 @@ export async function getCurrentUser(): Promise<User> {
   return response.data;
 }
 
-export async function getEmployees(): Promise<Employee[]> {
-  const response = await api.get<Employee[]>("/employees");
+interface PageOptions {
+  page?: number;
+  perPage?: number;
+}
+
+export async function getEmployees(
+  options: PageOptions = {},
+): Promise<Employee[]> {
+  const response = await api.get<Employee[]>("/employees", {
+    params: {
+      page: options.page ?? 1,
+      per_page: options.perPage ?? API_PAGE_SIZE,
+    },
+  });
   return response.data;
+}
+
+export async function getAllEmployees(): Promise<Employee[]> {
+  const employees: Employee[] = [];
+  let page = 1;
+
+  while (true) {
+    const records = await getEmployees({ page, perPage: API_PAGE_SIZE });
+    employees.push(...records);
+
+    if (records.length < API_PAGE_SIZE) {
+      return employees;
+    }
+
+    page += 1;
+  }
 }
 
 export async function createEmployee(input: EmployeeInput): Promise<Employee> {
@@ -167,9 +197,32 @@ export async function enrollEmployeeFace(
   return response.data;
 }
 
-export async function getAttendance(): Promise<AttendanceRecord[]> {
-  const response = await api.get<AttendanceRecord[]>("/attendance");
+export async function getAttendance(
+  options: PageOptions = {},
+): Promise<AttendanceRecord[]> {
+  const response = await api.get<AttendanceRecord[]>("/attendance", {
+    params: {
+      page: options.page ?? 1,
+      per_page: options.perPage ?? API_PAGE_SIZE,
+    },
+  });
   return response.data;
+}
+
+export async function getAllAttendance(): Promise<AttendanceRecord[]> {
+  const attendance: AttendanceRecord[] = [];
+  let page = 1;
+
+  while (true) {
+    const records = await getAttendance({ page, perPage: API_PAGE_SIZE });
+    attendance.push(...records);
+
+    if (records.length < API_PAGE_SIZE) {
+      return attendance;
+    }
+
+    page += 1;
+  }
 }
 
 export default api;

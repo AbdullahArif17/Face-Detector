@@ -25,6 +25,8 @@ const videoConstraints = {
   facingMode: "user",
 };
 
+const MAX_UPLOAD_BYTES = 2_000_000;
+
 function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
     const detail = error.response?.data?.detail;
@@ -32,11 +34,22 @@ function getErrorMessage(error: unknown): string {
       return detail;
     }
   }
-  return "Face enrollment failed. Capture a clear front-facing photo and try again.";
+  return "Face enrollment failed. Capture or upload a clear front-facing photo and try again.";
 }
 
-function stripDataUrlPrefix(image: string): string {
-  return image.includes(",") ? image.split(",", 2)[1] : image;
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+      reject(new Error("Unable to read image file."));
+    };
+    reader.onerror = () => reject(new Error("Unable to read image file."));
+    reader.readAsDataURL(file);
+  });
 }
 
 export function FaceEnrollModal({
@@ -46,11 +59,13 @@ export function FaceEnrollModal({
   onEnrolled,
 }: FaceEnrollModalProps) {
   const webcamRef = useRef<Webcam>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const isUpdatingExistingFace = employee?.has_face_enrolled === true;
 
   function handleCapture(): void {
     const screenshot = webcamRef.current?.getScreenshot();
@@ -61,8 +76,47 @@ export function FaceEnrollModal({
 
     setCapturedImage(screenshot);
     setIsCameraActive(false);
-    setStatusMessage("Photo captured. Review it before enrolling.");
+    setStatusMessage(
+      isUpdatingExistingFace
+        ? "Photo captured. Review it before updating."
+        : "Photo captured. Review it before enrolling.",
+    );
     setError(null);
+  }
+
+  async function handleFileUpload(
+    event: React.ChangeEvent<HTMLInputElement>,
+  ): Promise<void> {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setError("Upload a valid image file.");
+      return;
+    }
+
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setError("Image is too large. Use an image under 2 MB.");
+      return;
+    }
+
+    try {
+      const imageDataUrl = await readFileAsDataUrl(file);
+      setCapturedImage(imageDataUrl);
+      setIsCameraActive(false);
+      setStatusMessage(
+        isUpdatingExistingFace
+          ? "Photo uploaded. Review it before updating."
+          : "Photo uploaded. Review it before enrolling.",
+      );
+      setError(null);
+    } catch {
+      setError("Unable to read image file.");
+    }
   }
 
   async function handleEnroll(): Promise<void> {
@@ -72,11 +126,17 @@ export function FaceEnrollModal({
 
     setIsSubmitting(true);
     setError(null);
-    setStatusMessage("Enrolling face...");
+    setStatusMessage(
+      isUpdatingExistingFace ? "Updating face..." : "Enrolling face...",
+    );
 
     try {
-      await enrollEmployeeFace(employee.id, stripDataUrlPrefix(capturedImage));
-      setStatusMessage("Face enrolled successfully ✓");
+      await enrollEmployeeFace(employee.id, capturedImage);
+      setStatusMessage(
+        isUpdatingExistingFace
+          ? "Face updated successfully"
+          : "Face enrolled successfully",
+      );
       onEnrolled(employee.id, capturedImage);
     } catch (enrollError) {
       setError(getErrorMessage(enrollError));
@@ -90,10 +150,14 @@ export function FaceEnrollModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Enroll face</DialogTitle>
+          <DialogTitle>
+            {isUpdatingExistingFace ? "Update face" : "Enroll face"}
+          </DialogTitle>
           <DialogDescription>
             {employee
-              ? `Capture a clear face image for ${employee.name}.`
+              ? isUpdatingExistingFace
+                ? `Replace the enrolled face image for ${employee.name}.`
+                : `Capture or upload a clear face image for ${employee.name}.`
               : "Select an employee before enrolling a face."}
           </DialogDescription>
         </DialogHeader>
@@ -112,13 +176,13 @@ export function FaceEnrollModal({
             ) : capturedImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                alt="Captured employee face preview"
+                alt="Selected employee face preview"
                 src={capturedImage}
                 className="aspect-video w-full object-cover"
               />
             ) : (
               <div className="flex aspect-video items-center justify-center text-sm text-muted-foreground">
-                Webcam preview will appear here.
+                Webcam preview or uploaded photo will appear here.
               </div>
             )}
           </div>
@@ -136,6 +200,13 @@ export function FaceEnrollModal({
           ) : null}
 
           <div className="flex flex-wrap justify-end gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(event) => void handleFileUpload(event)}
+            />
             <Button
               type="button"
               variant="outline"
@@ -146,7 +217,14 @@ export function FaceEnrollModal({
                 setIsCameraActive(true);
               }}
             >
-              Retake
+              Use Camera
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              Upload Photo
             </Button>
             <Button
               type="button"
@@ -161,7 +239,13 @@ export function FaceEnrollModal({
               disabled={!capturedImage || isSubmitting}
               onClick={handleEnroll}
             >
-              {isSubmitting ? "Enrolling..." : "Enroll Face"}
+              {isSubmitting
+                ? isUpdatingExistingFace
+                  ? "Updating..."
+                  : "Enrolling..."
+                : isUpdatingExistingFace
+                  ? "Update Face"
+                  : "Enroll Face"}
             </Button>
           </div>
         </div>

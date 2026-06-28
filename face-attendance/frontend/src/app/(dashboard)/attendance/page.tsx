@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 
 import { ApiError } from "@/components/api-error";
 import {
-  getAttendance,
-  getEmployees,
+  getAllAttendance,
+  getAllEmployees,
   type AttendanceRecord,
   type Employee,
 } from "@/lib/api";
@@ -21,7 +21,7 @@ export default function AttendancePage() {
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
-    void Promise.all([getAttendance(), getEmployees()])
+    void Promise.all([getAllAttendance(), getAllEmployees()])
       .then(([records, employeeRecords]) => {
         setAttendance(records);
         setEmployees(employeeRecords);
