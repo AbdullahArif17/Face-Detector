@@ -1,6 +1,6 @@
 # Project Context
 
-Last updated: 2026-07-03
+Last updated: 2026-07-06
 
 ## Project
 - Name: Face Attendance
@@ -12,12 +12,13 @@ Last updated: 2026-07-03
 - Application scaffold lives in `face-attendance/`.
 - Frontend: Next.js 16.2.9, React 19.2.7, strict TypeScript, Tailwind CSS, App Router, shadcn/ui configuration.
 - Backend: FastAPI, async SQLAlchemy, Neon Postgres, Alembic, JWT authentication, role-gated user management, company API-key kiosk auth, tenant-filtered school/student/attendance routes, and WhatsApp notification logs.
-- AI service: FastAPI, DeepFace Facenet with RetinaFace detection, OpenCV, and stateless embedding extraction/comparison endpoints.
+- AI service: FastAPI, DeepFace ArcFace with RetinaFace detection, OpenCV quality gates, augmented embedding extraction, and stateless embedding comparison endpoints.
 - Backend and AI-service dependencies are installed locally.
 - The `initial_tables`, `employee_department_face_embeddings`, `9428e714984a`, `b7c4d9e8f012`, `a0ddfb82a57e`, `f4b9c2d1e8a7`, and `d2a7c9e4b631` Alembic migrations are generated and applied to the current Neon development database.
 - `backend/.env` contains a working Neon pooled connection with SSL enabled.
-- Backend Phase 3 stores face vectors in the `face_embeddings` table as JSON for the MVP.
+- Backend Phase 3 stores face vectors in the `face_embeddings` table as JSON for the MVP.`
 - Historical Phase 1 local `.npy` enrollment/recognition tests succeeded, but local AI-service embedding files are no longer the active Phase 3 storage contract.
+- Face-recognition accuracy pass switched the local AI model from Facenet to ArcFace, added blur/brightness/face-size quality validation, averages original plus horizontally flipped embeddings, and rejects ambiguous matches when the best and runner-up scores are too close. Existing Facenet enrollments must be re-enrolled to produce ArcFace-compatible vectors.
 - Frontend dependencies are installed with Axios, AuthContext, signup/login flows, protected dashboard routes, and authenticated data requests.
 - Frontend Phase 3 includes employee search/filter/table management, add/edit employee modal with optional face-photo enrollment and retry-on-failure handling, enrolled-state-aware face enrollment/update UI, webcam or uploaded-photo face enrollment modal, enrollment-focused dashboard stats, and employee headshot display.
 - Frontend Phase 4 includes a standalone `/kiosk` webcam page using company API-key auth and displaying organization name, `/users` portal user management with deactivate/reactivate actions, `/attendance` Today/History tabs, conditional Users sidebar link, and `/settings` kiosk API-key setup.
@@ -34,7 +35,7 @@ Last updated: 2026-07-03
 - Super admin Users view shows each user's organization so cross-tenant accounts are not confused during organization-specific login.
 - Backend and AI service share `AI_API_KEY` through environment configuration; backend no longer hardcodes the AI-service key.
 - Frontend list consumers fetch all employee/attendance pages so dashboard stats are not truncated by backend pagination.
-- `python -m app.seed` now creates the demo school, classes, admin user, 5 dummy students, today's attendance rows, and synthetic placeholder face enrollment rows for UI testing.
+- `python -m app.reset_demo_data` resets the development database to one clean Demo School tenant, one demo admin, 3 classes, 8 students, today's attendance rows, and no face embeddings so real ArcFace enrollments can be added.
 - This workstation uses backend port 8004 through `frontend/.env.local` because orphaned/stale Windows listeners occupy ports 8000/8002/8003; project defaults remain port 8000.
 - WhatsApp Cloud API credentials were verified with Meta's built-in template send and the backend `/whatsapp/test` endpoint; both returned accepted/sent message IDs during local testing.
 - For same-Wi-Fi mobile testing, this workstation uses LAN IP `192.168.0.116`; point the frontend API/proxy to the active backend port, backend `FRONTEND_ORIGINS` includes `http://192.168.0.116:3000`, and dev servers must be started with host `0.0.0.0`.
@@ -68,10 +69,11 @@ Last updated: 2026-07-03
 | Backend run on LAN | `cd face-attendance/backend && .\.venv\Scripts\python.exe -m uvicorn main:app --reload --host 0.0.0.0 --port 8004` |
 | Backend migrate | `cd face-attendance/backend && .\.venv\Scripts\python.exe -m alembic upgrade head` |
 | Seed demo data | `cd face-attendance/backend && .\.venv\Scripts\python.exe -m app.seed` |
+| Reset demo data | `cd face-attendance/backend && .\.venv\Scripts\python.exe -m app.reset_demo_data` |
 | AI service run | `cd face-attendance/ai-service && uvicorn main:app --reload --port 8001` |
 
 ## Active Work
-- Complete manual end-to-end student webcam and uploaded-photo enrollment testing in the browser with the backend and AI service running together.
+- Re-enroll existing student faces after the ArcFace switch, then complete manual end-to-end student webcam and uploaded-photo enrollment testing in the browser with the backend and AI service running together.
 - Manually test `/kiosk?key=[API_KEY]&branch=[CLASS_ID]` against live backend and AI service with real enrolled students.
 - Add real shift management; Phase 4 late detection currently uses a default 09:00 UTC shift start plus 15-minute grace period.
 - Add authorization tests, CI, login rate limiting, email verification, and a refresh-token or secure-cookie strategy.
@@ -87,7 +89,8 @@ Last updated: 2026-07-03
 - Start with `face-attendance/README.md`.
 - Apply migrations with `python -m alembic upgrade head`; latest revision is `d2a7c9e4b631_class_attendance_sessions`.
 - Ensure backend and AI service `.env` files use the same `AI_API_KEY`.
-- Use `python -m app.seed` to create the demo school, classes, super administrator, dummy students, attendance rows, and placeholder enrollment status rows.
+- AI service now uses `DEEPFACE_MODEL=ArcFace`; any students enrolled under the previous Facenet configuration must be re-enrolled before kiosk recognition will work reliably.
+- Use `python -m app.reset_demo_data` to wipe old development data and recreate the clean Demo School dataset.
 - Demo login uses organization `Demo School`, email `admin@demo.com`, and password `admin123`.
 - If a portal user cannot log in after being "deleted", check `/users`: soft-deactivated accounts must be activated or permanently removed before reuse.
 - Frontend uses `NEXT_PUBLIC_API_URL` from `frontend/.env.local`.

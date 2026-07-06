@@ -212,6 +212,18 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: Meta `hello_world` template send returned an accepted message ID, backend `/whatsapp/test` returned success with a message ID, backend health passed on port 8004, and frontend `/api/backend/health` proxy works through port 8004.
 - Pending: Add WhatsApp webhook support and template-based production attendance messages before production.
 
+## 2026-07-06 - Face recognition accuracy pass
+- Completed: Improved the AI service recognition pipeline for stricter, higher-quality matching.
+- Changed: Switched local/default model from Facenet to ArcFace, added blur/brightness/resolution/face-size validation, added original+horizontal-flip embedding averaging, added best-vs-runner-up ambiguity margin, exposed model/detector in AI health, and saved the actual AI model name on face enrollment.
+- Verified: Backend compile passes, AI service compile passes, AI service health reports `ArcFace` with `retinaface`, and a margin logic smoke test shows clear matches separated from near-tie matches.
+- Pending: Re-enroll existing students to replace old Facenet/demo embeddings with ArcFace embeddings, then manually test kiosk recognition with real faces and tune `RECOGNITION_THRESHOLD`/`RECOGNITION_MARGIN`.
+
+## 2026-07-06 - Clean Demo School data reset
+- Completed: Removed old development tenant/test data and recreated a clean dataset under the demo admin account.
+- Changed: Added `python -m app.reset_demo_data`, which preserves Demo School settings/API key/WhatsApp settings, deletes old companies/users/students/attendance/sessions/logs/embeddings, recreates `admin@demo.com`, 3 classes, 8 students, today's attendance rows, and no face embeddings.
+- Verified: Reset script ran successfully, admin login works, only one company remains (`Demo School`), `/students` returns 8 records, `/attendance/today` returns 8 records, `/attendance/sessions` returns 2 records, `/users` returns one admin user, enrolled face count is 0, and frontend proxy health works.
+- Pending: Re-enroll real student faces with ArcFace before kiosk recognition testing.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

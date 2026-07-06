@@ -115,13 +115,13 @@ alembic upgrade head
 uvicorn main:app --reload --port 8000
 ```
 
-Create the demo school, classes, super administrator, dummy students, attendance rows, and placeholder enrollment status rows:
+Reset the development database to a clean Demo School tenant with one admin, 3 classes, 8 students, today's attendance rows, and no face embeddings:
 
 ```bash
-python -m app.seed
+python -m app.reset_demo_data
 ```
 
-The seed is idempotent and stores its demo password as a bcrypt hash. The demo credentials are defined only in `app/seed.py`.
+This reset is intentionally destructive for local/dev data. It preserves the Demo School company row, API key, and WhatsApp settings, then recreates the demo admin and school data. Re-enroll real student faces after reset because ArcFace embeddings must be generated from real photos.
 
 Demo portal login:
 
@@ -209,6 +209,8 @@ uvicorn main:app --reload --port 8001
 Set the same `AI_API_KEY` value in `backend/.env` and `ai-service/.env` so the backend can call protected AI-service endpoints.
 
 `POST /enroll` returns a DeepFace embedding vector to the backend. The backend stores that vector in the `face_embeddings` database table against a student. `POST /recognize` accepts a request image plus candidate vectors and returns the best cosine-similarity match above the configured threshold.
+
+The current accuracy-focused AI configuration uses `DEEPFACE_MODEL=ArcFace`, `DETECTOR_BACKEND=retinaface`, image quality gates, original+horizontal-flip embedding averaging, and a best-vs-runner-up margin check. If the model is changed, existing student faces must be re-enrolled because embedding dimensions/semantics are model-specific.
 
 DeepFace downloads the configured model weights on first use to the current user's `.deepface/weights` directory.
 

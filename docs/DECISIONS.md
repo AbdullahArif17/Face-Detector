@@ -105,6 +105,13 @@
 - Decision: Keep `DELETE /users/{id}` as soft deactivation, add a separate permanent removal API, support admin password reset, show organization context to super admins, and reactivate/update an inactive same-organization email when creating a user. Organization admins may assign tenant-level admin, HR, branch manager, and viewer roles; super admin remains reserved.
 - Consequences: Inactive users cannot log in until reactivated. Permanent removal is blocked by database constraints when historical records reference the user, preserving audit integrity. Password reset is an MVP admin action and should be replaced or supplemented with invite/email-reset flows before production.
 
+## D-016: Improve MVP face recognition with ArcFace and quality gates
+- Date: 2026-07-06
+- Status: Accepted
+- Context: The kiosk needs fewer false accepts and more reliable recognition than the initial Facenet-only MVP.
+- Decision: Use DeepFace ArcFace with RetinaFace, reject low-quality images before embedding extraction, average original and horizontally flipped embeddings, and require a minimum best-vs-runner-up similarity margin before accepting a match.
+- Consequences: Existing Facenet embeddings are incompatible and must be re-enrolled. Recognition is stricter and may reject blurry/dark/small-face images instead of guessing. First startup or first enrollment may be slower while ArcFace weights load/download.
+
 ## Decision Template
 ```markdown
 ## D-NNN: Decision title

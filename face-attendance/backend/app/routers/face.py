@@ -116,6 +116,7 @@ async def enroll_face(
 
     data = response.json()
     embedding = data.get("embedding")
+    model_name = data.get("model")
     if not isinstance(embedding, list) or not all(
         isinstance(value, int | float) for value in embedding
     ):
@@ -132,12 +133,14 @@ async def enroll_face(
             FaceEmbedding(
                 student_id=student_id,
                 embedding_vector=[float(value) for value in embedding],
-                model_name="deepface",
+                model_name=model_name if isinstance(model_name, str) else "deepface",
             ),
         )
     else:
         existing_embedding.embedding_vector = [float(value) for value in embedding]
-        existing_embedding.model_name = "deepface"
+        existing_embedding.model_name = (
+            model_name if isinstance(model_name, str) else "deepface"
+        )
         existing_embedding.updated_at = datetime.now(timezone.utc)
 
     student.profile_image = headshot_url
