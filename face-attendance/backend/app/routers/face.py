@@ -10,9 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.dependencies import get_current_user
-from app.models.employee import Employee
+from app.dependencies import require_role
 from app.models.face_embedding import FaceEmbedding
+from app.models.student import Student
 from app.models.user import User
 from app.schemas.face import (
     FaceEnrollmentStatusResponse,
@@ -53,16 +53,16 @@ def normalize_headshot_image(image: str) -> str:
     return f"data:image/jpeg;base64,{encoded}"
 
 
-async def get_company_employee(
+async def get_school_student(
     session: AsyncSession,
     *,
-    employee_id: int,
+    student_id: int,
     current_user: User,
-) -> Employee:
-    employee = await session.get(Employee, employee_id)
-    if employee is None or employee.company_id != current_user.company_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
-    return employee
+) -> Student:
+    student = await session.get(Student, student_id)
+    if student is None or student.school_id != current_user.company_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
+    return student
 
 
 def extract_ai_error(payload: Any) -> str:
@@ -75,17 +75,17 @@ def extract_ai_error(payload: Any) -> str:
     return "AI service failed to enroll the face"
 
 
-@router.post("/enroll/{employee_id}", response_model=FaceEnrollResponse)
+@router.post("/enroll/{student_id}", response_model=FaceEnrollResponse)
 async def enroll_face(
     request: Request,
-    employee_id: int,
+    student_id: int,
     payload: FaceEnrollRequest,
     session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("super_admin", "admin", "hr")),
 ) -> FaceEnrollResponse:
-    employee = await get_company_employee(
+    student = await get_school_student(
         session,
-        employee_id=employee_id,
+        student_id=student_id,
         current_user=current_user,
     )
     headshot_url = normalize_headshot_image(payload.image)
@@ -94,7 +94,7 @@ async def enroll_face(
         client: httpx.AsyncClient = request.app.state.http_client
         response = await client.post(
             f"{settings.ai_service_url}/enroll",
-            json={"employee_id": str(employee_id), "image": payload.image},
+            json={"employee_id": str(student_id), "image": payload.image},
             headers={"X-API-Key": settings.ai_api_key},
             timeout=AI_SERVICE_TIMEOUT_SECONDS,
         )
@@ -125,12 +125,12 @@ async def enroll_face(
         )
 
     existing_embedding = await session.scalar(
-        select(FaceEmbedding).where(FaceEmbedding.employee_id == employee_id),
+        select(FaceEmbedding).where(FaceEmbedding.student_id == student_id),
     )
     if existing_embedding is None:
         session.add(
             FaceEmbedding(
-                employee_id=employee_id,
+                student_id=student_id,
                 embedding_vector=[float(value) for value in embedding],
                 model_name="deepface",
             ),
@@ -140,64 +140,64 @@ async def enroll_face(
         existing_embedding.model_name = "deepface"
         existing_embedding.updated_at = datetime.now(timezone.utc)
 
-    employee.headshot_url = headshot_url
+    student.profile_image = headshot_url
     await session.commit()
     return FaceEnrollResponse(
         success=True,
-        employee_id=employee_id,
+        student_id=student_id,
         message="Face enrolled successfully",
     )
 
 
 @router.get(
-    "/enrollment-status/{employee_id}",
+    "/enrollment-status/{student_id}",
     response_model=FaceEnrollmentStatusResponse,
 )
 async def get_enrollment_status(
-    employee_id: int,
+    student_id: int,
     session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("super_admin", "admin", "hr")),
 ) -> FaceEnrollmentStatusResponse:
-    await get_company_employee(
+    await get_school_student(
         session,
-        employee_id=employee_id,
+        student_id=student_id,
         current_user=current_user,
     )
     embedding = await session.scalar(
-        select(FaceEmbedding).where(FaceEmbedding.employee_id == employee_id),
+        select(FaceEmbedding).where(FaceEmbedding.student_id == student_id),
     )
     return FaceEnrollmentStatusResponse(
-        employee_id=employee_id,
+        student_id=student_id,
         has_face_enrolled=embedding is not None,
         enrollment_date=embedding.created_at if embedding is not None else None,
     )
 
 
-@router.delete("/unenroll/{employee_id}", response_model=FaceEnrollResponse)
+@router.delete("/unenroll/{student_id}", response_model=FaceEnrollResponse)
 async def unenroll_face(
-    employee_id: int,
+    student_id: int,
     session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("super_admin", "admin", "hr")),
 ) -> FaceEnrollResponse:
-    await get_company_employee(
+    await get_school_student(
         session,
-        employee_id=employee_id,
+        student_id=student_id,
         current_user=current_user,
     )
     embedding = await session.scalar(
-        select(FaceEmbedding).where(FaceEmbedding.employee_id == employee_id),
+        select(FaceEmbedding).where(FaceEmbedding.student_id == student_id),
     )
     if embedding is not None:
         await session.delete(embedding)
 
-    employee = await session.get(Employee, employee_id)
-    if employee is not None:
-        employee.headshot_url = None
+    student = await session.get(Student, student_id)
+    if student is not None:
+        student.profile_image = None
 
     await session.commit()
 
     return FaceEnrollResponse(
         success=True,
-        employee_id=employee_id,
+        student_id=student_id,
         message="Face unenrolled successfully",
     )

@@ -1,6 +1,5 @@
 "use client";
 
-import axios from "axios";
 import { useRef, useState } from "react";
 import Webcam from "react-webcam";
 
@@ -13,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { enrollEmployeeFace, type Employee } from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/errors";
 
 interface FaceEnrollModalProps {
   open: boolean;
@@ -28,13 +28,10 @@ const videoConstraints = {
 const MAX_UPLOAD_BYTES = 2_000_000;
 
 function getErrorMessage(error: unknown): string {
-  if (axios.isAxiosError(error)) {
-    const detail = error.response?.data?.detail;
-    if (typeof detail === "string") {
-      return detail;
-    }
-  }
-  return "Face enrollment failed. Capture or upload a clear front-facing photo and try again.";
+  return getApiErrorMessage(
+    error,
+    "Face enrollment failed. Capture or upload a clear front-facing photo and try again.",
+  );
 }
 
 function readFileAsDataUrl(file: File): Promise<string> {
@@ -199,7 +196,7 @@ export function FaceEnrollModal({
             </p>
           ) : null}
 
-          <div className="flex flex-wrap justify-end gap-2">
+          <div className="grid gap-2 sm:flex sm:flex-wrap sm:justify-end">
             <input
               ref={fileInputRef}
               type="file"
@@ -210,6 +207,7 @@ export function FaceEnrollModal({
             <Button
               type="button"
               variant="outline"
+              className="w-full sm:w-auto"
               onClick={() => {
                 setCapturedImage(null);
                 setStatusMessage(null);
@@ -222,6 +220,7 @@ export function FaceEnrollModal({
             <Button
               type="button"
               variant="outline"
+              className="w-full sm:w-auto"
               onClick={() => fileInputRef.current?.click()}
             >
               Upload Photo
@@ -229,6 +228,7 @@ export function FaceEnrollModal({
             <Button
               type="button"
               variant="outline"
+              className="w-full sm:w-auto"
               disabled={!isCameraActive}
               onClick={handleCapture}
             >
@@ -236,6 +236,7 @@ export function FaceEnrollModal({
             </Button>
             <Button
               type="button"
+              className="w-full sm:w-auto"
               disabled={!capturedImage || isSubmitting}
               onClick={handleEnroll}
             >

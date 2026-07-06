@@ -4,8 +4,17 @@ from app.schemas.user import UserRead
 
 
 class LoginRequest(BaseModel):
+    organization_name: str = Field(min_length=2, max_length=255)
     email: EmailStr
     password: str
+
+    @field_validator("organization_name")
+    @classmethod
+    def strip_and_validate_organization_name(cls, value: str) -> str:
+        value = value.strip()
+        if len(value) < 2:
+            raise ValueError("must contain at least 2 non-space characters")
+        return value
 
 
 class SignupRequest(BaseModel):

@@ -16,6 +16,9 @@ class Settings:
     access_token_expire_minutes: int
     ai_service_url: str
     ai_api_key: str
+    frontend_origins: list[str]
+    meta_whatsapp_token: str | None
+    meta_phone_number_id: str | None
 
 
 def normalize_database_url(database_url: str) -> str:
@@ -51,6 +54,10 @@ def normalize_database_url(database_url: str) -> str:
     )
 
 
+def parse_csv_env(value: str) -> list[str]:
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
 @lru_cache
 def get_settings() -> Settings:
     database_url = os.getenv("DATABASE_URL")
@@ -73,6 +80,14 @@ def get_settings() -> Settings:
         ),
         ai_service_url=os.getenv("AI_SERVICE_URL", "http://localhost:8001").rstrip("/"),
         ai_api_key=ai_api_key,
+        frontend_origins=parse_csv_env(
+            os.getenv(
+                "FRONTEND_ORIGINS",
+                "http://localhost:3000,http://127.0.0.1:3000",
+            ),
+        ),
+        meta_whatsapp_token=os.getenv("META_WHATSAPP_TOKEN"),
+        meta_phone_number_id=os.getenv("META_PHONE_NUMBER_ID"),
     )
 
 

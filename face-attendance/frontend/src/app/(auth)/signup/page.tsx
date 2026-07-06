@@ -1,6 +1,5 @@
 "use client";
 
-import axios from "axios";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -9,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
 import { signupRequest } from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/errors";
 
 export default function SignupPage() {
   const { login } = useAuth();
@@ -38,14 +38,12 @@ export default function SignupPage() {
       });
       login(response.access_token, response.user);
     } catch (requestError) {
-      if (axios.isAxiosError<{ detail?: string }>(requestError)) {
-        setError(
-          requestError.response?.data.detail ??
-            "Unable to create your account.",
-        );
-      } else {
-        setError("Unable to create your account. Please try again.");
-      }
+      setError(
+        getApiErrorMessage(
+          requestError,
+          "Unable to create your account. Please try again.",
+        ),
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -64,13 +62,13 @@ export default function SignupPage() {
         <CardHeader>
           <CardTitle>Create your organization</CardTitle>
           <p className="text-sm text-muted-foreground text-pretty">
-            Start with a company administrator account.
+            Start with a school or organization administrator account.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor="company-name">
-              Company name
+              Organization / School name
             </label>
             <Input
               id="company-name"

@@ -4,25 +4,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import require_role
 from app.models.branch import Branch
 from app.models.employee import Employee
-from app.models.face_embedding import FaceEmbedding
 from app.models.user import User
 from app.schemas.employee import EmployeeCreate, EmployeeResponse, EmployeeUpdate
 
 router = APIRouter(prefix="/employees", tags=["employees"])
-
-ADMIN_ROLES = {"admin", "super_admin"}
-
-
-def ensure_admin(current_user: User) -> None:
-    if current_user.role not in ADMIN_ROLES:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access is required",
-        )
-
 
 def employee_to_response(
     employee: Employee,
@@ -90,10 +78,8 @@ async def employee_has_face_embedding(
     session: AsyncSession,
     employee_id: int,
 ) -> bool:
-    embedding_id = await session.scalar(
-        select(FaceEmbedding.id).where(FaceEmbedding.employee_id == employee_id),
-    )
-    return embedding_id is not None
+    # Legacy employee face enrollment was superseded by student enrollment in Phase 5.
+    return False
 
 
 @router.get("", response_model=list[EmployeeResponse])
@@ -101,16 +87,11 @@ async def list_employees(
     page: int = Query(1, ge=1),
     per_page: int = Query(25, ge=1, le=100),
     session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("super_admin", "admin", "hr")),
 ) -> list[EmployeeResponse]:
     offset = (page - 1) * per_page
-    face_exists = (
-        select(FaceEmbedding.id)
-        .where(FaceEmbedding.employee_id == Employee.id)
-        .exists()
-    )
     result = await session.execute(
-        select(Employee, face_exists.label("has_face_enrolled"))
+        select(Employee)
         .where(Employee.company_id == current_user.company_id)
         .order_by(Employee.id)
         .offset(offset)
@@ -119,9 +100,9 @@ async def list_employees(
     return [
         employee_to_response(
             employee,
-            has_face_enrolled=bool(has_face_enrolled),
+            has_face_enrolled=False,
         )
-        for employee, has_face_enrolled in result.all()
+        for employee in result.scalars().all()
     ]
 
 
@@ -129,9 +110,8 @@ async def list_employees(
 async def create_employee(
     payload: EmployeeCreate,
     session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("super_admin", "admin", "hr")),
 ) -> EmployeeResponse:
-    ensure_admin(current_user)
     branch_id = (
         await ensure_branch_belongs_to_company(
             session,
@@ -173,9 +153,8 @@ async def update_employee(
     employee_id: int,
     payload: EmployeeUpdate,
     session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("super_admin", "admin", "hr")),
 ) -> EmployeeResponse:
-    ensure_admin(current_user)
     employee = await session.get(Employee, employee_id)
     if employee is None or employee.company_id != current_user.company_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
@@ -228,9 +207,8 @@ async def update_employee(
 async def delete_employee(
     employee_id: int,
     session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("super_admin", "admin", "hr")),
 ) -> Response:
-    ensure_admin(current_user)
     employee = await session.get(Employee, employee_id)
     if employee is None or employee.company_id != current_user.company_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")

@@ -1,4 +1,4 @@
-"""Create demo data for local development."""
+"""Create demo school data for local development."""
 
 import asyncio
 import base64
@@ -11,118 +11,74 @@ from app.core.security import hash_password
 from app.models.attendance import Attendance
 from app.models.branch import Branch
 from app.models.company import Company
-from app.models.employee import Employee
 from app.models.face_embedding import FaceEmbedding
+from app.models.student import Student
 from app.models.user import User
 
-DEMO_COMPANY_NAME = "Demo Company"
+DEMO_SCHOOL_NAME = "Demo School"
 DEMO_ADMIN_EMAIL = "admin@demo.com"
 DEMO_ADMIN_PASSWORD = "admin123"
 
-DEMO_EMPLOYEES = [
+DEMO_STUDENTS = [
     {
-        "name": "Avery Johnson",
-        "email": "avery.johnson@faceattendance.dev",
-        "legacy_email": "avery.johnson@demo.local",
-        "phone": "+1 555 0101",
-        "designation": "HR Manager",
-        "department": "Human Resources",
-        "status": "active",
+        "student_name": "Ayan Khan",
+        "student_code": "R-1001",
+        "grade": "Class 10",
+        "section": "A",
+        "parent_name": "Mr. Khan",
+        "parent_phone": "923001234567",
         "attendance_status": "present",
         "confidence_score": 0.96,
         "has_demo_face": True,
         "avatar_color": "#2563eb",
     },
     {
-        "name": "Maya Chen",
-        "email": "maya.chen@faceattendance.dev",
-        "legacy_email": "maya.chen@demo.local",
-        "phone": "+1 555 0102",
-        "designation": "Frontend Engineer",
-        "department": "Engineering",
-        "status": "active",
+        "student_name": "Fatima Ali",
+        "student_code": "R-1002",
+        "grade": "Class 10",
+        "section": "A",
+        "parent_name": "Mrs. Ali",
+        "parent_phone": "923011234567",
         "attendance_status": "late",
         "confidence_score": 0.91,
         "has_demo_face": True,
         "avatar_color": "#7c3aed",
     },
     {
-        "name": "Noah Williams",
-        "email": "noah.williams@faceattendance.dev",
-        "legacy_email": "noah.williams@demo.local",
-        "phone": "+1 555 0103",
-        "designation": "Backend Engineer",
-        "department": "Engineering",
-        "status": "active",
+        "student_name": "Hamza Ahmed",
+        "student_code": "R-1003",
+        "grade": "Class 9",
+        "section": "B",
+        "parent_name": "Mr. Ahmed",
+        "parent_phone": "923021234567",
         "attendance_status": "present",
         "confidence_score": 0.94,
         "has_demo_face": True,
         "avatar_color": "#0891b2",
     },
     {
-        "name": "Sofia Patel",
-        "email": "sofia.patel@faceattendance.dev",
-        "legacy_email": "sofia.patel@demo.local",
-        "phone": "+1 555 0104",
-        "designation": "Operations Lead",
-        "department": "Operations",
-        "status": "active",
+        "student_name": "Zara Malik",
+        "student_code": "R-1004",
+        "grade": "Class 8",
+        "section": "C",
+        "parent_name": "Mrs. Malik",
+        "parent_phone": "923031234567",
         "attendance_status": "absent",
         "confidence_score": None,
         "has_demo_face": False,
         "avatar_color": "#db2777",
     },
     {
-        "name": "Ethan Brooks",
-        "email": "ethan.brooks@faceattendance.dev",
-        "legacy_email": "ethan.brooks@demo.local",
-        "phone": "+1 555 0105",
-        "designation": "Sales Executive",
-        "department": "Sales",
-        "status": "active",
+        "student_name": "Bilal Hussain",
+        "student_code": "R-1005",
+        "grade": "Class 7",
+        "section": "A",
+        "parent_name": "Mr. Hussain",
+        "parent_phone": "923041234567",
         "attendance_status": "present",
         "confidence_score": 0.89,
         "has_demo_face": False,
         "avatar_color": "#ea580c",
-    },
-    {
-        "name": "Isabella Garcia",
-        "email": "isabella.garcia@faceattendance.dev",
-        "legacy_email": "isabella.garcia@demo.local",
-        "phone": "+1 555 0106",
-        "designation": "QA Analyst",
-        "department": "Quality Assurance",
-        "status": "active",
-        "attendance_status": "late",
-        "confidence_score": 0.87,
-        "has_demo_face": True,
-        "avatar_color": "#16a34a",
-    },
-    {
-        "name": "Liam Carter",
-        "email": "liam.carter@faceattendance.dev",
-        "legacy_email": "liam.carter@demo.local",
-        "phone": "+1 555 0107",
-        "designation": "Support Specialist",
-        "department": "Customer Support",
-        "status": "inactive",
-        "attendance_status": "absent",
-        "confidence_score": None,
-        "has_demo_face": False,
-        "avatar_color": "#475569",
-    },
-    {
-        "name": "Olivia Martin",
-        "email": "olivia.martin@faceattendance.dev",
-        "legacy_email": "olivia.martin@demo.local",
-        "phone": "+1 555 0108",
-        "designation": "Finance Associate",
-        "department": "Finance",
-        "status": "active",
-        "attendance_status": "present",
-        "confidence_score": 0.93,
-        "has_demo_face": False,
-        "avatar_color": "#0f766e",
     },
 ]
 
@@ -134,7 +90,7 @@ def demo_embedding_vector(seed: int, dimensions: int = 128) -> list[float]:
     return vector
 
 
-def demo_headshot_data_url(name: str, background_color: str) -> str:
+def demo_avatar_data_url(name: str, background_color: str) -> str:
     initials = "".join(part[0] for part in name.split()[:2]).upper()
     svg = f"""
     <svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160">
@@ -148,35 +104,45 @@ def demo_headshot_data_url(name: str, background_color: str) -> str:
     return f"data:image/svg+xml;base64,{encoded}"
 
 
+async def get_or_create_class(
+    session,
+    *,
+    school_id: int,
+    grade: str,
+    section: str,
+) -> Branch:
+    class_name = f"{grade}-{section}"
+    school_class = await session.scalar(
+        select(Branch).where(
+            Branch.company_id == school_id,
+            Branch.name == class_name,
+        ),
+    )
+    if school_class is not None:
+        return school_class
+
+    school_class = Branch(company_id=school_id, name=class_name, location="Classroom")
+    session.add(school_class)
+    await session.flush()
+    return school_class
+
+
 async def seed() -> None:
     async with SessionLocal() as session:
         async with session.begin():
-            company = await session.scalar(
-                select(Company).where(Company.name == DEMO_COMPANY_NAME),
+            school = await session.scalar(
+                select(Company).where(Company.name == DEMO_SCHOOL_NAME),
             )
-            if company is None:
-                company = Company(
-                    name=DEMO_COMPANY_NAME,
+            if school is None:
+                school = Company(
+                    name=DEMO_SCHOOL_NAME,
                     package="starter",
-                    employee_limit=50,
+                    employee_limit=500,
                     status="active",
+                    school_phone="923001111111",
+                    absent_alert_time="09:00",
                 )
-                session.add(company)
-                await session.flush()
-
-            branch = await session.scalar(
-                select(Branch).where(
-                    Branch.company_id == company.id,
-                    Branch.name == "Main Branch",
-                ),
-            )
-            if branch is None:
-                branch = Branch(
-                    company_id=company.id,
-                    name="Main Branch",
-                    location=None,
-                )
-                session.add(branch)
+                session.add(school)
                 await session.flush()
 
             user = await session.scalar(
@@ -188,55 +154,57 @@ async def seed() -> None:
                     email=DEMO_ADMIN_EMAIL,
                     password_hash=hash_password(DEMO_ADMIN_PASSWORD),
                     role="super_admin",
-                    company_id=company.id,
+                    company_id=school.id,
                 )
                 session.add(user)
+            else:
+                user.company_id = school.id
 
             today = datetime.now(timezone.utc).date()
             today_start = datetime.combine(today, time.min, tzinfo=timezone.utc)
             today_end = datetime.combine(today, time.max, tzinfo=timezone.utc)
 
-            for index, employee_data in enumerate(DEMO_EMPLOYEES, start=1):
-                employee = await session.scalar(
-                    select(Employee).where(Employee.email == employee_data["email"]),
+            for index, student_data in enumerate(DEMO_STUDENTS, start=1):
+                school_class = await get_or_create_class(
+                    session,
+                    school_id=school.id,
+                    grade=student_data["grade"],
+                    section=student_data["section"],
                 )
-                if employee is None:
-                    employee = await session.scalar(
-                        select(Employee).where(
-                            Employee.email == employee_data["legacy_email"],
-                        ),
+                student = await session.scalar(
+                    select(Student).where(
+                        Student.school_id == school.id,
+                        Student.student_code == student_data["student_code"],
+                    ),
+                )
+                if student is None:
+                    student = Student(
+                        school_id=school.id,
+                        class_id=school_class.id,
+                        student_name=student_data["student_name"],
+                        student_code=student_data["student_code"],
+                        grade=student_data["grade"],
+                        section=student_data["section"],
+                        parent_name=student_data["parent_name"],
+                        parent_phone=student_data["parent_phone"],
+                        status="active",
                     )
-                if employee is None:
-                    employee = Employee(
-                        company_id=company.id,
-                        branch_id=branch.id,
-                        name=employee_data["name"],
-                        email=employee_data["email"],
-                        phone=employee_data["phone"],
-                        designation=employee_data["designation"],
-                        department=employee_data["department"],
-                        status=employee_data["status"],
-                    )
-                    session.add(employee)
+                    session.add(student)
                     await session.flush()
-                elif employee.email == employee_data["legacy_email"]:
-                    employee.email = employee_data["email"]
 
-                employee.headshot_url = demo_headshot_data_url(
-                    employee_data["name"],
-                    employee_data["avatar_color"],
+                student.profile_image = demo_avatar_data_url(
+                    student_data["student_name"],
+                    student_data["avatar_color"],
                 )
 
-                if employee_data["has_demo_face"]:
+                if student_data["has_demo_face"]:
                     face_embedding = await session.scalar(
-                        select(FaceEmbedding).where(
-                            FaceEmbedding.employee_id == employee.id,
-                        ),
+                        select(FaceEmbedding).where(FaceEmbedding.student_id == student.id),
                     )
                     if face_embedding is None:
                         session.add(
                             FaceEmbedding(
-                                employee_id=employee.id,
+                                student_id=student.id,
                                 embedding_vector=demo_embedding_vector(index),
                                 model_name="demo-placeholder",
                             ),
@@ -244,32 +212,32 @@ async def seed() -> None:
 
                 attendance = await session.scalar(
                     select(Attendance).where(
-                        Attendance.employee_id == employee.id,
-                        Attendance.company_id == company.id,
-                        Attendance.created_at >= today_start,
-                        Attendance.created_at <= today_end,
+                        Attendance.student_id == student.id,
+                        Attendance.company_id == school.id,
+                        Attendance.check_in >= today_start,
+                        Attendance.check_in <= today_end,
                     ),
                 )
                 if attendance is None:
                     session.add(
                         Attendance(
-                            employee_id=employee.id,
-                            company_id=company.id,
+                            student_id=student.id,
+                            company_id=school.id,
                             check_in=datetime.combine(
                                 today,
-                                time(hour=9 + (index % 3), minute=5 * index),
+                                time(hour=8 + (index % 3), minute=5 * index),
                                 tzinfo=timezone.utc,
                             ),
-                            status=employee_data["attendance_status"],
-                            confidence_score=employee_data["confidence_score"],
+                            status=student_data["attendance_status"],
+                            confidence_score=student_data["confidence_score"],
                         ),
                     )
 
-        print("Demo seed data is ready.")
-        print(f"Company: {DEMO_COMPANY_NAME}")
+        print("Demo school seed data is ready.")
+        print(f"School: {DEMO_SCHOOL_NAME}")
         print(f"Login: {DEMO_ADMIN_EMAIL}")
         print(f"Password: {DEMO_ADMIN_PASSWORD}")
-        print(f"Employees: {len(DEMO_EMPLOYEES)} demo records")
+        print(f"Students: {len(DEMO_STUDENTS)} demo records")
 
 
 if __name__ == "__main__":

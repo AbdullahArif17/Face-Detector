@@ -194,14 +194,16 @@ export default function EmployeesPage() {
     <section className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-balance">Employees</h1>
+          <h1 className="text-2xl font-bold text-balance sm:text-3xl">
+            Employees
+          </h1>
           <p className="mt-2 text-muted-foreground text-pretty">
             Manage employee records and face enrollment status.
           </p>
         </div>
         <Button
           type="button"
-          className="gap-2"
+          className="w-full gap-2 sm:w-auto"
           onClick={() => {
             setEditingEmployee(null);
             setIsAddModalOpen(true);
@@ -230,7 +232,7 @@ export default function EmployeesPage() {
           aria-label="Filter by face enrollment"
           value={faceFilter}
           onChange={(event) => setFaceFilter(event.target.value as FaceFilter)}
-          className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring md:w-auto"
         >
           <option value="all">All</option>
           <option value="enrolled">Enrolled</option>
@@ -247,7 +249,7 @@ export default function EmployeesPage() {
       {hasError ? <ApiError /> : null}
 
       <div className="overflow-x-auto rounded-lg border bg-card">
-        <table className="w-full text-left text-sm">
+        <table className="min-w-[960px] w-full text-left text-sm">
           <thead className="border-b bg-muted/50 text-muted-foreground">
             <tr>
               <th className="px-4 py-3 font-medium">Name</th>

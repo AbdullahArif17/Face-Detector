@@ -1,55 +1,83 @@
 "use client";
 
-import axios from "axios";
 import Link from "next/link";
-import { useState } from "react";
+import { type KeyboardEvent, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
 import { loginRequest } from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/errors";
 
 export default function LoginPage() {
   const { login } = useAuth();
+  const [organizationName, setOrganizationName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  async function handleLogin(e?: React.FormEvent): Promise<void> {
-    e?.preventDefault();
+  async function handleLogin(): Promise<void> {
     setError("");
+
+    if (!organizationName.trim()) {
+      setError("Enter your organization or school name.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      const response = await loginRequest(email, password);
+      const response = await loginRequest(organizationName, email, password);
       login(response.access_token, response.user);
     } catch (requestError) {
-      if (axios.isAxiosError<{ detail?: string }>(requestError)) {
-        setError(
-          requestError.response?.data.detail ??
-            "Unable to sign in. Check your credentials.",
-        );
-      } else {
-        setError("Unable to sign in. Please try again.");
-      }
+      setError(
+        getApiErrorMessage(
+          requestError,
+          "Unable to sign in. Check your credentials.",
+          "Cannot reach the backend API. Check that the backend is running on your PC LAN IP and port.",
+        ),
+      );
     } finally {
       setIsSubmitting(false);
     }
   }
 
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
+    if (event.key === "Enter" && !isSubmitting) {
+      void handleLogin();
+    }
+  }
+
+  const isLoginDisabled =
+    isSubmitting || !organizationName.trim() || !email || !password;
+
   return (
     <main className="flex min-h-dvh items-center justify-center px-4 py-12">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Sign in to Face Attendance</CardTitle>
+          <CardTitle>Sign in to your organization</CardTitle>
           <p className="text-sm text-muted-foreground text-pretty">
-            Use your organization account to continue.
+            Enter your school or organization name with your account details.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form onSubmit={handleLogin} className="space-y-4">
+          <div className="space-y-4" onKeyDown={handleKeyDown}>
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="organization-name">
+                Organization / School name
+              </label>
+              <Input
+                id="organization-name"
+                name="organization"
+                autoComplete="organization"
+                placeholder="Demo School"
+                value={organizationName}
+                onChange={(event) => setOrganizationName(event.target.value)}
+                required
+              />
+            </div>
             <div className="space-y-2">
               <label className="text-sm font-medium" htmlFor="email">
                 Email
@@ -85,12 +113,13 @@ export default function LoginPage() {
             ) : null}
             <Button
               className="w-full"
-              type="submit"
-              disabled={isSubmitting || !email || !password}
+              type="button"
+              disabled={isLoginDisabled}
+              onClick={() => void handleLogin()}
             >
               {isSubmitting ? "Signing in..." : "Sign in"}
             </Button>
-          </form>
+          </div>
           <p className="text-center text-sm text-muted-foreground text-pretty">
             New organization?{" "}
             <Link className="font-medium text-primary hover:underline" href="/signup">

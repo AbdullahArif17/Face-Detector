@@ -9,6 +9,9 @@ export interface User {
   email: string;
   role: string;
   company_id: number;
+  is_active?: boolean;
+  last_login?: string | null;
+  created_at?: string;
 }
 
 export interface LoginResponse {
@@ -38,6 +41,58 @@ export interface Employee {
   has_face_enrolled: boolean;
 }
 
+export interface Student {
+  id: number;
+  school_id: number;
+  class_id: number;
+  student_name: string;
+  student_code: string;
+  grade: string;
+  section: string;
+  parent_name: string;
+  parent_phone: string;
+  parent_phone_2: string | null;
+  profile_image: string | null;
+  status: string;
+  has_face_enrolled: boolean;
+  created_at: string;
+}
+
+export interface StudentInput {
+  student_name: string;
+  student_code: string;
+  grade: string;
+  section: string;
+  parent_name: string;
+  parent_phone: string;
+  parent_phone_2?: string | null;
+  profile_image?: string | null;
+  class_id?: number;
+}
+
+export interface StudentUpdateInput {
+  student_name?: string;
+  student_code?: string;
+  grade?: string;
+  section?: string;
+  parent_name?: string;
+  parent_phone?: string;
+  parent_phone_2?: string | null;
+  profile_image?: string | null;
+  class_id?: number;
+  status?: string;
+}
+
+export interface StudentImportResponse {
+  created: number;
+  failed: number;
+  errors: Array<{
+    row: number;
+    student_code: string | null;
+    error: string;
+  }>;
+}
+
 export interface EmployeeInput {
   name: string;
   email: string;
@@ -61,19 +116,188 @@ export interface EmployeeUpdateInput {
 
 export interface AttendanceRecord {
   id: number;
-  employee_id: number;
+  student_id: number;
   company_id: number;
+  session_id: number | null;
   check_in: string;
   check_out: string | null;
   status: string;
   confidence_score: number | null;
+  notification_sent: boolean;
+  notification_status: string | null;
   created_at: string;
+}
+
+export interface AttendanceDashboardRecord {
+  attendance_id: number | null;
+  student_id: number;
+  student_name: string;
+  employee_id?: number | null;
+  employee_name?: string | null;
+  designation: string | null;
+  grade: string;
+  section: string;
+  branch_id: number;
+  check_in: string | null;
+  check_out: string | null;
+  status: string;
+  confidence_score: number | null;
+  notification_sent: boolean;
+  notification_status: string | null;
+  working_hours: string;
+  attendance_date: string;
+}
+
+export interface KioskAttendanceStudent {
+  id: number;
+  name: string;
+  grade: string;
+  section: string;
+}
+
+export interface KioskAttendanceResult {
+  matched: boolean;
+  message: string;
+  student: KioskAttendanceStudent | null;
+  employee?: KioskAttendanceStudent | null;
+  action:
+    | "check_in"
+    | "check_out"
+    | "already_done"
+    | "too_soon"
+    | "session_closed"
+    | null;
+  time: string | null;
+  confidence_score: number | null;
+  notification_status: string | null;
+}
+
+export interface AttendanceSession {
+  id: number;
+  company_id: number;
+  branch_id: number;
+  branch_name: string | null;
+  status: "active" | "stopped" | string;
+  started_by_id: number;
+  stopped_by_id: number | null;
+  started_at: string;
+  stopped_at: string | null;
+  created_at: string;
+}
+
+export interface AttendanceSessionStatus {
+  branch_id: number;
+  active_session: AttendanceSession | null;
+}
+
+export interface PortalUser {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  company_id: number;
+  is_active: boolean;
+  last_login: string | null;
+  created_at: string;
+}
+
+export interface CreateUserInput {
+  name: string;
+  email: string;
+  password: string;
+  role: string;
+  company_id?: number;
+}
+
+export interface UpdateUserInput {
+  name?: string;
+  email?: string;
+  role?: string;
+  password?: string;
+}
+
+export interface Company {
+  id: number;
+  name: string;
+  package: string;
+  employee_limit: number;
+  status: string;
+  created_at: string;
+}
+
+export interface CompanyApiKeyResponse {
+  company_id: number;
+  api_key: string;
+}
+
+export interface CompanyKioskInfoResponse {
+  company_id: number;
+  name: string;
+}
+
+export interface SchoolSettings {
+  company_id: number;
+  school_phone: string | null;
+  school_logo: string | null;
+  absent_alert_time: string;
+  whatsapp_token_configured: boolean;
+  whatsapp_phone_id: string | null;
+}
+
+export interface SchoolSettingsInput {
+  school_phone?: string | null;
+  school_logo?: string | null;
+  absent_alert_time?: string | null;
+  whatsapp_token?: string | null;
+  whatsapp_phone_id?: string | null;
+}
+
+export interface WhatsappLog {
+  id: number;
+  school_id: number;
+  student_id: number;
+  student_name: string | null;
+  parent_phone: string;
+  message_type: "check_in" | "check_out" | "absent" | string;
+  message_body: string;
+  status: "sent" | "failed" | "pending" | string;
+  meta_message_id: string | null;
+  sent_at: string | null;
+  created_at: string;
+}
+
+export interface WhatsappStats {
+  sent_today: number;
+  failed_today: number;
+  total_this_month: number;
+  success_rate: number;
+}
+
+export interface WhatsappTestResponse {
+  success: boolean;
+  message_id: string | null;
+  error: string | null;
+}
+
+export interface WhatsappRetryResponse {
+  retried: number;
+  success: number;
+  still_failed: number;
 }
 
 const API_PAGE_SIZE = 100;
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000",
+  timeout: 15_000,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+const publicApi = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000",
+  timeout: 15_000,
   headers: {
     "Content-Type": "application/json",
   },
@@ -108,10 +332,12 @@ api.interceptors.response.use(
 );
 
 export async function loginRequest(
+  organizationName: string,
   email: string,
   password: string,
 ): Promise<LoginResponse> {
   const response = await api.post<LoginResponse>("/auth/login", {
+    organization_name: organizationName,
     email,
     password,
   });
@@ -163,6 +389,58 @@ export async function getAllEmployees(): Promise<Employee[]> {
   }
 }
 
+export async function getStudents(options: {
+  grade?: string;
+  section?: string;
+  status?: string;
+} = {}): Promise<Student[]> {
+  const response = await api.get<Student[]>("/students", {
+    params: {
+      grade: options.grade || undefined,
+      section: options.section || undefined,
+      status: options.status || undefined,
+    },
+  });
+  return response.data;
+}
+
+export async function createStudent(input: StudentInput): Promise<Student> {
+  const response = await api.post<Student>("/students", input);
+  return response.data;
+}
+
+export async function updateStudent(
+  studentId: number,
+  input: StudentUpdateInput,
+): Promise<Student> {
+  const response = await api.put<Student>(`/students/${studentId}`, input);
+  return response.data;
+}
+
+export async function deleteStudent(studentId: number): Promise<void> {
+  await api.delete(`/students/${studentId}`);
+}
+
+export async function getStudentWhatsappLogs(
+  studentId: number,
+): Promise<WhatsappLog[]> {
+  const response = await api.get<WhatsappLog[]>(
+    `/students/${studentId}/whatsapp-logs`,
+  );
+  return response.data;
+}
+
+export async function importStudentsCsv(file: File): Promise<StudentImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await api.post<StudentImportResponse>(
+    "/students/import",
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } },
+  );
+  return response.data;
+}
+
 export async function createEmployee(input: EmployeeInput): Promise<Employee> {
   const response = await api.post<Employee>("/employees", input);
   return response.data;
@@ -182,7 +460,7 @@ export async function deleteEmployee(employeeId: number): Promise<void> {
 
 export interface FaceEnrollResponse {
   success: boolean;
-  employee_id: number;
+  student_id: number;
   message: string;
 }
 
@@ -192,6 +470,17 @@ export async function enrollEmployeeFace(
 ): Promise<FaceEnrollResponse> {
   const response = await api.post<FaceEnrollResponse>(
     `/face/enroll/${employeeId}`,
+    { image },
+  );
+  return response.data;
+}
+
+export async function enrollStudentFace(
+  studentId: number,
+  image: string,
+): Promise<FaceEnrollResponse> {
+  const response = await api.post<FaceEnrollResponse>(
+    `/face/enroll/${studentId}`,
     { image },
   );
   return response.data;
@@ -223,6 +512,238 @@ export async function getAllAttendance(): Promise<AttendanceRecord[]> {
 
     page += 1;
   }
+}
+
+export async function getAttendanceToday(
+  branchId?: number,
+): Promise<AttendanceDashboardRecord[]> {
+  const response = await api.get<AttendanceDashboardRecord[]>("/attendance/today", {
+    params: branchId ? { branch_id: branchId } : undefined,
+  });
+  return response.data;
+}
+
+export async function getAttendanceSessions(options: {
+  branchId?: number;
+  status?: string;
+  page?: number;
+  perPage?: number;
+} = {}): Promise<AttendanceSession[]> {
+  const response = await api.get<AttendanceSession[]>("/attendance/sessions", {
+    params: {
+      branch_id: options.branchId || undefined,
+      status: options.status || undefined,
+      page: options.page ?? 1,
+      per_page: options.perPage ?? API_PAGE_SIZE,
+    },
+  });
+  return response.data;
+}
+
+export async function getActiveAttendanceSession(
+  branchId: number,
+): Promise<AttendanceSessionStatus> {
+  const response = await api.get<AttendanceSessionStatus>(
+    "/attendance/sessions/active",
+    { params: { branch_id: branchId } },
+  );
+  return response.data;
+}
+
+export async function startAttendanceSession(
+  branchId: number,
+): Promise<AttendanceSession> {
+  const response = await api.post<AttendanceSession>(
+    "/attendance/sessions/start",
+    { branch_id: branchId },
+  );
+  return response.data;
+}
+
+export async function stopAttendanceSession(
+  sessionId: number,
+): Promise<AttendanceSession> {
+  const response = await api.post<AttendanceSession>(
+    `/attendance/sessions/${sessionId}/stop`,
+  );
+  return response.data;
+}
+
+interface AttendanceHistoryOptions {
+  startDate?: string;
+  endDate?: string;
+  studentId?: number;
+  employeeId?: number;
+  branchId?: number;
+  page?: number;
+  perPage?: number;
+}
+
+export async function getAttendanceHistory(
+  options: AttendanceHistoryOptions = {},
+): Promise<AttendanceDashboardRecord[]> {
+  const response = await api.get<AttendanceDashboardRecord[]>(
+    "/attendance/history",
+    {
+      params: {
+        start_date: options.startDate || undefined,
+        end_date: options.endDate || undefined,
+        student_id: options.studentId ?? options.employeeId ?? undefined,
+        branch_id: options.branchId || undefined,
+        page: options.page ?? 1,
+        per_page: options.perPage ?? API_PAGE_SIZE,
+      },
+    },
+  );
+  return response.data;
+}
+
+export async function exportAttendanceHistory(
+  options: AttendanceHistoryOptions = {},
+): Promise<Blob> {
+  const response = await api.get<Blob>("/attendance/export", {
+    params: {
+      start_date: options.startDate || undefined,
+      end_date: options.endDate || undefined,
+      student_id: options.studentId ?? options.employeeId ?? undefined,
+      branch_id: options.branchId || undefined,
+    },
+    responseType: "blob",
+  });
+  return response.data;
+}
+
+export async function autoMarkAttendance(
+  apiKey: string,
+  branchId: number,
+  image: string,
+): Promise<KioskAttendanceResult> {
+  const response = await publicApi.post<KioskAttendanceResult>(
+    "/attendance/auto-mark",
+    { image, branch_id: branchId },
+    { headers: { "X-API-Key": apiKey } },
+  );
+  return response.data;
+}
+
+export async function getKioskCompanyInfo(
+  apiKey: string,
+): Promise<CompanyKioskInfoResponse> {
+  const response = await publicApi.get<CompanyKioskInfoResponse>(
+    "/companies/kiosk-info",
+    { headers: { "X-API-Key": apiKey } },
+  );
+  return response.data;
+}
+
+export async function getUsers(): Promise<PortalUser[]> {
+  const response = await api.get<PortalUser[]>("/users");
+  return response.data;
+}
+
+export async function createUser(input: CreateUserInput): Promise<PortalUser> {
+  const response = await api.post<PortalUser>("/users", input);
+  return response.data;
+}
+
+export async function updateUser(
+  userId: number,
+  input: UpdateUserInput,
+): Promise<PortalUser> {
+  const response = await api.put<PortalUser>(`/users/${userId}`, input);
+  return response.data;
+}
+
+export async function deactivateUser(userId: number): Promise<void> {
+  await api.delete(`/users/${userId}`);
+}
+
+export async function permanentlyDeleteUser(userId: number): Promise<void> {
+  await api.delete(`/users/${userId}/permanent`);
+}
+
+export async function activateUser(userId: number): Promise<PortalUser> {
+  const response = await api.post<PortalUser>(`/users/${userId}/activate`);
+  return response.data;
+}
+
+export async function getCompanies(): Promise<Company[]> {
+  const response = await api.get<Company[]>("/companies");
+  return response.data;
+}
+
+export async function getCompanyApiKey(
+  companyId: number,
+): Promise<CompanyApiKeyResponse> {
+  const response = await api.get<CompanyApiKeyResponse>(
+    `/companies/${companyId}/api-key`,
+  );
+  return response.data;
+}
+
+export async function regenerateCompanyApiKey(
+  companyId: number,
+): Promise<CompanyApiKeyResponse> {
+  const response = await api.post<CompanyApiKeyResponse>(
+    `/companies/${companyId}/regenerate-key`,
+  );
+  return response.data;
+}
+
+export async function getSchoolSettings(
+  companyId: number,
+): Promise<SchoolSettings> {
+  const response = await api.get<SchoolSettings>(`/companies/${companyId}/settings`);
+  return response.data;
+}
+
+export async function updateSchoolSettings(
+  companyId: number,
+  input: SchoolSettingsInput,
+): Promise<SchoolSettings> {
+  const response = await api.put<SchoolSettings>(
+    `/companies/${companyId}/settings`,
+    input,
+  );
+  return response.data;
+}
+
+export async function getWhatsappLogs(options: {
+  date?: string;
+  status?: string;
+  messageType?: string;
+  studentId?: number;
+} = {}): Promise<WhatsappLog[]> {
+  const response = await api.get<WhatsappLog[]>("/whatsapp/logs", {
+    params: {
+      date: options.date || undefined,
+      status: options.status || undefined,
+      message_type: options.messageType || undefined,
+      student_id: options.studentId || undefined,
+    },
+  });
+  return response.data;
+}
+
+export async function getWhatsappStats(): Promise<WhatsappStats> {
+  const response = await api.get<WhatsappStats>("/whatsapp/stats");
+  return response.data;
+}
+
+export async function sendWhatsappTest(
+  phone: string,
+  message: string,
+): Promise<WhatsappTestResponse> {
+  const response = await api.post<WhatsappTestResponse>("/whatsapp/test", {
+    phone,
+    message,
+  });
+  return response.data;
+}
+
+export async function retryFailedWhatsapp(): Promise<WhatsappRetryResponse> {
+  const response = await api.post<WhatsappRetryResponse>("/whatsapp/retry-failed");
+  return response.data;
 }
 
 export default api;

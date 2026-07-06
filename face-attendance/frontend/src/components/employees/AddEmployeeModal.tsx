@@ -1,6 +1,5 @@
 "use client";
 
-import axios from "axios";
 import { useRef, useState, type ChangeEvent } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -20,6 +19,7 @@ import {
   type EmployeeInput,
   updateEmployee,
 } from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/errors";
 
 interface AddEmployeeModalProps {
   open: boolean;
@@ -33,13 +33,10 @@ interface AddEmployeeModalProps {
 }
 
 function getErrorMessage(error: unknown): string {
-  if (axios.isAxiosError(error)) {
-    const detail = error.response?.data?.detail;
-    if (typeof detail === "string") {
-      return detail;
-    }
-  }
-  return "Unable to save employee. Check the details and try again.";
+  return getApiErrorMessage(
+    error,
+    "Unable to save employee. Check the details and try again.",
+  );
 }
 
 function optionalValue(value: string): string | null {
@@ -352,7 +349,7 @@ export function AddEmployeeModal({
                 ) : null}
               </div>
               {faceImage ? (
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     alt="Selected face enrollment preview"
@@ -362,6 +359,7 @@ export function AddEmployeeModal({
                   <Button
                     type="button"
                     variant="outline"
+                    className="w-full sm:w-auto"
                     onClick={() => setFaceImage(null)}
                   >
                     Remove photo
@@ -379,6 +377,7 @@ export function AddEmployeeModal({
                 <Button
                   type="button"
                   variant="outline"
+                  className="w-full sm:w-auto"
                   onClick={() => fileInputRef.current?.click()}
                 >
                   {faceImage ? "Change photo" : "Upload face photo"}
@@ -398,15 +397,21 @@ export function AddEmployeeModal({
             </p>
           ) : null}
 
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
               type="button"
               variant="outline"
+              className="w-full sm:w-auto"
               onClick={() => onOpenChange(false)}
             >
               Cancel
             </Button>
-            <Button type="button" disabled={isSubmitting} onClick={handleSubmit}>
+            <Button
+              type="button"
+              className="w-full sm:w-auto"
+              disabled={isSubmitting}
+              onClick={handleSubmit}
+            >
               {getSubmitButtonLabel()}
             </Button>
           </div>

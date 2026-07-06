@@ -9,11 +9,11 @@ class FaceEnrollRequest(BaseModel):
 
 class FaceEnrollResponse(BaseModel):
     success: bool
-    employee_id: int
+    student_id: int
     message: str
 
 
 class FaceEnrollmentStatusResponse(BaseModel):
-    employee_id: int
+    student_id: int
     has_face_enrolled: bool
     enrollment_date: datetime | None = None

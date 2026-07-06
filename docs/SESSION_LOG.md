@@ -122,6 +122,96 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: Frontend typecheck, lint, production build, and diff whitespace check pass.
 - Pending: Browser retest after refreshing the running Next.js dev server.
 
+## 2026-06-28 - Phase 4 live kiosk and user management
+- Completed: Added role-gated portal user management, company API-key kiosk authentication, live auto-mark attendance endpoint, attendance today/history/export APIs, standalone kiosk page, Users page, attendance tabs, conditional sidebar Users link, and Settings kiosk setup.
+- Changed: Added `companies.api_key`, `users.is_active`, `users.last_login`, migration `b7c4d9e8f012_phase_4_user_management_kiosk`, and backend role dependencies for dashboard APIs.
+- Verified: Applied migration to Neon, backend compile passes, Alembic check reports no drift, in-process backend smoke tests pass for login/users/company key/attendance today/history, invalid kiosk key returns 401, and frontend typecheck/lint/production build pass.
+- Pending: Manual browser kiosk test with live backend + AI service and real enrolled employees; replace default late-detection shift constants with real shift management.
+
+## 2026-06-28 - User reactivation
+- Completed: Added a backend user reactivation endpoint and frontend Activate action for inactive portal users.
+- Changed: `/users/{id}/activate` sets `is_active = true`; the Users table now shows Activate for inactive users and Deactivate for active users.
+- Verified: Backend compile, frontend typecheck/lint/build, and an in-process create/deactivate/activate/cleanup smoke test pass.
+- Pending: Browser retest on the Users page after refreshing the Next.js dev server.
+
+## 2026-06-28 - Kiosk organization name
+- Completed: Added organization name display to the standalone kiosk header.
+- Changed: Added `GET /companies/kiosk-info` using `X-API-Key`, frontend kiosk metadata fetch, and branch number display in the kiosk header.
+- Verified: Backend compile, frontend typecheck/lint/build, valid kiosk-info smoke test, and invalid kiosk key 401 smoke test pass.
+- Pending: Browser retest with a copied kiosk URL from Settings.
+
+## 2026-06-28 - Mobile local login setup
+- Completed: Configured local same-Wi-Fi mobile testing so phone browsers call the PC backend instead of phone-local `localhost`.
+- Changed: Added env-driven backend `FRONTEND_ORIGINS`, allowed `http://192.168.0.116:3000`, changed local frontend API URL to `http://192.168.0.116:8002`, and documented LAN run commands.
+- Verified: Backend compile, frontend typecheck/lint, and CORS preflight for `http://192.168.0.116:3000` pass.
+- Pending: Start backend/frontend with `--host 0.0.0.0` and confirm login from the phone browser.
+
+## 2026-06-28 - Mobile login runtime fix
+- Completed: Diagnosed the mobile login hang as the backend still listening on `127.0.0.1:8002` instead of the LAN interface.
+- Changed: Restarted the local backend with `--host 0.0.0.0 --port 8002` and restarted the Next.js dev server with `-H 0.0.0.0` so it picks up the LAN API URL.
+- Verified: `http://192.168.0.116:8002/health` returns ok, `http://192.168.0.116:3000/login` returns 200, mobile-origin CORS preflight to `/auth/login` returns 200, LAN `/auth/login` returns a normal 401 for invalid credentials, and frontend typecheck/lint pass.
+- Pending: Confirm login directly from the phone browser at `http://192.168.0.116:3000`.
+
+## 2026-06-28 - Frontend mobile responsiveness pass
+- Completed: Made the dashboard shell and core Phase 4 screens more usable on mobile.
+- Changed: Added mobile top navigation with a slide-out drawer, reduced mobile page padding/headings, made tables horizontally scroll with minimum widths, stacked modal actions on small screens, and improved kiosk header/result layout on phones.
+- Verified: Frontend typecheck and lint pass.
+- Pending: Manual browser check on a physical phone for dashboard, employees, users, settings, and kiosk camera permission flow.
+
+## 2026-06-28 - Mobile kiosk, copy fallback, and admin users access
+- Completed: Addressed reported mobile kiosk camera, Settings copy button, and admin Users visibility issues.
+- Changed: Added kiosk camera error messaging plus `Capture/Upload Photo` fallback for local HTTP mobile testing, Clipboard API fallback with manual-select support, explicit `NEXT_PUBLIC_KIOSK_BASE_URL`, normalized frontend/backend admin role checks, and restarted frontend/backend dev servers.
+- Verified: Frontend typecheck/lint, backend compile, backend smoke test for capitalized `Admin` role accessing `/users`, `/login` page load, `/kiosk` page load, and LAN backend health all pass.
+- Pending: Manual phone test of Settings copy, `/users` link as an admin, and kiosk photo fallback; true live mobile camera requires HTTPS frontend plus HTTPS API/proxy.
+
+## 2026-06-29 - Phase 5 student system and WhatsApp notifications
+- Completed: Pivoted the active product model from employee attendance to school student attendance with WhatsApp parent notifications.
+- Changed: Added `students`, `whatsapp_logs`, school WhatsApp settings, `attendance.student_id`, `face_embeddings.student_id`, migration `a0ddfb82a57e_student_whatsapp_system`, `/students`, `/whatsapp/*`, student face enrollment, `/students/import`, student dashboard/attendance/kiosk UI, `/notifications`, and WhatsApp configuration in Settings.
+- Verified: Applied Alembic migration to Neon, backend compile passes, Alembic check reports no drift, demo school seed runs, authenticated smoke tests pass for `/students`, `/attendance/today`, `/whatsapp/stats`, and school settings, and frontend typecheck/lint/build pass.
+- Pending: Manual WhatsApp test with real Meta credentials, manual mobile HTTPS kiosk test with real enrolled students, and compliance review for parent opt-in, WhatsApp retention, biometric consent, and encrypted secret/embedding storage.
+
+## 2026-06-29 - Organization-specific portal login
+- Completed: Added organization/school name to the portal login flow.
+- Changed: `/auth/login` now requires `organization_name` and validates the email/password against a matching active company; the frontend login page now asks for Organization / School name before email and password.
+- Verified: Backend compile, frontend typecheck, frontend lint, valid demo login with `Demo School`, and wrong-organization login rejection all pass.
+- Pending: Consider replacing exact organization-name matching with immutable school slugs or subdomains before production.
+
+## 2026-06-29 - Tenant-scoped portal user emails
+- Completed: Allowed one email address to belong to different organizations.
+- Changed: Added migration `f4b9c2d1e8a7_tenant_scoped_user_email`, changed `users.email` from globally unique to unique per `(company_id, email)`, removed global signup email blocking, and updated user-management duplicate checks to be organization-scoped.
+- Verified: Applied migration to Neon, backend compile passes, Alembic check reports no drift, same-email login works in two different temporary organizations, wrong password still fails, and live backend/frontend/AI health checks pass after backend restart.
+- Pending: Consider a dedicated global account plus organization-membership model before production.
+
+## 2026-07-03 - Class-wise attendance sessions
+- Completed: Added class-wise start/stop attendance sessions.
+- Changed: Added `attendance_sessions`, `attendance.session_id`, migration `d2a7c9e4b631_class_attendance_sessions`, session list/status/start/stop API endpoints, active-session enforcement in kiosk auto-marking, class filter/session controls on `/attendance`, and a kiosk stopped-session result.
+- Verified: Applied migration to Neon, backend compile passes, Alembic check reports no drift, frontend typecheck/lint/build pass, start/duplicate/stop session smoke tests pass, kiosk auto-mark is blocked when the class session is stopped, and live backend/frontend/AI health checks plus proxy login pass after restart.
+- Pending: Add real timetable/period configuration, session audit views, and role rules for which staff can control each class.
+
+## 2026-07-03 - Frontend API validation error rendering fix
+- Completed: Fixed the React runtime crash caused by rendering FastAPI validation detail objects directly.
+- Changed: Added a shared frontend API error formatter that converts string, object, and array validation details into safe text, then replaced unsafe auth/modal error handling paths.
+- Verified: Frontend typecheck, lint, production build, `/attendance` page load, and frontend proxy health pass after restarting the frontend dev server.
+- Pending: Consider wiring field-level validation messages in forms instead of only showing summary text.
+
+## 2026-07-03 - Portal user management cleanup
+- Completed: Fixed portal user lifecycle issues around login after deactivation, recreating deleted users, and permanent removal.
+- Changed: Creating a user with an inactive same-organization email now reactivates and updates that user, added `DELETE /users/{id}/permanent`, added a Users table Remove action with confirmation, surfaced action-specific API errors, and allowed organization admins to assign tenant-level admin users.
+- Verified: Backend compile passes, frontend typecheck/lint/build pass, live API smoke test passes for create admin user, login, deactivate, rejected inactive login, recreate/reactivate same email, login with new password, permanent removal, and list removal.
+- Pending: Add automated authorization tests for portal user lifecycle and role assignment.
+
+## 2026-07-03 - Organization-aware user login troubleshooting
+- Completed: Diagnosed organization-specific login failure as a user account belonging to a different organization than the organization name entered on the login screen.
+- Changed: Added super-admin organization visibility in the Users table, organization selection in Add User, password reset support in Edit User, and switched this workstation's clean backend/frontend proxy path to backend port 8003 because port 8002 was serving stale code from unkillable Windows listeners.
+- Verified: Backend compile passes, frontend typecheck/lint/build pass, clean backend OpenAPI exposes `UserUpdate.password`, frontend proxy health works through port 8003, and live password-reset smoke test passes.
+- Pending: Add invite/email-reset flow and automated tests for organization-specific login and password reset before production.
+
+## 2026-07-06 - WhatsApp Cloud API verification
+- Completed: Verified WhatsApp Cloud API sending with configured backend credentials.
+- Changed: Updated local frontend proxy/backend port from 8003 to 8004 because 8003 was occupied by a stale Windows listener.
+- Verified: Meta `hello_world` template send returned an accepted message ID, backend `/whatsapp/test` returned success with a message ID, backend health passed on port 8004, and frontend `/api/backend/health` proxy works through port 8004.
+- Pending: Add WhatsApp webhook support and template-based production attendance messages before production.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title
