@@ -236,6 +236,12 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: HuggingFace Space repo push succeeded.
 - Pending: Recheck HuggingFace build logs and `/health` after the rebuild.
 
+## 2026-07-07 - WhatsApp webhook verification endpoint
+- Completed: Added the Meta WhatsApp webhook verification endpoint required by "Verify and save" in the Meta dashboard.
+- Changed: Added `GET/POST /webhooks/whatsapp`, added `META_WEBHOOK_VERIFY_TOKEN` to backend settings and `.env.example`, and included the webhook router in FastAPI.
+- Verified: Webhook files pass syntax parsing and backend import succeeds with a temporary verify token.
+- Pending: Set `META_WEBHOOK_VERIFY_TOKEN` in the backend Vercel project, redeploy backend, then verify the callback URL in Meta.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

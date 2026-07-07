@@ -1,7 +1,18 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import attendance, auth, companies, cron, employees, face, students, users, whatsapp
+from app.routers import (
+    attendance,
+    auth,
+    companies,
+    cron,
+    employees,
+    face,
+    students,
+    users,
+    webhooks,
+    whatsapp,
+)
 
 from contextlib import asynccontextmanager
 import httpx
@@ -44,6 +55,7 @@ app.include_router(face.router)
 app.include_router(users.router)
 app.include_router(whatsapp.router)
 app.include_router(cron.router)
+app.include_router(webhooks.router)
 
 
 @app.get("/health", tags=["health"])
