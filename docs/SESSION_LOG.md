@@ -227,8 +227,14 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 ## 2026-07-07 - HuggingFace AI deployment and Vercel Cron absent alerts
 - Completed: Added HuggingFace Spaces Docker deployment files for `ai-service` and replaced the backend's in-process APScheduler absent alert job with cron-callable endpoints.
 - Changed: Added `ai-service/Dockerfile`, `ai-service/README.md`, pinned AI dependencies, model warmup, optional AI API-key enforcement, backend `/api/cron/absent-alerts`, Vercel cron config, optional backend AI-key forwarding, and `CRON_SECRET`/`APP_ENV` env examples.
-- Verified: Backend and AI changed Python files pass no-bytecode syntax parsing, backend imports successfully, and no APScheduler references remain.
-- Pending: Deploy the HuggingFace Docker Space, set backend `AI_SERVICE_URL` to the Space URL, add `CRON_SECRET` in the backend Vercel project, and manually trigger `/api/cron/absent-alerts` once before relying on the daily schedule.
+- Verified: Backend and AI changed Python files pass no-bytecode syntax parsing, backend imports successfully, no APScheduler references remain, and the HuggingFace Space repo received the Docker deployment files.
+- Pending: Wait for the HuggingFace Docker build to complete, set backend `AI_SERVICE_URL` to the Space URL, add `CRON_SECRET` in the backend Vercel project, and manually trigger `/api/cron/absent-alerts` once before relying on the daily schedule.
+
+## 2026-07-07 - HuggingFace Docker package fix
+- Completed: Fixed the first HuggingFace Docker build failure caused by outdated Debian package names.
+- Changed: Replaced `libgl1-mesa-glx` with `libgl1`, replaced `libxrender-dev` with `libxrender1`, added `--no-install-recommends`, and pushed the Dockerfile fix to the Space repo.
+- Verified: HuggingFace Space repo push succeeded.
+- Pending: Recheck HuggingFace build logs and `/health` after the rebuild.
 
 ## Entry Template
 ```markdown
