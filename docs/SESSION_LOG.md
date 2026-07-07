@@ -242,6 +242,24 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: Webhook files pass syntax parsing and backend import succeeds with a temporary verify token.
 - Pending: Set `META_WEBHOOK_VERIFY_TOKEN` in the backend Vercel project, redeploy backend, then verify the callback URL in Meta.
 
+## 2026-07-07 - Deployment env verification
+- Completed: Verified the deployed backend, HuggingFace AI service, WhatsApp webhook verification, and cron secret protection.
+- Changed: No code changes.
+- Verified: Backend `/health` returns ok, AI `/health` returns ArcFace/RetinaFace, Meta webhook challenge returns the expected challenge, and `/api/cron/absent-alerts` rejects an invalid bearer token with 401.
+- Pending: Verify real WhatsApp absent/check-in messages with an approved template or an active 24-hour customer-service window.
+
+## 2026-07-07 - WhatsApp completion pass
+- Completed: Closed the main WhatsApp production gaps after webhook/cron setup.
+- Changed: Added optional template-based sending for check-in, check-out, and absent alerts; added Meta webhook status persistence for sent/delivered/read/failed callbacks; updated WhatsApp stats to count delivered/read as successful; and documented template env variables.
+- Verified: Backend WhatsApp-related files pass syntax parsing and backend imports successfully.
+- Pending: Create/approve matching templates in Meta, set template env names in backend Vercel, redeploy backend, and run a real recipient test.
+
+## 2026-07-07 - Production login diagnosis
+- Completed: Diagnosed demo production login failure.
+- Changed: Replaced Passlib password hashing/verification with direct `bcrypt` to avoid production runtime password verification crashes while preserving existing bcrypt hashes.
+- Verified: Demo School admin row exists in Neon, `admin123` matches the existing hash locally, wrong passwords are rejected locally, new hashes verify correctly, backend imports successfully, and frontend production proxy `/api/backend/health` still returns 500 until frontend `BACKEND_INTERNAL_URL` is fixed/redeployed.
+- Pending: Commit/push backend fix, redeploy backend, set/redeploy frontend `BACKEND_INTERNAL_URL=https://face-detector-k4dl.vercel.app`, then retest production login.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

@@ -21,6 +21,7 @@ from app.schemas.whatsapp import (
 from app.services.whatsapp import get_whatsapp_credentials, send_text_message
 
 router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
+SUCCESSFUL_WHATSAPP_STATUSES = ("sent", "delivered", "read")
 
 
 def day_bounds(day: date) -> tuple[datetime, datetime]:
@@ -106,7 +107,7 @@ async def get_whatsapp_stats(
     sent_today = await session.scalar(
         select(func.count()).select_from(WhatsappLog).where(
             WhatsappLog.school_id == current_user.company_id,
-            WhatsappLog.status == "sent",
+            WhatsappLog.status.in_(SUCCESSFUL_WHATSAPP_STATUSES),
             WhatsappLog.created_at >= today_start,
             WhatsappLog.created_at < today_end,
         ),

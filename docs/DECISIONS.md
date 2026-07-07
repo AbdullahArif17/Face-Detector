@@ -119,6 +119,13 @@
 - Decision: Package `ai-service` as a HuggingFace Docker Space on port `7860`, keep the ArcFace/RetinaFace pipeline, make `AI_API_KEY` optional for test deployment, remove APScheduler, and expose `/api/cron/absent-alerts` for Vercel Cron.
 - Consequences: The AI service can deploy separately from Vercel and warm up its model on startup. Absent alerts now depend on Vercel Cron and `CRON_SECRET` environment configuration instead of an in-process scheduler. A public AI Space without `AI_API_KEY` is acceptable only for controlled testing.
 
+## D-018: Use configurable WhatsApp templates for business-initiated alerts
+- Date: 2026-07-07
+- Status: Accepted
+- Context: Meta restricts free-form WhatsApp text messages outside the customer-service window, while attendance alerts are usually initiated by the school.
+- Decision: Keep free-form text as a fallback, but support configured Meta template names for check-in, check-out, and absent alerts through backend environment variables. Persist webhook delivery statuses against existing WhatsApp logs by Meta message ID.
+- Consequences: Production schools must create and approve matching WhatsApp templates in Meta before automated parent alerts are reliable. Template variable order must match the backend payload, and webhook callbacks can now move logs from `sent` to `delivered`, `read`, or `failed`.
+
 ## Decision Template
 ```markdown
 ## D-NNN: Decision title

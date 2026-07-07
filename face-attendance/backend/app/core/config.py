@@ -20,6 +20,10 @@ class Settings:
     meta_whatsapp_token: str | None
     meta_phone_number_id: str | None
     meta_webhook_verify_token: str | None
+    meta_template_language: str
+    meta_checkin_template_name: str | None
+    meta_checkout_template_name: str | None
+    meta_absent_template_name: str | None
     cron_secret: str | None
     app_env: str
 
@@ -89,6 +93,10 @@ def get_settings() -> Settings:
         meta_whatsapp_token=os.getenv("META_WHATSAPP_TOKEN"),
         meta_phone_number_id=os.getenv("META_PHONE_NUMBER_ID"),
         meta_webhook_verify_token=os.getenv("META_WEBHOOK_VERIFY_TOKEN"),
+        meta_template_language=os.getenv("META_TEMPLATE_LANGUAGE", "en_US"),
+        meta_checkin_template_name=os.getenv("META_CHECKIN_TEMPLATE_NAME"),
+        meta_checkout_template_name=os.getenv("META_CHECKOUT_TEMPLATE_NAME"),
+        meta_absent_template_name=os.getenv("META_ABSENT_TEMPLATE_NAME"),
         cron_secret=os.getenv("CRON_SECRET"),
         app_env=os.getenv("APP_ENV", "development"),
     )

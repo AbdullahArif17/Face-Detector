@@ -17,6 +17,10 @@ def is_configured_secret(value: str | None) -> bool:
     return bool(value and value.strip() and not value.startswith("your_"))
 
 
+def is_configured_value(value: str | None) -> bool:
+    return bool(value and value.strip() and not value.startswith("your_"))
+
+
 def get_whatsapp_credentials(school: Company) -> tuple[str | None, str | None]:
     access_token = (
         school.whatsapp_token
@@ -33,6 +37,58 @@ def get_whatsapp_credentials(school: Company) -> tuple[str | None, str | None]:
     return access_token, phone_number_id
 
 
+def extract_meta_error(payload: dict[str, Any], fallback: str) -> str:
+    error = payload.get("error")
+    return (
+        error.get("message")
+        if isinstance(error, dict) and isinstance(error.get("message"), str)
+        else fallback
+    )
+
+
+def extract_meta_message_id(payload: dict[str, Any]) -> str | None:
+    messages = payload.get("messages")
+    if isinstance(messages, list) and messages and isinstance(messages[0], dict):
+        raw_message_id = messages[0].get("id")
+        return raw_message_id if isinstance(raw_message_id, str) else None
+    return None
+
+
+async def send_meta_message(
+    *,
+    phone_number_id: str,
+    access_token: str,
+    payload: dict[str, Any],
+) -> dict[str, str | bool | None]:
+    try:
+        async with httpx.AsyncClient(timeout=WHATSAPP_TIMEOUT_SECONDS) as client:
+            response = await client.post(
+                f"{WHATSAPP_API_URL}/{phone_number_id}/messages",
+                headers={"Authorization": f"Bearer {access_token}"},
+                json=payload,
+            )
+    except httpx.RequestError as exc:
+        return {"success": False, "message_id": None, "error": str(exc)}
+
+    try:
+        response_payload: dict[str, Any] = response.json()
+    except ValueError:
+        response_payload = {}
+
+    if response.status_code >= 400:
+        return {
+            "success": False,
+            "message_id": None,
+            "error": extract_meta_error(response_payload, response.text),
+        }
+
+    return {
+        "success": True,
+        "message_id": extract_meta_message_id(response_payload),
+        "error": None,
+    }
+
+
 async def send_text_message(
     *,
     phone_number_id: str,
@@ -40,42 +96,55 @@ async def send_text_message(
     parent_phone: str,
     message: str,
 ) -> dict[str, str | bool | None]:
-    try:
-        async with httpx.AsyncClient(timeout=WHATSAPP_TIMEOUT_SECONDS) as client:
-            response = await client.post(
-                f"{WHATSAPP_API_URL}/{phone_number_id}/messages",
-                headers={"Authorization": f"Bearer {access_token}"},
-                json={
-                    "messaging_product": "whatsapp",
-                    "to": parent_phone,
-                    "type": "text",
-                    "text": {"body": message},
-                },
-            )
-    except httpx.RequestError as exc:
-        return {"success": False, "message_id": None, "error": str(exc)}
+    return await send_meta_message(
+        phone_number_id=phone_number_id,
+        access_token=access_token,
+        payload={
+            "messaging_product": "whatsapp",
+            "to": parent_phone,
+            "type": "text",
+            "text": {"body": message},
+        },
+    )
 
-    try:
-        payload: dict[str, Any] = response.json()
-    except ValueError:
-        payload = {}
 
-    if response.status_code >= 400:
-        error = payload.get("error")
-        error_message = (
-            error.get("message")
-            if isinstance(error, dict) and isinstance(error.get("message"), str)
-            else response.text
+async def send_template_message(
+    *,
+    phone_number_id: str,
+    access_token: str,
+    parent_phone: str,
+    template_name: str,
+    body_parameters: list[str],
+) -> dict[str, str | bool | None]:
+    components: list[dict[str, Any]] = []
+    if body_parameters:
+        components.append(
+            {
+                "type": "body",
+                "parameters": [
+                    {"type": "text", "text": str(value)}
+                    for value in body_parameters
+                ],
+            },
         )
-        return {"success": False, "message_id": None, "error": error_message}
 
-    messages = payload.get("messages")
-    message_id = None
-    if isinstance(messages, list) and messages and isinstance(messages[0], dict):
-        raw_message_id = messages[0].get("id")
-        message_id = raw_message_id if isinstance(raw_message_id, str) else None
+    template: dict[str, Any] = {
+        "name": template_name,
+        "language": {"code": settings.meta_template_language},
+    }
+    if components:
+        template["components"] = components
 
-    return {"success": True, "message_id": message_id, "error": None}
+    return await send_meta_message(
+        phone_number_id=phone_number_id,
+        access_token=access_token,
+        payload={
+            "messaging_product": "whatsapp",
+            "to": parent_phone,
+            "type": "template",
+            "template": template,
+        },
+    )
 
 
 def build_checkin_message(
@@ -169,6 +238,24 @@ async def send_checkin_message(
     grade: str,
     section: str,
 ) -> dict[str, str | bool | None]:
+    template_name = settings.meta_checkin_template_name
+    if is_configured_value(template_name):
+        return await send_template_message(
+            phone_number_id=phone_number_id,
+            access_token=access_token,
+            parent_phone=parent_phone,
+            template_name=template_name.strip(),
+            body_parameters=[
+                parent_name,
+                student_name,
+                check_time,
+                date_str,
+                f"{grade}-{section}",
+                school_name,
+                school_phone,
+            ],
+        )
+
     message = build_checkin_message(
         parent_name=parent_name,
         student_name=student_name,
@@ -200,6 +287,23 @@ async def send_checkout_message(
     grade: str,
     section: str,
 ) -> dict[str, str | bool | None]:
+    template_name = settings.meta_checkout_template_name
+    if is_configured_value(template_name):
+        return await send_template_message(
+            phone_number_id=phone_number_id,
+            access_token=access_token,
+            parent_phone=parent_phone,
+            template_name=template_name.strip(),
+            body_parameters=[
+                parent_name,
+                student_name,
+                checkout_time,
+                date_str,
+                f"{grade}-{section}",
+                school_name,
+            ],
+        )
+
     message = build_checkout_message(
         parent_name=parent_name,
         student_name=student_name,
@@ -227,6 +331,22 @@ async def send_absent_message(
     student_name: str,
     date_str: str,
 ) -> dict[str, str | bool | None]:
+    template_name = settings.meta_absent_template_name
+    if is_configured_value(template_name):
+        return await send_template_message(
+            phone_number_id=phone_number_id,
+            access_token=access_token,
+            parent_phone=parent_phone,
+            template_name=template_name.strip(),
+            body_parameters=[
+                parent_name,
+                student_name,
+                date_str,
+                school_phone,
+                school_name,
+            ],
+        )
+
     message = build_absent_message(
         parent_name=parent_name,
         student_name=student_name,
