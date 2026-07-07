@@ -51,6 +51,13 @@ DEFAULT_SHIFT_START = time(hour=9, minute=0)
 DEFAULT_SHIFT_GRACE_MINUTES = 15
 
 
+def ai_service_headers() -> dict[str, str]:
+    api_key = settings.ai_api_key
+    if not api_key:
+        return {}
+    return {"X-API-Key": api_key}
+
+
 def today_bounds() -> tuple[datetime, datetime]:
     today = datetime.now(timezone.utc).date()
     start = datetime.combine(today, time.min, tzinfo=timezone.utc)
@@ -464,7 +471,7 @@ async def auto_mark_attendance(
         response = await client.post(
             f"{settings.ai_service_url}/recognize",
             json={"image": payload.image, "embeddings": embeddings},
-            headers={"X-API-Key": settings.ai_api_key},
+            headers=ai_service_headers(),
             timeout=AI_SERVICE_TIMEOUT_SECONDS,
         )
     except httpx.RequestError as exc:

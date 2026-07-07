@@ -15,10 +15,12 @@ class Settings:
     algorithm: str
     access_token_expire_minutes: int
     ai_service_url: str
-    ai_api_key: str
+    ai_api_key: str | None
     frontend_origins: list[str]
     meta_whatsapp_token: str | None
     meta_phone_number_id: str | None
+    cron_secret: str | None
+    app_env: str
 
 
 def normalize_database_url(database_url: str) -> str:
@@ -62,14 +64,11 @@ def parse_csv_env(value: str) -> list[str]:
 def get_settings() -> Settings:
     database_url = os.getenv("DATABASE_URL")
     secret_key = os.getenv("SECRET_KEY")
-    ai_api_key = os.getenv("AI_API_KEY")
 
     if not database_url:
         raise RuntimeError("DATABASE_URL is not configured")
     if not secret_key:
         raise RuntimeError("SECRET_KEY is not configured")
-    if not ai_api_key:
-        raise RuntimeError("AI_API_KEY is not configured")
 
     return Settings(
         database_url=normalize_database_url(database_url),
@@ -79,7 +78,7 @@ def get_settings() -> Settings:
             os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"),
         ),
         ai_service_url=os.getenv("AI_SERVICE_URL", "http://localhost:8001").rstrip("/"),
-        ai_api_key=ai_api_key,
+        ai_api_key=os.getenv("AI_API_KEY"),
         frontend_origins=parse_csv_env(
             os.getenv(
                 "FRONTEND_ORIGINS",
@@ -88,6 +87,8 @@ def get_settings() -> Settings:
         ),
         meta_whatsapp_token=os.getenv("META_WHATSAPP_TOKEN"),
         meta_phone_number_id=os.getenv("META_PHONE_NUMBER_ID"),
+        cron_secret=os.getenv("CRON_SECRET"),
+        app_env=os.getenv("APP_ENV", "development"),
     )
 
 

@@ -112,6 +112,13 @@
 - Decision: Use DeepFace ArcFace with RetinaFace, reject low-quality images before embedding extraction, average original and horizontally flipped embeddings, and require a minimum best-vs-runner-up similarity margin before accepting a match.
 - Consequences: Existing Facenet embeddings are incompatible and must be re-enrolled. Recognition is stricter and may reject blurry/dark/small-face images instead of guessing. First startup or first enrollment may be slower while ArcFace weights load/download.
 
+## D-017: Deploy AI inference on HuggingFace Spaces and trigger absent alerts through Vercel Cron
+- Date: 2026-07-07
+- Status: Accepted
+- Context: Vercel's function bundle limits are not suitable for the DeepFace AI service, while the backend deployment needs serverless-safe absent alert scheduling.
+- Decision: Package `ai-service` as a HuggingFace Docker Space on port `7860`, keep the ArcFace/RetinaFace pipeline, make `AI_API_KEY` optional for test deployment, remove APScheduler, and expose `/api/cron/absent-alerts` for Vercel Cron.
+- Consequences: The AI service can deploy separately from Vercel and warm up its model on startup. Absent alerts now depend on Vercel Cron and `CRON_SECRET` environment configuration instead of an in-process scheduler. A public AI Space without `AI_API_KEY` is acceptable only for controlled testing.
+
 ## Decision Template
 ```markdown
 ## D-NNN: Decision title

@@ -26,6 +26,13 @@ AI_SERVICE_TIMEOUT_SECONDS = 90.0
 MAX_HEADSHOT_BYTES = 2_000_000
 
 
+def ai_service_headers() -> dict[str, str]:
+    api_key = settings.ai_api_key
+    if not api_key:
+        return {}
+    return {"X-API-Key": api_key}
+
+
 def normalize_headshot_image(image: str) -> str:
     encoded = image.split(",", 1)[-1]
     try:
@@ -95,7 +102,7 @@ async def enroll_face(
         response = await client.post(
             f"{settings.ai_service_url}/enroll",
             json={"employee_id": str(student_id), "image": payload.image},
-            headers={"X-API-Key": settings.ai_api_key},
+            headers=ai_service_headers(),
             timeout=AI_SERVICE_TIMEOUT_SECONDS,
         )
     except httpx.RequestError as exc:

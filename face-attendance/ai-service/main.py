@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Header, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
@@ -41,13 +42,16 @@ MIN_BRIGHTNESS = float(os.getenv("MIN_BRIGHTNESS", "35"))
 MAX_BRIGHTNESS = float(os.getenv("MAX_BRIGHTNESS", "225"))
 AI_API_KEY = os.getenv("AI_API_KEY")
 
-if not AI_API_KEY:
-    raise RuntimeError("AI_API_KEY is not configured")
-
 app = FastAPI(
     title="Face Attendance AI Service",
     version="0.2.0",
     description="Face enrollment and recognition service for the MVP.",
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -56,7 +60,18 @@ class FaceImageRequest(BaseModel):
 
 
 class EnrollRequest(FaceImageRequest):
-    employee_id: str = Field(pattern=r"^[A-Za-z0-9_-]+$", max_length=100)
+    employee_id: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]+$", max_length=100)
+    student_id: int | None = Field(default=None, gt=0)
+
+    def resolved_employee_id(self) -> str:
+        if self.employee_id:
+            return self.employee_id
+        if self.student_id is not None:
+            return str(self.student_id)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="employee_id or student_id is required",
+        )
 
 
 class EnrollResponse(BaseModel):
@@ -66,8 +81,16 @@ class EnrollResponse(BaseModel):
 
 
 class EmbeddingCandidate(BaseModel):
-    employee_id: str
+    employee_id: str | None = None
+    student_id: int | None = Field(default=None, gt=0)
     vector: list[float] = Field(min_length=1)
+
+    def resolved_employee_id(self) -> str | None:
+        if self.employee_id:
+            return self.employee_id
+        if self.student_id is not None:
+            return str(self.student_id)
+        return None
 
 
 class RecognizeRequest(FaceImageRequest):
@@ -230,10 +253,14 @@ def find_best_match(
             # TODO: Emit structured logs for malformed candidate embeddings.
             continue
 
+        candidate_employee_id = candidate.resolved_employee_id()
+        if candidate_employee_id is None:
+            continue
+
         if best_score is None or score > best_score:
             runner_up_score = best_score
             best_score = score
-            best_employee_id = candidate.employee_id
+            best_employee_id = candidate_employee_id
         elif runner_up_score is None or score > runner_up_score:
             runner_up_score = score
 
@@ -242,6 +269,29 @@ def find_best_match(
         score=best_score,
         runner_up_score=runner_up_score,
     )
+
+
+@app.on_event("startup")
+async def warmup_model() -> None:
+    """Pre-download and load the configured DeepFace model on container startup."""
+    print(f"Warming up DeepFace {DEEPFACE_MODEL} model...")
+    try:
+        dummy = np.zeros((224, 224, 3), dtype=np.uint8)
+        await run_in_threadpool(
+            DeepFace.represent,
+            img_path=dummy,
+            model_name=DEEPFACE_MODEL,
+            detector_backend=DETECTOR_BACKEND,
+            enforce_detection=False,
+        )
+        print("Model ready")
+    except Exception as exc:
+        print(f"Warmup error (non-fatal): {exc}")
+
+
+@app.get("/", tags=["health"])
+async def root_health_check() -> dict[str, str]:
+    return {"status": "ok", "service": "face-attendance-ai"}
 
 
 @app.get("/health", tags=["health"])
@@ -253,8 +303,10 @@ async def health_check() -> dict[str, str]:
     }
 
 
-def verify_api_key(x_api_key: str = Header(...)) -> None:
-    if not hmac.compare_digest(x_api_key, AI_API_KEY):
+def verify_api_key(x_api_key: str | None = Header(default=None)) -> None:
+    if not AI_API_KEY:
+        return
+    if x_api_key is None or not hmac.compare_digest(x_api_key, AI_API_KEY):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API Key")
 
 
@@ -262,7 +314,7 @@ def verify_api_key(x_api_key: str = Header(...)) -> None:
 async def enroll(payload: EnrollRequest) -> EnrollResponse:
     embedding = await run_in_threadpool(extract_embedding, payload.image)
     return EnrollResponse(
-        employee_id=payload.employee_id,
+        employee_id=payload.resolved_employee_id(),
         embedding=embedding,
         model=DEEPFACE_MODEL,
     )

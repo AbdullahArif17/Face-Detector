@@ -1,6 +1,6 @@
 # Project Context
 
-Last updated: 2026-07-06
+Last updated: 2026-07-07
 
 ## Project
 - Name: Face Attendance
@@ -12,7 +12,7 @@ Last updated: 2026-07-06
 - Application scaffold lives in `face-attendance/`.
 - Frontend: Next.js 16.2.9, React 19.2.7, strict TypeScript, Tailwind CSS, App Router, shadcn/ui configuration.
 - Backend: FastAPI, async SQLAlchemy, Neon Postgres, Alembic, JWT authentication, role-gated user management, company API-key kiosk auth, tenant-filtered school/student/attendance routes, and WhatsApp notification logs.
-- AI service: FastAPI, DeepFace ArcFace with RetinaFace detection, OpenCV quality gates, augmented embedding extraction, and stateless embedding comparison endpoints.
+- AI service: FastAPI, DeepFace ArcFace with RetinaFace detection, OpenCV quality gates, augmented embedding extraction, stateless embedding comparison endpoints, and HuggingFace Spaces Docker deployment files.
 - Backend and AI-service dependencies are installed locally.
 - The `initial_tables`, `employee_department_face_embeddings`, `9428e714984a`, `b7c4d9e8f012`, `a0ddfb82a57e`, `f4b9c2d1e8a7`, and `d2a7c9e4b631` Alembic migrations are generated and applied to the current Neon development database.
 - `backend/.env` contains a working Neon pooled connection with SSL enabled.
@@ -26,14 +26,14 @@ Last updated: 2026-07-06
 - Frontend mobile responsiveness includes a dashboard mobile top bar and slide-out navigation drawer, mobile-safe page spacing/headings, horizontally scrollable data tables with minimum widths, stacked modal action buttons, and phone-friendly kiosk layout.
 - Mobile local HTTP testing cannot use live `getUserMedia` camera or modern Clipboard API reliably because phone browsers require trusted HTTPS secure contexts; kiosk has a `Capture/Upload Photo` fallback for local HTTP testing. True live mobile kiosk scanning should use a trusted HTTPS frontend URL with `NEXT_PUBLIC_API_URL=/api/backend` and `BACKEND_INTERNAL_URL` pointing to the local FastAPI backend so browser requests stay same-origin.
 - Backend Phase 4 includes `/users`, `/users/{id}/activate`, company API-key retrieval/regeneration, `/companies/kiosk-info`, `/attendance/auto-mark`, `/attendance/today`, `/attendance/history`, and `/attendance/export`.
-- Backend Phase 5 includes `students`, `whatsapp_logs`, `attendance.student_id`, WhatsApp school settings on companies, `/students`, `/students/import`, `/whatsapp/logs`, `/whatsapp/stats`, `/whatsapp/test`, `/whatsapp/retry-failed`, and an APScheduler absent-alert job.
+- Backend Phase 5 includes `students`, `whatsapp_logs`, `attendance.student_id`, WhatsApp school settings on companies, `/students`, `/students/import`, `/whatsapp/logs`, `/whatsapp/stats`, `/whatsapp/test`, `/whatsapp/retry-failed`, and Vercel Cron-triggered absent alerts.
 - Backend now supports class-wise attendance sessions with `attendance_sessions`, `attendance.session_id`, `/attendance/sessions`, `/attendance/sessions/active`, `/attendance/sessions/start`, and `/attendance/sessions/{id}/stop`; kiosk auto-marking requires an active session for the requested class/branch.
 - Portal login is tenant-aware: users must enter the exact organization/school name, email, and password; `/auth/login` validates the user against an active matching company record before issuing a JWT.
 - Portal user email uniqueness is tenant-scoped: the same email address may belong to multiple organizations, but each organization can only have one active user row for that email.
 - Portal user management uses soft deactivation for reversible access removal, supports reactivation, supports admin password reset from Edit User, and provides a separate permanent removal action for user rows that are not referenced by historical records. Creating a user with an inactive same-organization email reactivates and updates that existing row.
 - Organization admins can create and assign organization-level admin, HR, branch manager, and viewer roles inside their own tenant; only super admin is reserved globally.
 - Super admin Users view shows each user's organization so cross-tenant accounts are not confused during organization-specific login.
-- Backend and AI service share `AI_API_KEY` through environment configuration; backend no longer hardcodes the AI-service key.
+- Backend and AI service support optional `AI_API_KEY` through environment configuration. If set on both services, backend sends `X-API-Key`; if unset, the HuggingFace Space can run without an AI-service secret for test deployment.
 - Frontend list consumers fetch all employee/attendance pages so dashboard stats are not truncated by backend pagination.
 - `python -m app.reset_demo_data` resets the development database to one clean Demo School tenant, one demo admin, 3 classes, 8 students, today's attendance rows, and no face embeddings so real ArcFace enrollments can be added.
 - This workstation uses backend port 8004 through `frontend/.env.local` because orphaned/stale Windows listeners occupy ports 8000/8002/8003; project defaults remain port 8000.
@@ -71,6 +71,7 @@ Last updated: 2026-07-06
 | Seed demo data | `cd face-attendance/backend && .\.venv\Scripts\python.exe -m app.seed` |
 | Reset demo data | `cd face-attendance/backend && .\.venv\Scripts\python.exe -m app.reset_demo_data` |
 | AI service run | `cd face-attendance/ai-service && uvicorn main:app --reload --port 8001` |
+| AI service Docker build | `cd face-attendance/ai-service && docker build -t face-attendance-ai .` |
 
 ## Active Work
 - Re-enroll existing student faces after the ArcFace switch, then complete manual end-to-end student webcam and uploaded-photo enrollment testing in the browser with the backend and AI service running together.
@@ -88,7 +89,8 @@ Last updated: 2026-07-06
 ## Handoff
 - Start with `face-attendance/README.md`.
 - Apply migrations with `python -m alembic upgrade head`; latest revision is `d2a7c9e4b631_class_attendance_sessions`.
-- Ensure backend and AI service `.env` files use the same `AI_API_KEY`.
+- For HuggingFace Spaces, deploy `face-attendance/ai-service` as a Docker Space; it listens on port `7860` and exposes `/health`.
+- `AI_API_KEY` is optional for the AI service. If set on the AI service, set the same value on the backend; otherwise leave it unset in both places for test deployment.
 - AI service now uses `DEEPFACE_MODEL=ArcFace`; any students enrolled under the previous Facenet configuration must be re-enrolled before kiosk recognition will work reliably.
 - Use `python -m app.reset_demo_data` to wipe old development data and recreate the clean Demo School dataset.
 - Demo login uses organization `Demo School`, email `admin@demo.com`, and password `admin123`.
@@ -98,4 +100,5 @@ Last updated: 2026-07-06
 - Kiosk URLs are created from Settings and use `/kiosk?key=[company_api_key]&branch=[class_id]`; the kiosk uses `X-API-Key`, not JWT.
 - Before using a kiosk URL for a class, an admin/HR/branch manager must open `/attendance`, select the class, and start that class attendance session; stopping the session blocks additional kiosk marks for that class.
 - WhatsApp credentials can be configured per school in Settings or via global fallback `META_WHATSAPP_TOKEN` and `META_PHONE_NUMBER_ID`; real tokens must not be stored in repository memory.
+- Vercel Cron calls `/api/cron/absent-alerts` at `0 4 * * *`; set the same `CRON_SECRET` in the backend Vercel project if cron protection is enabled.
 - Do not treat JSON embedding storage, local embedding files, or client-side route guards as sufficient production security boundaries.

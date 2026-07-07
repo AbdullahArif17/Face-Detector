@@ -224,6 +224,12 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: Reset script ran successfully, admin login works, only one company remains (`Demo School`), `/students` returns 8 records, `/attendance/today` returns 8 records, `/attendance/sessions` returns 2 records, `/users` returns one admin user, enrolled face count is 0, and frontend proxy health works.
 - Pending: Re-enroll real student faces with ArcFace before kiosk recognition testing.
 
+## 2026-07-07 - HuggingFace AI deployment and Vercel Cron absent alerts
+- Completed: Added HuggingFace Spaces Docker deployment files for `ai-service` and replaced the backend's in-process APScheduler absent alert job with cron-callable endpoints.
+- Changed: Added `ai-service/Dockerfile`, `ai-service/README.md`, pinned AI dependencies, model warmup, optional AI API-key enforcement, backend `/api/cron/absent-alerts`, Vercel cron config, optional backend AI-key forwarding, and `CRON_SECRET`/`APP_ENV` env examples.
+- Verified: Backend and AI changed Python files pass no-bytecode syntax parsing, backend imports successfully, and no APScheduler references remain.
+- Pending: Deploy the HuggingFace Docker Space, set backend `AI_SERVICE_URL` to the Space URL, add `CRON_SECRET` in the backend Vercel project, and manually trigger `/api/cron/absent-alerts` once before relying on the daily schedule.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

@@ -11,5 +11,4 @@ alembic
 email-validator
 httpx
 slowapi
-apscheduler==3.10.4
 python-multipart

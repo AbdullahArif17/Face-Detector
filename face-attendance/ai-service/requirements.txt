@@ -1,7 +1,8 @@
-fastapi
-uvicorn
-opencv-python-headless
-deepface
+fastapi==0.110.0
+uvicorn==0.29.0
+deepface==0.0.90
+opencv-python-headless==4.9.0.80
+numpy==1.26.4
+python-dotenv==1.0.1
+httpx==0.27.0
 tf-keras
-numpy
-python-dotenv

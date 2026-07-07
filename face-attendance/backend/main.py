@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import attendance, auth, companies, employees, face, students, users, whatsapp
+from app.routers import attendance, auth, companies, cron, employees, face, students, users, whatsapp
 
 from contextlib import asynccontextmanager
 import httpx
@@ -10,15 +10,11 @@ from slowapi import _rate_limit_exceeded_handler
 
 from app.core.config import settings
 from app.core.rate_limit import limiter
-from app.services.absent_scheduler import create_absent_scheduler
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.http_client = httpx.AsyncClient()
-    app.state.absent_scheduler = create_absent_scheduler()
-    app.state.absent_scheduler.start()
     yield
-    app.state.absent_scheduler.shutdown(wait=False)
     await app.state.http_client.aclose()
 
 app = FastAPI(
@@ -47,6 +43,7 @@ app.include_router(attendance.router)
 app.include_router(face.router)
 app.include_router(users.router)
 app.include_router(whatsapp.router)
+app.include_router(cron.router)
 
 
 @app.get("/health", tags=["health"])
