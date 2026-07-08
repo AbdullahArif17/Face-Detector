@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class AttendanceBase(BaseModel):
@@ -30,8 +30,33 @@ class AttendanceRead(AttendanceBase):
     created_at: datetime
 
 
-class AttendanceSessionStart(BaseModel):
-    branch_id: int = Field(gt=0)
+class ClassScopedRequest(BaseModel):
+    branch_id: int | None = Field(default=None, gt=0)
+    class_id: int | None = Field(default=None, gt=0)
+
+    @model_validator(mode="after")
+    def validate_class_id(self) -> "ClassScopedRequest":
+        if self.branch_id is None and self.class_id is None:
+            raise ValueError("class_id is required")
+        if (
+            self.branch_id is not None
+            and self.class_id is not None
+            and self.branch_id != self.class_id
+        ):
+            raise ValueError("class_id and branch_id must match when both are provided")
+        return self
+
+    @property
+    def resolved_class_id(self) -> int:
+        if self.class_id is not None:
+            return self.class_id
+        if self.branch_id is None:
+            raise ValueError("class_id is required")
+        return self.branch_id
+
+
+class AttendanceSessionStart(ClassScopedRequest):
+    pass
 
 
 class AttendanceSessionStop(BaseModel):
@@ -42,7 +67,9 @@ class AttendanceSessionRead(BaseModel):
     id: int
     company_id: int
     branch_id: int
+    class_id: int
     branch_name: str | None = None
+    class_name: str | None = None
     status: str
     started_by_id: int
     stopped_by_id: int | None = None
@@ -53,12 +80,12 @@ class AttendanceSessionRead(BaseModel):
 
 class AttendanceSessionStatus(BaseModel):
     branch_id: int
+    class_id: int
     active_session: AttendanceSessionRead | None = None
 
 
-class AttendanceAutoMarkRequest(BaseModel):
+class AttendanceAutoMarkRequest(ClassScopedRequest):
     image: str = Field(min_length=1)
-    branch_id: int = Field(gt=0)
 
 
 class AttendanceAutoStudent(BaseModel):
@@ -89,6 +116,7 @@ class AttendanceDashboardRecord(BaseModel):
     grade: str
     section: str
     branch_id: int
+    class_id: int
     check_in: datetime | None = None
     check_out: datetime | None = None
     status: str

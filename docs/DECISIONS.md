@@ -126,6 +126,13 @@
 - Decision: Keep free-form text as a fallback, but support configured Meta template names for check-in, check-out, and absent alerts through backend environment variables. Persist webhook delivery statuses against existing WhatsApp logs by Meta message ID.
 - Consequences: Production schools must create and approve matching WhatsApp templates in Meta before automated parent alerts are reliable. Template variable order must match the backend payload, and webhook callbacks can now move logs from `sent` to `delivered`, `read`, or `failed`.
 
+## D-019: Use class terminology for attendance APIs and kiosk URLs
+- Date: 2026-07-08
+- Status: Accepted
+- Context: The active product is school attendance, so user-facing attendance setup should be class-wise instead of branch-wise.
+- Decision: Use `class_id` in frontend attendance requests and generated kiosk URLs while keeping legacy `branch_id` accepted by the backend for compatibility with existing database columns and copied kiosk links.
+- Consequences: No migration is required now, but future schema cleanup should rename legacy branch tables/columns only with a planned migration and compatibility window.
+
 ## Decision Template
 ```markdown
 ## D-NNN: Decision title

@@ -117,7 +117,7 @@ export default function KioskPage() {
   const processingRef = useRef(false);
   const resultTimeoutRef = useRef<number | null>(null);
   const [apiKey, setApiKey] = useState<string | null>(null);
-  const [branchId, setBranchId] = useState<number | null>(null);
+  const [classId, setClassId] = useState<number | null>(null);
   const [organizationName, setOrganizationName] = useState<string | null>(null);
   const [hasOrganizationError, setHasOrganizationError] = useState(false);
   const [clock, setClock] = useState(() => new Date());
@@ -131,10 +131,16 @@ export default function KioskPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const key = params.get("key");
-    const branch = Number.parseInt(params.get("branch") ?? "", 10);
+    const rawClassId =
+      params.get("class_id") ?? params.get("class") ?? params.get("branch") ?? "";
+    const parsedClassId = Number.parseInt(rawClassId, 10);
     window.setTimeout(() => {
       setApiKey(key);
-      setBranchId(Number.isInteger(branch) && branch > 0 ? branch : null);
+      setClassId(
+        Number.isInteger(parsedClassId) && parsedClassId > 0
+          ? parsedClassId
+          : null,
+      );
     }, 0);
   }, []);
 
@@ -177,7 +183,7 @@ export default function KioskPage() {
 
   const submitImageForAttendance = useCallback(
     async (image: string): Promise<void> => {
-      if (!apiKey || branchId === null || processingRef.current) {
+      if (!apiKey || classId === null || processingRef.current) {
         return;
       }
 
@@ -185,7 +191,7 @@ export default function KioskPage() {
       setIsProcessing(true);
 
       try {
-        const markResult = await autoMarkAttendance(apiKey, branchId, image);
+        const markResult = await autoMarkAttendance(apiKey, classId, image);
         setResult(markResult);
 
         if (resultTimeoutRef.current) {
@@ -213,11 +219,11 @@ export default function KioskPage() {
         setIsProcessing(false);
       }
     },
-    [apiKey, branchId],
+    [apiKey, classId],
   );
 
   useEffect(() => {
-    if (!apiKey || branchId === null) {
+    if (!apiKey || classId === null) {
       return;
     }
 
@@ -246,7 +252,7 @@ export default function KioskPage() {
         window.clearTimeout(resultTimeoutRef.current);
       }
     };
-  }, [apiKey, branchId, submitImageForAttendance]);
+  }, [apiKey, classId, submitImageForAttendance]);
 
   async function handleFileCapture(
     event: ChangeEvent<HTMLInputElement>,
@@ -303,7 +309,7 @@ export default function KioskPage() {
     }
   }
 
-  const hasValidConfig = Boolean(apiKey && branchId !== null);
+  const hasValidConfig = Boolean(apiKey && classId !== null);
   const liveCameraBlocked = isSecureContext === false;
   const cameraMessage = cameraError ?? (liveCameraBlocked
     ? "Live camera is blocked outside a trusted HTTPS secure context. Use a trusted HTTPS URL for live kiosk mode, or use Capture/Upload Photo."
@@ -329,9 +335,9 @@ export default function KioskPage() {
                       ? "Unknown Organization"
                       : "Loading organization...")}
               </h1>
-              {branchId ? (
+              {classId ? (
                 <p className="mt-1 text-sm text-slate-500">
-                  Branch #{branchId}
+                  Class #{classId}
                 </p>
               ) : null}
             </div>
@@ -394,7 +400,7 @@ export default function KioskPage() {
             ) : (
               <div className="flex aspect-video items-center justify-center p-8 text-center text-slate-300">
                 Missing kiosk configuration. Open this page with
-                /kiosk?key=[API_KEY]&branch=[BRANCH_ID].
+                /kiosk?key=[API_KEY]&class_id=[CLASS_ID].
               </div>
             )}
           </div>

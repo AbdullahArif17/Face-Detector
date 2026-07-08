@@ -158,7 +158,7 @@ async def send_test_whatsapp(
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Phone must be 12 digits starting with 92",
+            detail="Phone must be Pakistan format, for example 923001234567 or 03001234567",
         ) from exc
     result = await send_text_message(
         phone_number_id=phone_number_id,

@@ -41,7 +41,11 @@ class SchoolSettingsResponse(BaseModel):
     school_logo: str | None
     absent_alert_time: str
     whatsapp_token_configured: bool
+    whatsapp_school_token_configured: bool = False
+    whatsapp_default_token_configured: bool = False
+    whatsapp_uses_default_credentials: bool = False
     whatsapp_phone_id: str | None
+    whatsapp_effective_phone_id: str | None = None
 
 
 class SchoolSettingsUpdate(BaseModel):

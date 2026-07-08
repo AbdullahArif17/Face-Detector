@@ -260,6 +260,24 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: Demo School admin row exists in Neon, `admin123` matches the existing hash locally, wrong passwords are rejected locally, new hashes verify correctly, backend imports successfully, and frontend production proxy `/api/backend/health` still returns 500 until frontend `BACKEND_INTERNAL_URL` is fixed/redeployed.
 - Pending: Commit/push backend fix, redeploy backend, set/redeploy frontend `BACKEND_INTERNAL_URL=https://face-detector-k4dl.vercel.app`, then retest production login.
 
+## 2026-07-07 - Post-deploy production check
+- Completed: Checked deployed backend, AI service, frontend login page, direct backend demo login, and frontend proxy login.
+- Changed: No code changes.
+- Verified: Backend `/health` returns ok, HuggingFace AI `/health` returns ArcFace/RetinaFace, frontend `/login` loads, and direct backend `Demo School / admin@demo.com / admin123` login returns a bearer token.
+- Pending: Frontend proxy is still failing: `https://face-detector-seven.vercel.app/api/backend/health` returns 500, so frontend Vercel needs `BACKEND_INTERNAL_URL=https://face-detector-k4dl.vercel.app` set in Production and then redeployed.
+
+## 2026-07-08 - Frontend production proxy verified
+- Completed: Rechecked the deployed frontend proxy after frontend redeploy/env update.
+- Changed: No code changes.
+- Verified: `https://face-detector-seven.vercel.app/api/backend/health` returns ok, demo login through the frontend proxy returns a bearer token, and direct backend demo login still returns a bearer token.
+- Pending: Log into the mobile browser again and verify the Students page loads authenticated data from localStorage; unauthenticated `/students` API calls correctly return 401.
+
+## 2026-07-08 - Dashboard WhatsApp defaults and class terminology
+- Completed: Improved the Dashboard and Settings pages for admin visibility into attendance, face enrollment, and WhatsApp readiness.
+- Changed: Settings now shows when the admin account is using default backend WhatsApp credentials, kiosk URLs now use `class_id`, the kiosk displays Class instead of Branch, frontend attendance calls send `class_id`, and backend attendance endpoints accept `class_id` while preserving legacy `branch_id` compatibility.
+- Verified: Backend compile/import passes, frontend typecheck/lint pass, and a backend schema smoke test confirms `class_id` request bodies plus Pakistan `03...` phone normalization.
+- Pending: Redeploy backend and frontend, then test Settings -> Test WhatsApp with a confirmed Pakistan-format recipient number.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

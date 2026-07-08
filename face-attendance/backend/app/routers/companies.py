@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.dependencies import get_company_by_api_key, normalize_role, require_role
 from app.models.company import Company
@@ -16,6 +17,7 @@ from app.schemas.company import (
     SchoolSettingsResponse,
     SchoolSettingsUpdate,
 )
+from app.services.whatsapp import is_configured_secret, is_configured_value
 
 router = APIRouter(prefix="/companies", tags=["companies"])
 
@@ -35,13 +37,35 @@ def ensure_company_access(current_user: User, company_id: int) -> None:
 
 
 def build_school_settings_response(company: Company) -> SchoolSettingsResponse:
+    school_token_configured = is_configured_secret(company.whatsapp_token)
+    default_token_configured = is_configured_secret(settings.meta_whatsapp_token)
+    school_phone_id_configured = is_configured_value(company.whatsapp_phone_id)
+    default_phone_id_configured = is_configured_value(settings.meta_phone_number_id)
+    effective_phone_id = (
+        company.whatsapp_phone_id
+        if school_phone_id_configured
+        else settings.meta_phone_number_id
+        if default_phone_id_configured
+        else None
+    )
+    uses_default_credentials = (
+        not school_token_configured
+        and default_token_configured
+    ) or (
+        not school_phone_id_configured
+        and default_phone_id_configured
+    )
     return SchoolSettingsResponse(
         company_id=company.id,
         school_phone=company.school_phone,
         school_logo=company.school_logo,
         absent_alert_time=company.absent_alert_time,
-        whatsapp_token_configured=bool(company.whatsapp_token),
+        whatsapp_token_configured=school_token_configured or default_token_configured,
+        whatsapp_school_token_configured=school_token_configured,
+        whatsapp_default_token_configured=default_token_configured,
+        whatsapp_uses_default_credentials=uses_default_credentials,
         whatsapp_phone_id=company.whatsapp_phone_id,
+        whatsapp_effective_phone_id=effective_phone_id,
     )
 
 

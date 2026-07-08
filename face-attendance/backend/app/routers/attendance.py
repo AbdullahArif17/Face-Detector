@@ -88,6 +88,27 @@ def working_hours(check_in: datetime | None, check_out: datetime | None) -> str:
     return f"{hours}h {minutes}m"
 
 
+def resolve_class_query(
+    *,
+    class_id: int | None,
+    branch_id: int | None,
+    required: bool = False,
+) -> int | None:
+    """Accept public `class_id` while preserving legacy `branch_id` URLs."""
+    if class_id is not None and branch_id is not None and class_id != branch_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="class_id and branch_id must match when both are provided",
+        )
+    resolved_class_id = class_id if class_id is not None else branch_id
+    if required and resolved_class_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="class_id is required",
+        )
+    return resolved_class_id
+
+
 def get_check_in_status(check_in: datetime) -> str:
     shift_deadline = datetime.combine(
         check_in.date(),
@@ -112,6 +133,7 @@ def build_dashboard_record(
         grade=student.grade,
         section=student.section,
         branch_id=student.class_id,
+        class_id=student.class_id,
         check_in=attendance.check_in if attendance is not None else None,
         check_out=attendance.check_out if attendance is not None else None,
         status=attendance.status if attendance is not None else "absent",
@@ -188,7 +210,9 @@ def build_attendance_session_read(
         id=attendance_session.id,
         company_id=attendance_session.company_id,
         branch_id=attendance_session.branch_id,
+        class_id=attendance_session.branch_id,
         branch_name=branch.name if branch is not None else None,
+        class_name=branch.name if branch is not None else None,
         status=attendance_session.status,
         started_by_id=attendance_session.started_by_id,
         stopped_by_id=attendance_session.stopped_by_id,
@@ -291,6 +315,7 @@ def schedule_attendance_notification(
 
 @router.get("/sessions", response_model=list[AttendanceSessionRead])
 async def list_attendance_sessions(
+    class_id: int | None = Query(default=None, gt=0),
     branch_id: int | None = Query(default=None, gt=0),
     status_filter: str | None = Query(default=None, alias="status"),
     page: int = Query(1, ge=1),
@@ -300,6 +325,7 @@ async def list_attendance_sessions(
         require_role("super_admin", "admin", "hr", "branch_manager", "viewer"),
     ),
 ) -> list[AttendanceSessionRead]:
+    selected_class_id = resolve_class_query(class_id=class_id, branch_id=branch_id)
     offset = (page - 1) * per_page
     query = (
         select(AttendanceSession, Branch)
@@ -309,8 +335,8 @@ async def list_attendance_sessions(
         .offset(offset)
         .limit(per_page)
     )
-    if branch_id is not None:
-        query = query.where(AttendanceSession.branch_id == branch_id)
+    if selected_class_id is not None:
+        query = query.where(AttendanceSession.branch_id == selected_class_id)
     if status_filter:
         query = query.where(AttendanceSession.status == status_filter)
 
@@ -323,24 +349,31 @@ async def list_attendance_sessions(
 
 @router.get("/sessions/active", response_model=AttendanceSessionStatus)
 async def get_active_session_status(
-    branch_id: int = Query(gt=0),
+    class_id: int | None = Query(default=None, gt=0),
+    branch_id: int | None = Query(default=None, gt=0),
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(
         require_role("super_admin", "admin", "hr", "branch_manager", "viewer"),
     ),
 ) -> AttendanceSessionStatus:
+    selected_class_id = resolve_class_query(
+        class_id=class_id,
+        branch_id=branch_id,
+        required=True,
+    )
     branch = await get_company_branch(
         session,
         company_id=current_user.company_id,
-        branch_id=branch_id,
+        branch_id=selected_class_id,
     )
     active_session = await get_active_attendance_session(
         session,
         company_id=current_user.company_id,
-        branch_id=branch_id,
+        branch_id=selected_class_id,
     )
     return AttendanceSessionStatus(
-        branch_id=branch_id,
+        branch_id=selected_class_id,
+        class_id=selected_class_id,
         active_session=build_attendance_session_read(active_session, branch)
         if active_session is not None
         else None,
@@ -357,15 +390,16 @@ async def start_attendance_session(
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("super_admin", "admin", "hr", "branch_manager")),
 ) -> AttendanceSessionRead:
+    selected_class_id = payload.resolved_class_id
     branch = await get_company_branch(
         session,
         company_id=current_user.company_id,
-        branch_id=payload.branch_id,
+        branch_id=selected_class_id,
     )
     existing_session = await get_active_attendance_session(
         session,
         company_id=current_user.company_id,
-        branch_id=payload.branch_id,
+        branch_id=selected_class_id,
     )
     if existing_session is not None:
         raise HTTPException(
@@ -375,7 +409,7 @@ async def start_attendance_session(
 
     attendance_session = AttendanceSession(
         company_id=current_user.company_id,
-        branch_id=payload.branch_id,
+        branch_id=selected_class_id,
         started_by_id=current_user.id,
         status="active",
     )
@@ -425,15 +459,16 @@ async def auto_mark_attendance(
     session: AsyncSession = Depends(get_db),
     company: Company = Depends(get_company_by_api_key),
 ) -> AttendanceAutoMarkResponse:
+    selected_class_id = payload.resolved_class_id
     await get_company_branch(
         session,
         company_id=company.id,
-        branch_id=payload.branch_id,
+        branch_id=selected_class_id,
     )
     active_session = await get_active_attendance_session(
         session,
         company_id=company.id,
-        branch_id=payload.branch_id,
+        branch_id=selected_class_id,
     )
     if active_session is None:
         return AttendanceAutoMarkResponse(
@@ -447,7 +482,7 @@ async def auto_mark_attendance(
         .join(FaceEmbedding, FaceEmbedding.student_id == Student.id)
         .where(
             Student.school_id == company.id,
-            Student.class_id == payload.branch_id,
+            Student.class_id == selected_class_id,
             Student.status == "active",
         ),
     )
@@ -617,12 +652,14 @@ async def auto_mark_attendance(
 
 @router.get("/today", response_model=list[AttendanceDashboardRecord])
 async def get_today_attendance(
+    class_id: int | None = Query(default=None, gt=0),
     branch_id: int | None = Query(default=None, gt=0),
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(
         require_role("super_admin", "admin", "hr", "branch_manager", "viewer"),
     ),
 ) -> list[AttendanceDashboardRecord]:
+    selected_class_id = resolve_class_query(class_id=class_id, branch_id=branch_id)
     start, end = today_bounds()
     today = start.date()
     students_query = (
@@ -633,8 +670,8 @@ async def get_today_attendance(
         )
         .order_by(Student.student_name)
     )
-    if branch_id is not None:
-        students_query = students_query.where(Student.class_id == branch_id)
+    if selected_class_id is not None:
+        students_query = students_query.where(Student.class_id == selected_class_id)
 
     students = list((await session.execute(students_query)).scalars().all())
     attendance_result = await session.execute(
@@ -664,6 +701,7 @@ async def get_attendance_history(
     start_date: date | None = None,
     end_date: date | None = None,
     student_id: int | None = Query(default=None, gt=0),
+    class_id: int | None = Query(default=None, gt=0),
     branch_id: int | None = Query(default=None, gt=0),
     page: int = Query(1, ge=1),
     per_page: int = Query(25, ge=1, le=100),
@@ -672,6 +710,7 @@ async def get_attendance_history(
         require_role("super_admin", "admin", "hr", "branch_manager", "viewer"),
     ),
 ) -> list[AttendanceDashboardRecord]:
+    selected_class_id = resolve_class_query(class_id=class_id, branch_id=branch_id)
     end_date = end_date or datetime.now(timezone.utc).date()
     start_date = start_date or (end_date - timedelta(days=30))
     if start_date > end_date:
@@ -696,8 +735,8 @@ async def get_attendance_history(
     )
     if student_id is not None:
         query = query.where(Attendance.student_id == student_id)
-    if branch_id is not None:
-        query = query.where(Student.class_id == branch_id)
+    if selected_class_id is not None:
+        query = query.where(Student.class_id == selected_class_id)
 
     result = await session.execute(query)
     return [
@@ -711,17 +750,20 @@ async def export_attendance_history(
     start_date: date | None = None,
     end_date: date | None = None,
     student_id: int | None = Query(default=None, gt=0),
+    class_id: int | None = Query(default=None, gt=0),
     branch_id: int | None = Query(default=None, gt=0),
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(
         require_role("super_admin", "admin", "hr", "branch_manager", "viewer"),
     ),
 ) -> StreamingResponse:
+    selected_class_id = resolve_class_query(class_id=class_id, branch_id=branch_id)
     records = await get_attendance_history(
         start_date=start_date,
         end_date=end_date,
         student_id=student_id,
-        branch_id=branch_id,
+        class_id=selected_class_id,
+        branch_id=None,
         page=1,
         per_page=100,
         session=session,

@@ -8,11 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
 import { canManageKiosk } from "@/lib/permissions";
+import { cn } from "@/lib/utils";
 import {
   getCompanyApiKey,
   getSchoolSettings,
   regenerateCompanyApiKey,
   sendWhatsappTest,
+  type SchoolSettings,
   updateSchoolSettings,
 } from "@/lib/api";
 
@@ -74,7 +76,10 @@ async function copyToClipboard(text: string): Promise<boolean> {
 export default function SettingsPage() {
   const { user } = useAuth();
   const [apiKey, setApiKey] = useState<string | null>(null);
-  const [branchId, setBranchId] = useState("1");
+  const [classId, setClassId] = useState("1");
+  const [schoolSettings, setSchoolSettings] = useState<SchoolSettings | null>(
+    null,
+  );
   const [showKey, setShowKey] = useState(false);
   const [schoolPhone, setSchoolPhone] = useState("");
   const [absentAlertTime, setAbsentAlertTime] = useState("09:00");
@@ -112,6 +117,7 @@ export default function SettingsPage() {
           setSchoolPhone(settingsResponse.school_phone ?? "");
           setAbsentAlertTime(settingsResponse.absent_alert_time);
           setWhatsappPhoneId(settingsResponse.whatsapp_phone_id ?? "");
+          setSchoolSettings(settingsResponse);
           setHasError(false);
         }
       } catch {
@@ -142,15 +148,15 @@ export default function SettingsPage() {
     if (!apiKey || typeof window === "undefined") {
       return "";
     }
-    const normalizedBranch = branchId.trim() || "1";
+    const normalizedClass = classId.trim() || "1";
     const baseUrl = getKioskBaseUrl();
     if (!baseUrl) {
       return "";
     }
     return `${baseUrl}/kiosk?key=${encodeURIComponent(
       apiKey,
-    )}&branch=${encodeURIComponent(normalizedBranch)}`;
-  }, [apiKey, branchId]);
+    )}&class_id=${encodeURIComponent(normalizedClass)}`;
+  }, [apiKey, classId]);
 
   async function handleCopyKioskUrl(): Promise<void> {
     if (!kioskUrl) {
@@ -206,6 +212,7 @@ export default function SettingsPage() {
       setSchoolPhone(response.school_phone ?? "");
       setAbsentAlertTime(response.absent_alert_time);
       setWhatsappPhoneId(response.whatsapp_phone_id ?? "");
+      setSchoolSettings(response);
       setWhatsappToken("");
       setToastMessage("School WhatsApp settings saved");
     } catch {
@@ -231,7 +238,11 @@ export default function SettingsPage() {
           ? "Test WhatsApp message sent"
           : `Test failed: ${result.error ?? "Unknown error"}`,
       );
-    } catch {
+    } catch (error) {
+      const detail =
+        (error as { response?: { data?: { detail?: string } } }).response?.data
+          ?.detail ?? "Unable to send test WhatsApp message.";
+      setToastMessage(`Test failed: ${detail}`);
       setHasError(true);
     } finally {
       setIsTestingWhatsapp(false);
@@ -271,6 +282,23 @@ export default function SettingsPage() {
           </p>
         ) : (
           <div className="mt-6 grid gap-5">
+            {schoolSettings ? (
+              <p
+                className={cn(
+                  "rounded-md border px-3 py-2 text-sm",
+                  schoolSettings.whatsapp_token_configured
+                    ? "border-green-200 bg-green-50 text-green-800"
+                    : "border-amber-200 bg-amber-50 text-amber-800",
+                )}
+              >
+                {schoolSettings.whatsapp_token_configured
+                  ? schoolSettings.whatsapp_uses_default_credentials
+                    ? "WhatsApp is ready using the default backend token and phone number ID. Admins can leave the school-specific fields blank."
+                    : "WhatsApp is ready using this school's configured credentials."
+                  : "WhatsApp is not configured. Add school credentials here or configure default backend credentials."}
+              </p>
+            ) : null}
+
             <div className="grid gap-2">
               <label className="text-sm font-medium" htmlFor="whatsapp-token">
                 WhatsApp Access Token
@@ -382,7 +410,7 @@ export default function SettingsPage() {
           <div>
             <h2 className="text-xl font-semibold">Kiosk Setup</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Use this key to run a branch attendance kiosk without JWT login.
+              Use this key to run a class attendance kiosk without JWT login.
             </p>
           </div>
           <Button
@@ -439,14 +467,14 @@ export default function SettingsPage() {
             </div>
 
             <div className="grid gap-2">
-              <label className="text-sm font-medium" htmlFor="kiosk-branch">
-                Branch ID
+              <label className="text-sm font-medium" htmlFor="kiosk-class">
+                Class ID
               </label>
               <Input
-                id="kiosk-branch"
+                id="kiosk-class"
                 inputMode="numeric"
-                value={branchId}
-                onChange={(event) => setBranchId(event.target.value)}
+                value={classId}
+                onChange={(event) => setClassId(event.target.value)}
                 placeholder="1"
               />
             </div>

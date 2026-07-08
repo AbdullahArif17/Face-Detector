@@ -138,6 +138,7 @@ export interface AttendanceDashboardRecord {
   grade: string;
   section: string;
   branch_id: number;
+  class_id: number;
   check_in: string | null;
   check_out: string | null;
   status: string;
@@ -176,7 +177,9 @@ export interface AttendanceSession {
   id: number;
   company_id: number;
   branch_id: number;
+  class_id: number;
   branch_name: string | null;
+  class_name: string | null;
   status: "active" | "stopped" | string;
   started_by_id: number;
   stopped_by_id: number | null;
@@ -187,6 +190,7 @@ export interface AttendanceSession {
 
 export interface AttendanceSessionStatus {
   branch_id: number;
+  class_id: number;
   active_session: AttendanceSession | null;
 }
 
@@ -241,7 +245,11 @@ export interface SchoolSettings {
   school_logo: string | null;
   absent_alert_time: string;
   whatsapp_token_configured: boolean;
+  whatsapp_school_token_configured: boolean;
+  whatsapp_default_token_configured: boolean;
+  whatsapp_uses_default_credentials: boolean;
   whatsapp_phone_id: string | null;
+  whatsapp_effective_phone_id: string | null;
 }
 
 export interface SchoolSettingsInput {
@@ -515,23 +523,25 @@ export async function getAllAttendance(): Promise<AttendanceRecord[]> {
 }
 
 export async function getAttendanceToday(
-  branchId?: number,
+  classId?: number,
 ): Promise<AttendanceDashboardRecord[]> {
   const response = await api.get<AttendanceDashboardRecord[]>("/attendance/today", {
-    params: branchId ? { branch_id: branchId } : undefined,
+    params: classId ? { class_id: classId } : undefined,
   });
   return response.data;
 }
 
 export async function getAttendanceSessions(options: {
+  classId?: number;
   branchId?: number;
   status?: string;
   page?: number;
   perPage?: number;
 } = {}): Promise<AttendanceSession[]> {
+  const classId = options.classId ?? options.branchId;
   const response = await api.get<AttendanceSession[]>("/attendance/sessions", {
     params: {
-      branch_id: options.branchId || undefined,
+      class_id: classId || undefined,
       status: options.status || undefined,
       page: options.page ?? 1,
       per_page: options.perPage ?? API_PAGE_SIZE,
@@ -541,21 +551,21 @@ export async function getAttendanceSessions(options: {
 }
 
 export async function getActiveAttendanceSession(
-  branchId: number,
+  classId: number,
 ): Promise<AttendanceSessionStatus> {
   const response = await api.get<AttendanceSessionStatus>(
     "/attendance/sessions/active",
-    { params: { branch_id: branchId } },
+    { params: { class_id: classId } },
   );
   return response.data;
 }
 
 export async function startAttendanceSession(
-  branchId: number,
+  classId: number,
 ): Promise<AttendanceSession> {
   const response = await api.post<AttendanceSession>(
     "/attendance/sessions/start",
-    { branch_id: branchId },
+    { class_id: classId },
   );
   return response.data;
 }
@@ -574,6 +584,7 @@ interface AttendanceHistoryOptions {
   endDate?: string;
   studentId?: number;
   employeeId?: number;
+  classId?: number;
   branchId?: number;
   page?: number;
   perPage?: number;
@@ -582,6 +593,7 @@ interface AttendanceHistoryOptions {
 export async function getAttendanceHistory(
   options: AttendanceHistoryOptions = {},
 ): Promise<AttendanceDashboardRecord[]> {
+  const classId = options.classId ?? options.branchId;
   const response = await api.get<AttendanceDashboardRecord[]>(
     "/attendance/history",
     {
@@ -589,7 +601,7 @@ export async function getAttendanceHistory(
         start_date: options.startDate || undefined,
         end_date: options.endDate || undefined,
         student_id: options.studentId ?? options.employeeId ?? undefined,
-        branch_id: options.branchId || undefined,
+        class_id: classId || undefined,
         page: options.page ?? 1,
         per_page: options.perPage ?? API_PAGE_SIZE,
       },
@@ -601,12 +613,13 @@ export async function getAttendanceHistory(
 export async function exportAttendanceHistory(
   options: AttendanceHistoryOptions = {},
 ): Promise<Blob> {
+  const classId = options.classId ?? options.branchId;
   const response = await api.get<Blob>("/attendance/export", {
     params: {
       start_date: options.startDate || undefined,
       end_date: options.endDate || undefined,
       student_id: options.studentId ?? options.employeeId ?? undefined,
-      branch_id: options.branchId || undefined,
+      class_id: classId || undefined,
     },
     responseType: "blob",
   });
@@ -615,12 +628,12 @@ export async function exportAttendanceHistory(
 
 export async function autoMarkAttendance(
   apiKey: string,
-  branchId: number,
+  classId: number,
   image: string,
 ): Promise<KioskAttendanceResult> {
   const response = await publicApi.post<KioskAttendanceResult>(
     "/attendance/auto-mark",
-    { image, branch_id: branchId },
+    { image, class_id: classId },
     { headers: { "X-API-Key": apiKey } },
   );
   return response.data;

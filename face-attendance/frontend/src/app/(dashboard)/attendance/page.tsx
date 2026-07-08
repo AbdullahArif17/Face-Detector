@@ -23,7 +23,7 @@ import {
 type AttendanceTab = "today" | "history";
 
 interface ClassOption {
-  branchId: number;
+  classId: number;
   label: string;
 }
 
@@ -182,7 +182,7 @@ export default function AttendancePage() {
         studentId: selectedStudentId
           ? Number.parseInt(selectedStudentId, 10)
           : undefined,
-        branchId: selectedClassId
+        classId: selectedClassId
           ? Number.parseInt(selectedClassId, 10)
           : undefined,
       });
@@ -200,7 +200,7 @@ export default function AttendancePage() {
     for (const student of students) {
       if (!classesById.has(student.class_id)) {
         classesById.set(student.class_id, {
-          branchId: student.class_id,
+          classId: student.class_id,
           label: `${student.grade}-${student.section}`,
         });
       }
@@ -296,6 +296,9 @@ export default function AttendancePage() {
         endDate,
         studentId: selectedStudentId
           ? Number.parseInt(selectedStudentId, 10)
+          : undefined,
+        classId: selectedClassId
+          ? Number.parseInt(selectedClassId, 10)
           : undefined,
       });
       const url = window.URL.createObjectURL(blob);
@@ -411,7 +414,7 @@ export default function AttendancePage() {
             >
               <option value="">Select class</option>
               {classOptions.map((classOption) => (
-                <option key={classOption.branchId} value={classOption.branchId}>
+                <option key={classOption.classId} value={classOption.classId}>
                   {classOption.label}
                 </option>
               ))}

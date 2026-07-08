@@ -1,6 +1,6 @@
 # Project Context
 
-Last updated: 2026-07-07
+Last updated: 2026-07-08
 
 ## Project
 - Name: Face Attendance
@@ -22,12 +22,12 @@ Last updated: 2026-07-07
 - Frontend dependencies are installed with Axios, AuthContext, signup/login flows, protected dashboard routes, and authenticated data requests.
 - Frontend Phase 3 includes employee search/filter/table management, add/edit employee modal with optional face-photo enrollment and retry-on-failure handling, enrolled-state-aware face enrollment/update UI, webcam or uploaded-photo face enrollment modal, enrollment-focused dashboard stats, and employee headshot display.
 - Frontend Phase 4 includes a standalone `/kiosk` webcam page using company API-key auth and displaying organization name, `/users` portal user management with deactivate/reactivate actions, `/attendance` Today/History tabs, conditional Users sidebar link, and `/settings` kiosk API-key setup.
-- Frontend Phase 5 includes `/students`, `/notifications`, student-focused dashboard/attendance/kiosk views, WhatsApp configuration in Settings, masked parent phone displays, CSV student import, student face enrollment, and per-student WhatsApp logs.
+- Frontend Phase 5 includes `/students`, `/notifications`, student-focused dashboard/attendance/kiosk views, WhatsApp configuration/status in Settings, masked parent phone displays, CSV student import, student face enrollment, and per-student WhatsApp logs.
 - Frontend mobile responsiveness includes a dashboard mobile top bar and slide-out navigation drawer, mobile-safe page spacing/headings, horizontally scrollable data tables with minimum widths, stacked modal action buttons, and phone-friendly kiosk layout.
 - Mobile local HTTP testing cannot use live `getUserMedia` camera or modern Clipboard API reliably because phone browsers require trusted HTTPS secure contexts; kiosk has a `Capture/Upload Photo` fallback for local HTTP testing. True live mobile kiosk scanning should use a trusted HTTPS frontend URL with `NEXT_PUBLIC_API_URL=/api/backend` and `BACKEND_INTERNAL_URL` pointing to the local FastAPI backend so browser requests stay same-origin.
 - Backend Phase 4 includes `/users`, `/users/{id}/activate`, company API-key retrieval/regeneration, `/companies/kiosk-info`, `/attendance/auto-mark`, `/attendance/today`, `/attendance/history`, and `/attendance/export`.
-- Backend Phase 5 includes `students`, `whatsapp_logs`, `attendance.student_id`, WhatsApp school settings on companies, `/students`, `/students/import`, `/whatsapp/logs`, `/whatsapp/stats`, `/whatsapp/test`, `/whatsapp/retry-failed`, Vercel Cron-triggered absent alerts, Meta WhatsApp webhook verification/status callbacks at `/webhooks/whatsapp`, and optional template-based WhatsApp sends.
-- Backend now supports class-wise attendance sessions with `attendance_sessions`, `attendance.session_id`, `/attendance/sessions`, `/attendance/sessions/active`, `/attendance/sessions/start`, and `/attendance/sessions/{id}/stop`; kiosk auto-marking requires an active session for the requested class/branch.
+- Backend Phase 5 includes `students`, `whatsapp_logs`, `attendance.student_id`, WhatsApp school settings with global fallback credentials on companies, `/students`, `/students/import`, `/whatsapp/logs`, `/whatsapp/stats`, `/whatsapp/test`, `/whatsapp/retry-failed`, Vercel Cron-triggered absent alerts, Meta WhatsApp webhook verification/status callbacks at `/webhooks/whatsapp`, and optional template-based WhatsApp sends.
+- Backend now supports class-wise attendance sessions with `attendance_sessions`, `attendance.session_id`, `/attendance/sessions`, `/attendance/sessions/active`, `/attendance/sessions/start`, and `/attendance/sessions/{id}/stop`; public attendance/kiosk requests use `class_id` while legacy `branch_id` remains accepted for compatibility, and kiosk auto-marking requires an active session for the requested class.
 - Portal login is tenant-aware: users must enter the exact organization/school name, email, and password; `/auth/login` validates the user against an active matching company record before issuing a JWT.
 - Portal user email uniqueness is tenant-scoped: the same email address may belong to multiple organizations, but each organization can only have one active user row for that email.
 - Portal user management uses soft deactivation for reversible access removal, supports reactivation, supports admin password reset from Edit User, and provides a separate permanent removal action for user rows that are not referenced by historical records. Creating a user with an inactive same-organization email reactivates and updates that existing row.
@@ -38,8 +38,9 @@ Last updated: 2026-07-07
 - `python -m app.reset_demo_data` resets the development database to one clean Demo School tenant, one demo admin, 3 classes, 8 students, today's attendance rows, and no face embeddings so real ArcFace enrollments can be added.
 - This workstation uses backend port 8004 through `frontend/.env.local` because orphaned/stale Windows listeners occupy ports 8000/8002/8003; project defaults remain port 8000.
 - WhatsApp Cloud API credentials were verified with Meta's built-in template send and the backend `/whatsapp/test` endpoint; both returned accepted/sent message IDs during local testing.
+- WhatsApp Settings and Dashboard now show whether sending is ready through school-specific credentials or default backend Meta credentials. Phone validation accepts Pakistan `92...` and local `03...` formats.
 - HuggingFace AI service is deployed at `https://abdullah017-face-attendance-ai.hf.space`; `/health` reports ArcFace with RetinaFace.
-- Deployed backend at `https://face-detector-k4dl.vercel.app` passes `/health`, verifies Meta webhook challenge at `/webhooks/whatsapp`, and rejects `/api/cron/absent-alerts` when called with an invalid cron bearer token.
+- Deployed backend at `https://face-detector-k4dl.vercel.app` passes `/health`, verifies Meta webhook challenge at `/webhooks/whatsapp`, rejects `/api/cron/absent-alerts` when called with an invalid cron bearer token, and accepts the demo login.
 - Production login previously returned 500 for existing users because password verification crashed in the production runtime; backend password hashing/verification now uses direct `bcrypt` instead of Passlib.
 - For same-Wi-Fi mobile testing, this workstation uses LAN IP `192.168.0.116`; point the frontend API/proxy to the active backend port, backend `FRONTEND_ORIGINS` includes `http://192.168.0.116:3000`, and dev servers must be started with host `0.0.0.0`.
 
@@ -99,9 +100,9 @@ Last updated: 2026-07-07
 - Demo login uses organization `Demo School`, email `admin@demo.com`, and password `admin123`.
 - If a portal user cannot log in after being "deleted", check `/users`: soft-deactivated accounts must be activated or permanently removed before reuse.
 - Frontend uses `NEXT_PUBLIC_API_URL` from `frontend/.env.local`.
-- Production frontend proxy requires `BACKEND_INTERNAL_URL=https://face-detector-k4dl.vercel.app`; `/api/backend/health` returning 500 means that Vercel env is missing/wrong or the frontend has not been redeployed.
+- Production frontend proxy requires `BACKEND_INTERNAL_URL=https://face-detector-k4dl.vercel.app`; deployed proxy health and demo login through `https://face-detector-seven.vercel.app/api/backend/*` now pass.
 - On this workstation, start the backend on port 8004 or restore `.env.local` to port 8000 after clearing the orphaned/stale listeners.
-- Kiosk URLs are created from Settings and use `/kiosk?key=[company_api_key]&branch=[class_id]`; the kiosk uses `X-API-Key`, not JWT.
+- Kiosk URLs are created from Settings and use `/kiosk?key=[company_api_key]&class_id=[class_id]`; old `/kiosk?...&branch=[class_id]` URLs remain accepted. The kiosk uses `X-API-Key`, not JWT.
 - Before using a kiosk URL for a class, an admin/HR/branch manager must open `/attendance`, select the class, and start that class attendance session; stopping the session blocks additional kiosk marks for that class.
 - WhatsApp credentials can be configured per school in Settings or via global fallback `META_WHATSAPP_TOKEN` and `META_PHONE_NUMBER_ID`; real tokens must not be stored in repository memory.
 - Meta WhatsApp webhook verification uses `META_WEBHOOK_VERIFY_TOKEN` and callback URL `/webhooks/whatsapp`.
