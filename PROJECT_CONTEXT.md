@@ -42,6 +42,7 @@ Last updated: 2026-07-08
 - HuggingFace AI service is deployed at `https://abdullah017-face-attendance-ai.hf.space`; `/health` reports ArcFace with RetinaFace.
 - Deployed backend at `https://face-detector-k4dl.vercel.app` passes `/health`, verifies Meta webhook challenge at `/webhooks/whatsapp`, rejects `/api/cron/absent-alerts` when called with an invalid cron bearer token, and accepts the demo login.
 - Production login previously returned 500 for existing users because password verification crashed in the production runtime; backend password hashing/verification now uses direct `bcrypt` instead of Passlib.
+- Frontend production proxy buffers upstream backend responses before returning them; direct response streaming returned empty bodies for some JSON endpoints such as `/students` on Vercel.
 - For same-Wi-Fi mobile testing, this workstation uses LAN IP `192.168.0.116`; point the frontend API/proxy to the active backend port, backend `FRONTEND_ORIGINS` includes `http://192.168.0.116:3000`, and dev servers must be started with host `0.0.0.0`.
 
 ## Working Assumptions

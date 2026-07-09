@@ -4,7 +4,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const HOP_BY_HOP_HEADERS = new Set([
+  "accept-encoding",
   "connection",
+  "content-encoding",
   "content-length",
   "expect",
   "host",
@@ -59,8 +61,9 @@ async function proxyBackendRequest(request: NextRequest): Promise<Response> {
     body: hasBody ? await request.arrayBuffer() : undefined,
     cache: "no-store",
   });
+  const responseBody = await upstreamResponse.arrayBuffer();
 
-  return new Response(upstreamResponse.body, {
+  return new Response(responseBody, {
     status: upstreamResponse.status,
     statusText: upstreamResponse.statusText,
     headers: getProxyHeaders(upstreamResponse.headers),

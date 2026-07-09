@@ -278,6 +278,12 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: Backend compile/import passes, frontend typecheck/lint pass, and a backend schema smoke test confirms `class_id` request bodies plus Pakistan `03...` phone normalization.
 - Pending: Redeploy backend and frontend, then test Settings -> Test WhatsApp with a confirmed Pakistan-format recipient number.
 
+## 2026-07-09 - Frontend proxy empty-body fix
+- Completed: Diagnosed the Students page backend-data error as a frontend proxy issue.
+- Changed: The Next.js `/api/backend/*` proxy now buffers upstream backend responses into an `ArrayBuffer` before returning them and strips compression-related headers; the generic API error message no longer hardcodes port 8000.
+- Verified: Deployed direct backend `/students` returned student JSON, deployed frontend proxy `/api/backend/students` returned an empty body before the fix, and frontend typecheck/lint pass locally after the proxy patch.
+- Pending: Commit, push, wait for frontend Vercel redeploy, then retest `/api/backend/students` through the deployed frontend.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title
