@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +22,7 @@ import { getApiErrorMessage } from "@/lib/errors";
 
 const grades = Array.from({ length: 12 }, (_, index) => `Class ${index + 1}`);
 const sections = ["A", "B", "C", "D"];
+const MAX_UPLOAD_BYTES = 2_000_000;
 
 interface AddStudentModalProps {
   open: boolean;
@@ -35,7 +36,23 @@ function getErrorMessage(error: unknown): string {
 }
 
 function isValidParentPhone(phone: string): boolean {
-  return /^92\d{10}$/.test(phone);
+  const normalized = phone.trim().replace(/[\s\-()+]/g, "");
+  return /^92\d{10}$/.test(normalized) || /^03\d{9}$/.test(normalized);
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+      reject(new Error("Unable to read image file."));
+    };
+    reader.onerror = () => reject(new Error("Unable to read image file."));
+    reader.readAsDataURL(file);
+  });
 }
 
 export function AddStudentModal({
@@ -44,6 +61,7 @@ export function AddStudentModal({
   onOpenChange,
   onSaved,
 }: AddStudentModalProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [studentName, setStudentName] = useState(student?.student_name ?? "");
   const [studentCode, setStudentCode] = useState(student?.student_code ?? "");
   const [grade, setGrade] = useState(student?.grade ?? "Class 1");
@@ -51,9 +69,38 @@ export function AddStudentModal({
   const [parentName, setParentName] = useState(student?.parent_name ?? "");
   const [parentPhone, setParentPhone] = useState(student?.parent_phone ?? "");
   const [parentPhone2, setParentPhone2] = useState(student?.parent_phone_2 ?? "");
+  const [profileImage, setProfileImage] = useState<string | null>(
+    student?.profile_image ?? null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isEditing = student !== null;
+
+  async function handleImageUpload(
+    event: ChangeEvent<HTMLInputElement>,
+  ): Promise<void> {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      setError("Upload a valid image file.");
+      return;
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setError("Image is too large. Use an image under 2 MB.");
+      return;
+    }
+
+    try {
+      setProfileImage(await readFileAsDataUrl(file));
+      setError(null);
+    } catch {
+      setError("Unable to read image file.");
+    }
+  }
 
   async function handleSave(): Promise<void> {
     if (isSubmitting) {
@@ -65,11 +112,11 @@ export function AddStudentModal({
       return;
     }
     if (!isValidParentPhone(parentPhone)) {
-      setError("Parent WhatsApp number format: 923001234567 (with country code).");
+      setError("Parent WhatsApp number format: 923001234567 or 03001234567.");
       return;
     }
     if (parentPhone2.trim() && !isValidParentPhone(parentPhone2.trim())) {
-      setError("Second parent number format: 923001234567 (with country code).");
+      setError("Second parent number format: 923001234567 or 03001234567.");
       return;
     }
 
@@ -81,6 +128,7 @@ export function AddStudentModal({
       parent_name: parentName.trim(),
       parent_phone: parentPhone.trim(),
       parent_phone_2: parentPhone2.trim() || null,
+      profile_image: profileImage,
     };
 
     setIsSubmitting(true);
@@ -100,7 +148,7 @@ export function AddStudentModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit student" : "Add student"}</DialogTitle>
           <DialogDescription>
@@ -127,6 +175,57 @@ export function AddStudentModal({
               onChange={(event) => setStudentCode(event.target.value)}
               placeholder="R-1001"
             />
+          </div>
+
+          <div className="grid gap-2">
+            <Label>Student Photo (optional)</Label>
+            <div className="flex flex-col gap-3 rounded-lg border bg-muted/20 p-3 sm:flex-row sm:items-center">
+              {profileImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  alt="Selected student"
+                  src={profileImage}
+                  className="size-20 rounded-full border bg-background object-cover"
+                />
+              ) : (
+                <div className="flex size-20 items-center justify-center rounded-full border bg-background text-xs font-medium text-muted-foreground">
+                  No photo
+                </div>
+              )}
+              <div className="grid flex-1 gap-2">
+                <p className="text-xs text-muted-foreground">
+                  This image is used as the student profile photo. Use the table&apos;s
+                  Enroll Face action for attendance recognition.
+                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(event) => void handleImageUpload(event)}
+                />
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Upload Photo
+                  </Button>
+                  {profileImage ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full text-red-600 hover:text-red-700 sm:w-auto"
+                      onClick={() => setProfileImage(null)}
+                    >
+                      Remove
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="grid gap-2 sm:grid-cols-2">
@@ -182,7 +281,7 @@ export function AddStudentModal({
               placeholder="923001234567"
             />
             <p className="text-xs text-muted-foreground">
-              Format: 923001234567 (with country code)
+              Format: 923001234567 or 03001234567
             </p>
           </div>
 

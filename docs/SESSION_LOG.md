@@ -284,6 +284,12 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: Deployed direct backend `/students` returned student JSON, deployed frontend proxy `/api/backend/students` returned an empty body before the fix, and frontend typecheck/lint pass locally after the proxy patch.
 - Pending: Commit, push, wait for frontend Vercel redeploy, then retest `/api/backend/students` through the deployed frontend.
 
+## 2026-07-09 - Add student profile photo upload
+- Completed: Added the missing image option to the Add/Edit Student modal.
+- Changed: The modal now supports optional student profile-photo upload, preview, and removal, persists `profile_image` through existing student create/update APIs, and accepts either Pakistan `92...` or local `03...` parent phone formats client-side.
+- Verified: Frontend typecheck and lint pass.
+- Pending: Push and wait for frontend Vercel redeploy, then add a student with a photo in production.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title
