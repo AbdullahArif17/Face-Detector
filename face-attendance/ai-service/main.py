@@ -24,22 +24,29 @@ from deepface import DeepFace  # noqa: E402
 
 from utils import base64_to_image, cosine_similarity  # noqa: E402
 
-RECOGNITION_THRESHOLD = float(os.getenv("RECOGNITION_THRESHOLD", "0.7"))
-RECOGNITION_MARGIN = float(os.getenv("RECOGNITION_MARGIN", "0.05"))
+RECOGNITION_THRESHOLD = float(os.getenv("RECOGNITION_THRESHOLD", "0.58"))
+RECOGNITION_MARGIN = float(os.getenv("RECOGNITION_MARGIN", "0.03"))
 DEEPFACE_MODEL = os.getenv("DEEPFACE_MODEL", "ArcFace")
 DETECTOR_BACKEND = os.getenv("DETECTOR_BACKEND", "retinaface")
+FALLBACK_DETECTOR_BACKENDS = [
+    backend.strip()
+    for backend in os.getenv("FALLBACK_DETECTOR_BACKENDS", "opencv,ssd").split(",")
+    if backend.strip()
+]
 ENABLE_EMBEDDING_AUGMENTATION = (
     os.getenv("ENABLE_EMBEDDING_AUGMENTATION", "true").strip().lower()
     in {"1", "true", "yes", "on"}
 )
-MIN_IMAGE_WIDTH = int(os.getenv("MIN_IMAGE_WIDTH", "180"))
-MIN_IMAGE_HEIGHT = int(os.getenv("MIN_IMAGE_HEIGHT", "180"))
-MIN_FACE_WIDTH = int(os.getenv("MIN_FACE_WIDTH", "70"))
-MIN_FACE_HEIGHT = int(os.getenv("MIN_FACE_HEIGHT", "70"))
-MIN_FACE_AREA_RATIO = float(os.getenv("MIN_FACE_AREA_RATIO", "0.03"))
-MIN_BLUR_SCORE = float(os.getenv("MIN_BLUR_SCORE", "20"))
+MIN_IMAGE_WIDTH = int(os.getenv("MIN_IMAGE_WIDTH", "120"))
+MIN_IMAGE_HEIGHT = int(os.getenv("MIN_IMAGE_HEIGHT", "120"))
+MIN_FACE_WIDTH = int(os.getenv("MIN_FACE_WIDTH", "40"))
+MIN_FACE_HEIGHT = int(os.getenv("MIN_FACE_HEIGHT", "40"))
+MIN_FACE_AREA_RATIO = float(os.getenv("MIN_FACE_AREA_RATIO", "0.005"))
+MIN_BLUR_SCORE = float(os.getenv("MIN_BLUR_SCORE", "8"))
 MIN_BRIGHTNESS = float(os.getenv("MIN_BRIGHTNESS", "35"))
 MAX_BRIGHTNESS = float(os.getenv("MAX_BRIGHTNESS", "225"))
+MIN_DETECTION_SIDE = int(os.getenv("MIN_DETECTION_SIDE", "640"))
+MAX_DETECTION_SIDE = int(os.getenv("MAX_DETECTION_SIDE", "1600"))
 AI_API_KEY = os.getenv("AI_API_KEY")
 
 app = FastAPI(
@@ -185,50 +192,93 @@ def validate_face_quality(representation: dict, image: np.ndarray) -> None:
         )
 
 
+def prepare_image_for_detection(image: np.ndarray) -> np.ndarray:
+    height, width = image.shape[:2]
+    longest_side = max(height, width)
+    if longest_side <= 0:
+        return image
+
+    scale = 1.0
+    if longest_side < MIN_DETECTION_SIDE:
+        scale = MIN_DETECTION_SIDE / float(longest_side)
+    elif longest_side > MAX_DETECTION_SIDE:
+        scale = MAX_DETECTION_SIDE / float(longest_side)
+
+    if scale == 1.0:
+        return image
+
+    interpolation = cv2.INTER_CUBIC if scale > 1.0 else cv2.INTER_AREA
+    return cv2.resize(image, None, fx=scale, fy=scale, interpolation=interpolation)
+
+
+def detector_backends() -> list[str]:
+    ordered_backends = [DETECTOR_BACKEND, *FALLBACK_DETECTOR_BACKENDS]
+    unique_backends: list[str] = []
+    for backend in ordered_backends:
+        if backend not in unique_backends:
+            unique_backends.append(backend)
+    return unique_backends
+
+
 def represent_single_face(image: np.ndarray) -> np.ndarray:
-    try:
-        representations = DeepFace.represent(
-            img_path=image,
-            model_name=DEEPFACE_MODEL,
-            detector_backend=DETECTOR_BACKEND,
-            enforce_detection=True,
-        )
-    except Exception as exc:
-        # TODO: Replace broad DeepFace exception handling with typed domain errors.
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="No usable face was detected in the image",
-        ) from exc
+    last_http_error: HTTPException | None = None
 
-    if len(representations) == 0:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="No face was detected in the image",
-        )
-    if len(representations) > 1:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Multiple faces were detected; exactly one face is required",
-        )
+    for detector_backend in detector_backends():
+        try:
+            representations = DeepFace.represent(
+                img_path=image,
+                model_name=DEEPFACE_MODEL,
+                detector_backend=detector_backend,
+                enforce_detection=True,
+            )
+        except Exception:
+            # TODO: Replace broad DeepFace exception handling with typed domain errors.
+            continue
 
-    representation = representations[0]
-    validate_face_quality(representation, image)
-    raw_embedding = representation.get("embedding")
-    if not isinstance(raw_embedding, list):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Generated face embedding is invalid",
-        )
-    return normalize_embedding(raw_embedding)
+        if len(representations) == 0:
+            last_http_error = HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="No face was detected in the image",
+            )
+            continue
+        if len(representations) > 1:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Multiple faces were detected; exactly one face is required",
+            )
+
+        representation = representations[0]
+        try:
+            validate_face_quality(representation, image)
+        except HTTPException as exc:
+            last_http_error = exc
+            continue
+
+        raw_embedding = representation.get("embedding")
+        if not isinstance(raw_embedding, list):
+            last_http_error = HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Generated face embedding is invalid",
+            )
+            continue
+        return normalize_embedding(raw_embedding)
+
+    if last_http_error is not None:
+        raise last_http_error
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail="No usable face was detected in the image",
+    )
 
 
 def extract_embedding(image_base64: str) -> list[float]:
     image = base64_to_image(image_base64)
     validate_image_quality(image)
+    detection_image = prepare_image_for_detection(image)
 
-    embeddings = [represent_single_face(image)]
+    embeddings = [represent_single_face(detection_image)]
     if ENABLE_EMBEDDING_AUGMENTATION:
-        flipped_image = cv2.flip(image, 1)
+        flipped_image = cv2.flip(detection_image, 1)
         flipped_embedding = represent_single_face(flipped_image)
         if flipped_embedding.shape == embeddings[0].shape:
             embeddings.append(flipped_embedding)
@@ -295,11 +345,14 @@ async def root_health_check() -> dict[str, str]:
 
 
 @app.get("/health", tags=["health"])
-async def health_check() -> dict[str, str]:
+async def health_check() -> dict[str, str | float | list[str]]:
     return {
         "status": "ok",
         "model": DEEPFACE_MODEL,
         "detector_backend": DETECTOR_BACKEND,
+        "fallback_detector_backends": FALLBACK_DETECTOR_BACKENDS,
+        "recognition_threshold": RECOGNITION_THRESHOLD,
+        "recognition_margin": RECOGNITION_MARGIN,
     }
 
 

@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   createStudent,
+  enrollStudentFace,
   updateStudent,
   type Student,
   type StudentInput,
@@ -33,6 +34,13 @@ interface AddStudentModalProps {
 
 function getErrorMessage(error: unknown): string {
   return getApiErrorMessage(error, "Unable to save student.");
+}
+
+function getFaceErrorMessage(error: unknown): string {
+  return getApiErrorMessage(
+    error,
+    "Face enrollment failed. Upload a clear front-facing photo.",
+  );
 }
 
 function isValidParentPhone(phone: string): boolean {
@@ -72,9 +80,12 @@ export function AddStudentModal({
   const [profileImage, setProfileImage] = useState<string | null>(
     student?.profile_image ?? null,
   );
+  const [shouldEnrollFace, setShouldEnrollFace] = useState(false);
+  const [draftSavedStudent, setDraftSavedStudent] = useState<Student | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const isEditing = student !== null;
+  const saveTarget = draftSavedStudent ?? student;
+  const isEditing = saveTarget !== null;
 
   async function handleImageUpload(
     event: ChangeEvent<HTMLInputElement>,
@@ -96,6 +107,7 @@ export function AddStudentModal({
 
     try {
       setProfileImage(await readFileAsDataUrl(file));
+      setShouldEnrollFace(true);
       setError(null);
     } catch {
       setError("Unable to read image file.");
@@ -135,9 +147,29 @@ export function AddStudentModal({
     setError(null);
     try {
       const savedStudent = isEditing
-        ? await updateStudent(student.id, payload)
+        ? await updateStudent(saveTarget.id, payload)
         : await createStudent(payload);
-      onSaved(savedStudent, isEditing ? "updated" : "created");
+
+      if (profileImage && shouldEnrollFace) {
+        try {
+          await enrollStudentFace(savedStudent.id, profileImage);
+        } catch (enrollError) {
+          setDraftSavedStudent(savedStudent);
+          setError(
+            `Student saved, but face enrollment failed: ${getFaceErrorMessage(
+              enrollError,
+            )}`,
+          );
+          return;
+        }
+      }
+
+      onSaved(
+        profileImage && shouldEnrollFace
+          ? { ...savedStudent, has_face_enrolled: true, profile_image: profileImage }
+          : savedStudent,
+        isEditing ? "updated" : "created",
+      );
       onOpenChange(false);
     } catch (saveError) {
       setError(getErrorMessage(saveError));
@@ -194,8 +226,8 @@ export function AddStudentModal({
               )}
               <div className="grid flex-1 gap-2">
                 <p className="text-xs text-muted-foreground">
-                  This image is used as the student profile photo. Use the table&apos;s
-                  Enroll Face action for attendance recognition.
+                  Upload a clear front-facing photo. It can be saved as the
+                  profile photo and enrolled for attendance recognition.
                 </p>
                 <input
                   ref={fileInputRef}
@@ -218,12 +250,30 @@ export function AddStudentModal({
                       type="button"
                       variant="ghost"
                       className="w-full text-red-600 hover:text-red-700 sm:w-auto"
-                      onClick={() => setProfileImage(null)}
+                      onClick={() => {
+                        setProfileImage(null);
+                        setShouldEnrollFace(false);
+                      }}
                     >
                       Remove
                     </Button>
                   ) : null}
                 </div>
+                {profileImage ? (
+                  <label className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={shouldEnrollFace}
+                      onChange={(event) =>
+                        setShouldEnrollFace(event.target.checked)
+                      }
+                    />
+                    <span>
+                      Also enroll this photo for attendance recognition now.
+                    </span>
+                  </label>
+                ) : null}
               </div>
             </div>
           </div>

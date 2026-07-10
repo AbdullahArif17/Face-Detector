@@ -1,6 +1,6 @@
 # Project Context
 
-Last updated: 2026-07-08
+Last updated: 2026-07-10
 
 ## Project
 - Name: Face Attendance
@@ -18,11 +18,11 @@ Last updated: 2026-07-08
 - `backend/.env` contains a working Neon pooled connection with SSL enabled.
 - Backend Phase 3 stores face vectors in the `face_embeddings` table as JSON for the MVP.`
 - Historical Phase 1 local `.npy` enrollment/recognition tests succeeded, but local AI-service embedding files are no longer the active Phase 3 storage contract.
-- Face-recognition accuracy pass switched the local AI model from Facenet to ArcFace, added blur/brightness/face-size quality validation, averages original plus horizontally flipped embeddings, and rejects ambiguous matches when the best and runner-up scores are too close. Existing Facenet enrollments must be re-enrolled to produce ArcFace-compatible vectors.
+- Face-recognition accuracy pass switched the local AI model from Facenet to ArcFace, added blur/brightness/face-size quality validation, averages original plus horizontally flipped embeddings, and rejects ambiguous matches when the best and runner-up scores are too close. The AI service now also applies EXIF orientation correction, resizes images for detection, relaxes overly strict small-face defaults, and tries fallback detectors. Existing Facenet enrollments must be re-enrolled to produce ArcFace-compatible vectors.
 - Frontend dependencies are installed with Axios, AuthContext, signup/login flows, protected dashboard routes, and authenticated data requests.
 - Frontend Phase 3 includes employee search/filter/table management, add/edit employee modal with optional face-photo enrollment and retry-on-failure handling, enrolled-state-aware face enrollment/update UI, webcam or uploaded-photo face enrollment modal, enrollment-focused dashboard stats, and employee headshot display.
 - Frontend Phase 4 includes a standalone `/kiosk` webcam page using company API-key auth and displaying organization name, `/users` portal user management with deactivate/reactivate actions, `/attendance` Today/History tabs, conditional Users sidebar link, and `/settings` kiosk API-key setup.
-- Frontend Phase 5 includes `/students`, `/notifications`, student-focused dashboard/attendance/kiosk views, WhatsApp configuration/status in Settings, masked parent phone displays, CSV student import, optional student profile-photo upload in Add/Edit Student, student face enrollment, and per-student WhatsApp logs.
+- Frontend Phase 5 includes `/students`, `/notifications`, student-focused dashboard/attendance/kiosk views, WhatsApp configuration/status in Settings, masked parent phone displays, CSV student import, optional student profile-photo upload in Add/Edit Student with one-step face enrollment, student face enrollment/update, and per-student WhatsApp logs.
 - Frontend mobile responsiveness includes a dashboard mobile top bar and slide-out navigation drawer, mobile-safe page spacing/headings, horizontally scrollable data tables with minimum widths, stacked modal action buttons, and phone-friendly kiosk layout.
 - Mobile local HTTP testing cannot use live `getUserMedia` camera or modern Clipboard API reliably because phone browsers require trusted HTTPS secure contexts; kiosk has a `Capture/Upload Photo` fallback for local HTTP testing. True live mobile kiosk scanning should use a trusted HTTPS frontend URL with `NEXT_PUBLIC_API_URL=/api/backend` and `BACKEND_INTERNAL_URL` pointing to the local FastAPI backend so browser requests stay same-origin.
 - Backend Phase 4 includes `/users`, `/users/{id}/activate`, company API-key retrieval/regeneration, `/companies/kiosk-info`, `/attendance/auto-mark`, `/attendance/today`, `/attendance/history`, and `/attendance/export`.
@@ -80,7 +80,7 @@ Last updated: 2026-07-08
 
 ## Active Work
 - Re-enroll existing student faces after the ArcFace switch, then complete manual end-to-end student webcam and uploaded-photo enrollment testing in the browser with the backend and AI service running together.
-- Manually test `/kiosk?key=[API_KEY]&branch=[CLASS_ID]` against live backend and AI service with real enrolled students.
+- Manually test `/kiosk?key=[API_KEY]&class_id=[CLASS_ID]` against live backend and AI service with real enrolled students.
 - Add real shift management; Phase 4 late detection currently uses a default 09:00 UTC shift start plus 15-minute grace period.
 - Add authorization tests, CI, login rate limiting, email verification, and a refresh-token or secure-cookie strategy.
 - Define biometric consent, retention, deletion, encryption, WhatsApp opt-in, and audit requirements before production use.

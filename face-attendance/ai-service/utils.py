@@ -1,9 +1,11 @@
 import base64
 import binascii
+from io import BytesIO
 
 import cv2
 import numpy as np
 from fastapi import HTTPException, status
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 
 def base64_to_image(b64_string: str) -> np.ndarray:
@@ -15,6 +17,15 @@ def base64_to_image(b64_string: str) -> np.ndarray:
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Image is not valid base64",
         ) from exc
+
+    try:
+        with Image.open(BytesIO(image_bytes)) as pil_image:
+            oriented_image = ImageOps.exif_transpose(pil_image).convert("RGB")
+            rgb_image = np.asarray(oriented_image)
+            return cv2.cvtColor(rgb_image, cv2.COLOR_RGB2BGR)
+    except (UnidentifiedImageError, OSError, ValueError):
+        # Fall back to OpenCV decoding for image formats Pillow cannot parse.
+        pass
 
     image_array = np.frombuffer(image_bytes, dtype=np.uint8)
     image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)

@@ -9,6 +9,7 @@ import {
   getKioskCompanyInfo,
   type KioskAttendanceResult,
 } from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 
 const videoConstraints = {
@@ -202,10 +203,10 @@ export default function KioskPage() {
           () => setResult(null),
           markResult.matched ? 4000 : 2000,
         );
-      } catch {
+      } catch (markError) {
         setResult({
           matched: false,
-          message: "Kiosk could not mark attendance",
+          message: getApiErrorMessage(markError, "Kiosk could not mark attendance"),
           student: null,
           employee: null,
           action: null,
