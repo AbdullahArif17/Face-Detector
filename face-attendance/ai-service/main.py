@@ -24,8 +24,17 @@ from deepface import DeepFace  # noqa: E402
 
 from utils import base64_to_image, cosine_similarity  # noqa: E402
 
-RECOGNITION_THRESHOLD = float(os.getenv("RECOGNITION_THRESHOLD", "0.58"))
-RECOGNITION_MARGIN = float(os.getenv("RECOGNITION_MARGIN", "0.03"))
+
+def capped_float_env(name: str, default: str, maximum: float) -> float:
+    return min(float(os.getenv(name, default)), maximum)
+
+
+def capped_int_env(name: str, default: str, maximum: int) -> int:
+    return min(int(os.getenv(name, default)), maximum)
+
+
+RECOGNITION_THRESHOLD = capped_float_env("RECOGNITION_THRESHOLD", "0.58", 0.58)
+RECOGNITION_MARGIN = capped_float_env("RECOGNITION_MARGIN", "0.03", 0.03)
 DEEPFACE_MODEL = os.getenv("DEEPFACE_MODEL", "ArcFace")
 DETECTOR_BACKEND = os.getenv("DETECTOR_BACKEND", "retinaface")
 FALLBACK_DETECTOR_BACKENDS = [
@@ -37,12 +46,12 @@ ENABLE_EMBEDDING_AUGMENTATION = (
     os.getenv("ENABLE_EMBEDDING_AUGMENTATION", "true").strip().lower()
     in {"1", "true", "yes", "on"}
 )
-MIN_IMAGE_WIDTH = int(os.getenv("MIN_IMAGE_WIDTH", "120"))
-MIN_IMAGE_HEIGHT = int(os.getenv("MIN_IMAGE_HEIGHT", "120"))
-MIN_FACE_WIDTH = int(os.getenv("MIN_FACE_WIDTH", "30"))
-MIN_FACE_HEIGHT = int(os.getenv("MIN_FACE_HEIGHT", "30"))
-MIN_FACE_AREA_RATIO = float(os.getenv("MIN_FACE_AREA_RATIO", "0.001"))
-MIN_BLUR_SCORE = float(os.getenv("MIN_BLUR_SCORE", "8"))
+MIN_IMAGE_WIDTH = capped_int_env("MIN_IMAGE_WIDTH", "120", 120)
+MIN_IMAGE_HEIGHT = capped_int_env("MIN_IMAGE_HEIGHT", "120", 120)
+MIN_FACE_WIDTH = capped_int_env("MIN_FACE_WIDTH", "30", 30)
+MIN_FACE_HEIGHT = capped_int_env("MIN_FACE_HEIGHT", "30", 30)
+MIN_FACE_AREA_RATIO = capped_float_env("MIN_FACE_AREA_RATIO", "0.001", 0.001)
+MIN_BLUR_SCORE = capped_float_env("MIN_BLUR_SCORE", "8", 8)
 MIN_BRIGHTNESS = float(os.getenv("MIN_BRIGHTNESS", "35"))
 MAX_BRIGHTNESS = float(os.getenv("MAX_BRIGHTNESS", "225"))
 MIN_DETECTION_SIDE = int(os.getenv("MIN_DETECTION_SIDE", "640"))

@@ -292,7 +292,7 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 
 ## 2026-07-10 - One-step student face enrollment and AI detection tuning
 - Completed: Diagnosed first-time face upload as profile-photo-only upload and improved detection failure handling.
-- Changed: Add/Edit Student can enroll the uploaded profile photo for attendance recognition, kiosk displays backend/AI detection errors, and AI service applies EXIF orientation correction, detection resizing, fallback detectors, and less brittle recognition/quality defaults.
+- Changed: Add/Edit Student can enroll the uploaded profile photo for attendance recognition, kiosk displays backend/AI detection errors, and AI service applies EXIF orientation correction, detection resizing, fallback detectors, and capped less brittle recognition/quality gates for the current test deployment.
 - Verified: Frontend typecheck/lint pass; AI service files pass syntax compilation in both the monorepo and HuggingFace Space checkout.
 - Pending: Push monorepo and HuggingFace Space changes, wait for Vercel/HuggingFace redeploys, then test enrollment and kiosk recognition with a clear front-facing photo.
 
