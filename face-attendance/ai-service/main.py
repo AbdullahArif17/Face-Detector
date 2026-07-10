@@ -39,9 +39,9 @@ ENABLE_EMBEDDING_AUGMENTATION = (
 )
 MIN_IMAGE_WIDTH = int(os.getenv("MIN_IMAGE_WIDTH", "120"))
 MIN_IMAGE_HEIGHT = int(os.getenv("MIN_IMAGE_HEIGHT", "120"))
-MIN_FACE_WIDTH = int(os.getenv("MIN_FACE_WIDTH", "40"))
-MIN_FACE_HEIGHT = int(os.getenv("MIN_FACE_HEIGHT", "40"))
-MIN_FACE_AREA_RATIO = float(os.getenv("MIN_FACE_AREA_RATIO", "0.005"))
+MIN_FACE_WIDTH = int(os.getenv("MIN_FACE_WIDTH", "30"))
+MIN_FACE_HEIGHT = int(os.getenv("MIN_FACE_HEIGHT", "30"))
+MIN_FACE_AREA_RATIO = float(os.getenv("MIN_FACE_AREA_RATIO", "0.001"))
 MIN_BLUR_SCORE = float(os.getenv("MIN_BLUR_SCORE", "8"))
 MIN_BRIGHTNESS = float(os.getenv("MIN_BRIGHTNESS", "35"))
 MAX_BRIGHTNESS = float(os.getenv("MAX_BRIGHTNESS", "225"))
@@ -353,6 +353,10 @@ async def health_check() -> dict[str, str | float | list[str]]:
         "fallback_detector_backends": FALLBACK_DETECTOR_BACKENDS,
         "recognition_threshold": RECOGNITION_THRESHOLD,
         "recognition_margin": RECOGNITION_MARGIN,
+        "min_face_width": MIN_FACE_WIDTH,
+        "min_face_height": MIN_FACE_HEIGHT,
+        "min_face_area_ratio": MIN_FACE_AREA_RATIO,
+        "min_blur_score": MIN_BLUR_SCORE,
     }
 
 
