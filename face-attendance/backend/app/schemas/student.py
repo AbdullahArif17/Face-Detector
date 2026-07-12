@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.core.images import MAX_IMAGE_BASE64_LENGTH
+
 
 def validate_pakistan_phone(value: str) -> str:
     normalized = (
@@ -30,7 +32,7 @@ class StudentCreate(BaseModel):
     parent_name: str = Field(min_length=1, max_length=255)
     parent_phone: str = Field(min_length=12, max_length=20)
     parent_phone_2: str | None = Field(default=None, max_length=20)
-    profile_image: str | None = None
+    profile_image: str | None = Field(default=None, max_length=MAX_IMAGE_BASE64_LENGTH)
     class_id: int | None = None
 
     @field_validator("parent_phone")
@@ -54,7 +56,7 @@ class StudentUpdate(BaseModel):
     parent_name: str | None = Field(default=None, min_length=1, max_length=255)
     parent_phone: str | None = Field(default=None, max_length=20)
     parent_phone_2: str | None = Field(default=None, max_length=20)
-    profile_image: str | None = None
+    profile_image: str | None = Field(default=None, max_length=MAX_IMAGE_BASE64_LENGTH)
     class_id: int | None = None
     status: str | None = Field(default=None, max_length=50)
 

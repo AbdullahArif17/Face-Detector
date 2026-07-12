@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Integer, JSON, String
+from sqlalchemy import DateTime, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -16,7 +16,8 @@ class FaceEmbedding(Base):
         unique=True,
         index=True,
     )
-    embedding_vector: Mapped[list[float]] = mapped_column(JSON, nullable=False)
+    embedding_vector: Mapped[list[float] | None] = mapped_column(JSON, nullable=True)
+    embedding_ciphertext: Mapped[str | None] = mapped_column(Text, nullable=True)
     model_name: Mapped[str] = mapped_column(String(100), default="deepface", nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

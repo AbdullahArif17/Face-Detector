@@ -1,4 +1,7 @@
+import asyncio
 import hmac
+import logging
+import math
 import os
 import sys
 from dataclasses import dataclass
@@ -8,7 +11,7 @@ import numpy as np
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Header, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from starlette.concurrency import run_in_threadpool
 
 # DeepFace emits Unicode status symbols while downloading model weights. Windows
@@ -25,16 +28,41 @@ from deepface import DeepFace  # noqa: E402
 from utils import base64_to_image, cosine_similarity  # noqa: E402
 
 
-def capped_float_env(name: str, default: str, maximum: float) -> float:
-    return min(float(os.getenv(name, default)), maximum)
+logger = logging.getLogger("face_attendance_ai")
 
 
-def capped_int_env(name: str, default: str, maximum: int) -> int:
-    return min(int(os.getenv(name, default)), maximum)
+def bounded_float_env(
+    name: str,
+    default: str,
+    *,
+    minimum: float,
+    maximum: float,
+) -> float:
+    value = float(os.getenv(name, default))
+    if not minimum <= value <= maximum:
+        raise RuntimeError(f"{name} must be between {minimum} and {maximum}")
+    return value
 
 
-RECOGNITION_THRESHOLD = capped_float_env("RECOGNITION_THRESHOLD", "0.58", 0.58)
-RECOGNITION_MARGIN = capped_float_env("RECOGNITION_MARGIN", "0.03", 0.03)
+def bounded_int_env(
+    name: str,
+    default: str,
+    *,
+    minimum: int,
+    maximum: int,
+) -> int:
+    value = int(os.getenv(name, default))
+    if not minimum <= value <= maximum:
+        raise RuntimeError(f"{name} must be between {minimum} and {maximum}")
+    return value
+
+
+RECOGNITION_THRESHOLD = bounded_float_env(
+    "RECOGNITION_THRESHOLD", "0.58", minimum=0.0, maximum=1.0,
+)
+RECOGNITION_MARGIN = bounded_float_env(
+    "RECOGNITION_MARGIN", "0.03", minimum=0.0, maximum=1.0,
+)
 DEEPFACE_MODEL = os.getenv("DEEPFACE_MODEL", "ArcFace")
 DETECTOR_BACKEND = os.getenv("DETECTOR_BACKEND", "retinaface")
 FALLBACK_DETECTOR_BACKENDS = [
@@ -46,33 +74,59 @@ ENABLE_EMBEDDING_AUGMENTATION = (
     os.getenv("ENABLE_EMBEDDING_AUGMENTATION", "true").strip().lower()
     in {"1", "true", "yes", "on"}
 )
-MIN_IMAGE_WIDTH = capped_int_env("MIN_IMAGE_WIDTH", "120", 120)
-MIN_IMAGE_HEIGHT = capped_int_env("MIN_IMAGE_HEIGHT", "120", 120)
-MIN_FACE_WIDTH = capped_int_env("MIN_FACE_WIDTH", "30", 30)
-MIN_FACE_HEIGHT = capped_int_env("MIN_FACE_HEIGHT", "30", 30)
-MIN_FACE_AREA_RATIO = capped_float_env("MIN_FACE_AREA_RATIO", "0.001", 0.001)
-MIN_BLUR_SCORE = capped_float_env("MIN_BLUR_SCORE", "8", 8)
+MIN_IMAGE_WIDTH = bounded_int_env("MIN_IMAGE_WIDTH", "120", minimum=64, maximum=4096)
+MIN_IMAGE_HEIGHT = bounded_int_env("MIN_IMAGE_HEIGHT", "120", minimum=64, maximum=4096)
+MIN_FACE_WIDTH = bounded_int_env("MIN_FACE_WIDTH", "30", minimum=20, maximum=2048)
+MIN_FACE_HEIGHT = bounded_int_env("MIN_FACE_HEIGHT", "30", minimum=20, maximum=2048)
+MIN_FACE_AREA_RATIO = bounded_float_env(
+    "MIN_FACE_AREA_RATIO", "0.001", minimum=0.0001, maximum=1.0,
+)
+MIN_BLUR_SCORE = bounded_float_env(
+    "MIN_BLUR_SCORE", "8", minimum=0.0, maximum=10000.0,
+)
 MIN_BRIGHTNESS = float(os.getenv("MIN_BRIGHTNESS", "35"))
 MAX_BRIGHTNESS = float(os.getenv("MAX_BRIGHTNESS", "225"))
 MIN_DETECTION_SIDE = int(os.getenv("MIN_DETECTION_SIDE", "640"))
 MAX_DETECTION_SIDE = int(os.getenv("MAX_DETECTION_SIDE", "1600"))
+MAX_IMAGE_BYTES = bounded_int_env(
+    "MAX_IMAGE_BYTES", "2000000", minimum=100_000, maximum=10_000_000,
+)
+INFERENCE_CONCURRENCY = bounded_int_env(
+    "INFERENCE_CONCURRENCY", "1", minimum=1, maximum=4,
+)
+ENABLE_ANTI_SPOOFING = (
+    os.getenv("ENABLE_ANTI_SPOOFING", "false").strip().lower()
+    in {"1", "true", "yes", "on"}
+)
 AI_API_KEY = os.getenv("AI_API_KEY")
+APP_ENV = os.getenv("APP_ENV", "development").strip().lower()
+AI_CORS_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("AI_CORS_ORIGINS", "").split(",")
+    if origin.strip()
+]
+INFERENCE_SEMAPHORE = asyncio.Semaphore(INFERENCE_CONCURRENCY)
 
 app = FastAPI(
     title="Face Attendance AI Service",
     version="0.2.0",
     description="Face enrollment and recognition service for the MVP.",
 )
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+if AI_CORS_ORIGINS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=AI_CORS_ORIGINS,
+        allow_methods=["POST"],
+        allow_headers=["Content-Type", "X-API-Key"],
+    )
 
 
 class FaceImageRequest(BaseModel):
-    image: str = Field(min_length=1, description="Base64-encoded image or data URL")
+    image: str = Field(
+        min_length=1,
+        max_length=2_700_000,
+        description="Base64-encoded image or data URL",
+    )
 
 
 class EnrollRequest(FaceImageRequest):
@@ -99,7 +153,14 @@ class EnrollResponse(BaseModel):
 class EmbeddingCandidate(BaseModel):
     employee_id: str | None = None
     student_id: int | None = Field(default=None, gt=0)
-    vector: list[float] = Field(min_length=1)
+    vector: list[float] = Field(min_length=1, max_length=4096)
+
+    @field_validator("vector")
+    @classmethod
+    def validate_vector(cls, vector: list[float]) -> list[float]:
+        if not all(math.isfinite(value) for value in vector):
+            raise ValueError("Embedding vector must contain only finite values")
+        return vector
 
     def resolved_employee_id(self) -> str | None:
         if self.employee_id:
@@ -110,13 +171,14 @@ class EmbeddingCandidate(BaseModel):
 
 
 class RecognizeRequest(FaceImageRequest):
-    embeddings: list[EmbeddingCandidate]
+    embeddings: list[EmbeddingCandidate] = Field(max_length=5000)
 
 
 class RecognitionResponse(BaseModel):
     matched: bool
     employee_id: str | None = None
     confidence: float | None = None
+    reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -229,7 +291,11 @@ def detector_backends() -> list[str]:
     return unique_backends
 
 
-def represent_single_face(image: np.ndarray) -> np.ndarray:
+def represent_single_face(
+    image: np.ndarray,
+    *,
+    anti_spoofing: bool = False,
+) -> np.ndarray:
     last_http_error: HTTPException | None = None
 
     for detector_backend in detector_backends():
@@ -239,9 +305,15 @@ def represent_single_face(image: np.ndarray) -> np.ndarray:
                 model_name=DEEPFACE_MODEL,
                 detector_backend=detector_backend,
                 enforce_detection=True,
+                anti_spoofing=anti_spoofing,
             )
-        except Exception:
-            # TODO: Replace broad DeepFace exception handling with typed domain errors.
+        except Exception as exc:
+            if anti_spoofing and "spoof" in str(exc).casefold():
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Liveness check failed; use a live camera view",
+                ) from exc
+            logger.info("Detector backend %s rejected image: %s", detector_backend, exc)
             continue
 
         if len(representations) == 0:
@@ -280,15 +352,21 @@ def represent_single_face(image: np.ndarray) -> np.ndarray:
     )
 
 
-def extract_embedding(image_base64: str) -> list[float]:
-    image = base64_to_image(image_base64)
+def extract_embedding(
+    image_base64: str,
+    *,
+    anti_spoofing: bool = False,
+) -> list[float]:
+    image = base64_to_image(image_base64, max_bytes=MAX_IMAGE_BYTES)
     validate_image_quality(image)
     detection_image = prepare_image_for_detection(image)
 
-    embeddings = [represent_single_face(detection_image)]
+    embeddings = [
+        represent_single_face(detection_image, anti_spoofing=anti_spoofing),
+    ]
     if ENABLE_EMBEDDING_AUGMENTATION:
         flipped_image = cv2.flip(detection_image, 1)
-        flipped_embedding = represent_single_face(flipped_image)
+        flipped_embedding = represent_single_face(flipped_image, anti_spoofing=False)
         if flipped_embedding.shape == embeddings[0].shape:
             embeddings.append(flipped_embedding)
 
@@ -308,8 +386,8 @@ def find_best_match(
     for candidate in candidates:
         try:
             score = cosine_similarity(query_embedding, candidate.vector)
-        except ValueError:
-            # TODO: Emit structured logs for malformed candidate embeddings.
+        except ValueError as exc:
+            logger.warning("Skipping malformed candidate embedding: %s", exc)
             continue
 
         candidate_employee_id = candidate.resolved_employee_id()
@@ -333,7 +411,7 @@ def find_best_match(
 @app.on_event("startup")
 async def warmup_model() -> None:
     """Pre-download and load the configured DeepFace model on container startup."""
-    print(f"Warming up DeepFace {DEEPFACE_MODEL} model...")
+    logger.info("Warming up DeepFace %s model", DEEPFACE_MODEL)
     try:
         dummy = np.zeros((224, 224, 3), dtype=np.uint8)
         await run_in_threadpool(
@@ -343,9 +421,9 @@ async def warmup_model() -> None:
             detector_backend=DETECTOR_BACKEND,
             enforce_detection=False,
         )
-        print("Model ready")
+        logger.info("Model ready")
     except Exception as exc:
-        print(f"Warmup error (non-fatal): {exc}")
+        logger.warning("Warmup error (non-fatal): %s", exc)
 
 
 @app.get("/", tags=["health"])
@@ -354,7 +432,7 @@ async def root_health_check() -> dict[str, str]:
 
 
 @app.get("/health", tags=["health"])
-async def health_check() -> dict[str, str | float | list[str]]:
+async def health_check() -> dict[str, str | float | int | bool | list[str]]:
     return {
         "status": "ok",
         "model": DEEPFACE_MODEL,
@@ -366,10 +444,19 @@ async def health_check() -> dict[str, str | float | list[str]]:
         "min_face_height": MIN_FACE_HEIGHT,
         "min_face_area_ratio": MIN_FACE_AREA_RATIO,
         "min_blur_score": MIN_BLUR_SCORE,
+        "max_image_bytes": MAX_IMAGE_BYTES,
+        "inference_concurrency": INFERENCE_CONCURRENCY,
+        "anti_spoofing": ENABLE_ANTI_SPOOFING,
+        "api_key_required": bool(AI_API_KEY),
     }
 
 
 def verify_api_key(x_api_key: str | None = Header(default=None)) -> None:
+    if APP_ENV == "production" and not AI_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI_API_KEY is required in production",
+        )
     if not AI_API_KEY:
         return
     if x_api_key is None or not hmac.compare_digest(x_api_key, AI_API_KEY):
@@ -378,7 +465,8 @@ def verify_api_key(x_api_key: str | None = Header(default=None)) -> None:
 
 @app.post("/enroll", response_model=EnrollResponse, dependencies=[Depends(verify_api_key)])
 async def enroll(payload: EnrollRequest) -> EnrollResponse:
-    embedding = await run_in_threadpool(extract_embedding, payload.image)
+    async with INFERENCE_SEMAPHORE:
+        embedding = await run_in_threadpool(extract_embedding, payload.image)
     return EnrollResponse(
         employee_id=payload.resolved_employee_id(),
         embedding=embedding,
@@ -394,27 +482,32 @@ async def enroll(payload: EnrollRequest) -> EnrollResponse:
 )
 async def recognize(payload: RecognizeRequest) -> RecognitionResponse:
     if not payload.embeddings:
-        return RecognitionResponse(matched=False)
+        return RecognitionResponse(matched=False, reason="no_candidates")
 
-    query_embedding = await run_in_threadpool(extract_embedding, payload.image)
-    match = await run_in_threadpool(
-        find_best_match,
-        query_embedding,
-        payload.embeddings,
-    )
+    async with INFERENCE_SEMAPHORE:
+        query_embedding = await run_in_threadpool(
+            extract_embedding,
+            payload.image,
+            anti_spoofing=ENABLE_ANTI_SPOOFING,
+        )
+        match = await run_in_threadpool(
+            find_best_match,
+            query_embedding,
+            payload.embeddings,
+        )
 
     if match.employee_id is None or match.score is None:
-        return RecognitionResponse(matched=False)
+        return RecognitionResponse(matched=False, reason="no_valid_candidates")
 
     if match.score <= RECOGNITION_THRESHOLD:
-        return RecognitionResponse(matched=False)
+        return RecognitionResponse(matched=False, reason="below_threshold")
 
     if match.runner_up_score is not None and match.margin is not None:
         if match.margin < RECOGNITION_MARGIN:
-            return RecognitionResponse(matched=False)
+            return RecognitionResponse(matched=False, reason="ambiguous_match")
 
     if match.employee_id is None:
-        return RecognitionResponse(matched=False)
+        return RecognitionResponse(matched=False, reason="no_valid_candidates")
 
     return RecognitionResponse(
         matched=True,

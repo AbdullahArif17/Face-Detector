@@ -296,6 +296,12 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: Frontend typecheck/lint pass; AI service files pass syntax compilation in both the monorepo and HuggingFace Space checkout.
 - Pending: Push monorepo and HuggingFace Space changes, wait for Vercel/HuggingFace redeploys, then test enrollment and kiosk recognition with a clear front-facing photo.
 
+## 2026-07-12 - Production readiness and end-to-end hardening
+- Completed: Hardened student images/face enrollment, class-wise attendance, WhatsApp templates/webhooks/chatbot, deployment configuration, dependency security, and repository hygiene.
+- Changed: Added encrypted embedding support, Pakistan-time schedules, unique active sessions, Meta signature verification/inbound `STATUS` replies, persisted Meta errors, image optimization, long face timeouts, readiness checks, security headers, pinned backend dependencies, Docker non-root/health setup, tests, and three applied migrations through `a7e2d5c8f310`.
+- Verified: Frontend typecheck/lint/build and zero-vulnerability npm audit; 7 backend tests; 2 AI tests; no Alembic drift; student create/update/deactivate cleanup; class session start/stop cleanup; backend-to-AI face enrollment; two-photo ArcFace recognition at 0.6693; Meta accepted the approved WhatsApp test template; no QA rows remain.
+- Pending: Deploy GitHub/Hugging Face commits, set new production secrets/variables, encrypt the one legacy embedding, verify a signed inbound `STATUS` webhook, and perform one deployed live-camera kiosk scan.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

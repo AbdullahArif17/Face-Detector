@@ -133,6 +133,13 @@
 - Decision: Use `class_id` in frontend attendance requests and generated kiosk URLs while keeping legacy `branch_id` accepted by the backend for compatibility with existing database columns and copied kiosk links.
 - Consequences: No migration is required now, but future schema cleanup should rename legacy branch tables/columns only with a planned migration and compatibility window.
 
+## D-020: Harden biometric, attendance, and WhatsApp production paths
+- Date: 2026-07-12
+- Status: Accepted
+- Context: End-to-end testing found timezone errors, short frontend face timeouts, plaintext MVP embeddings, disposable Vercel background tasks, unsigned Meta webhook requests, no inbound chatbot, and race-prone class sessions.
+- Decision: Use `Asia/Karachi` day/time calculations, configurable school start/grace settings, a partial unique index for active class sessions, long per-face client timeouts, client-side image optimization, Fernet encryption for new embeddings, model-compatible recognition candidates, synchronous persisted WhatsApp outcomes, Graph API v25 configuration, signed/deduplicated webhook processing, and a deterministic parent `STATUS` chatbot.
+- Consequences: Production must set `BIOMETRIC_ENCRYPTION_KEY`, matching AI keys/model names, `META_APP_SECRET`, template names, and template languages. Legacy embeddings require conversion or re-enrollment. Static-photo kiosk fallback remains incompatible with optional anti-spoofing, so liveness must be validated for live-camera-only deployments.
+
 ## Decision Template
 ```markdown
 ## D-NNN: Decision title

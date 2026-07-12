@@ -1,6 +1,6 @@
 # Project Context
 
-Last updated: 2026-07-10
+Last updated: 2026-07-12
 
 ## Project
 - Name: Face Attendance
@@ -14,11 +14,12 @@ Last updated: 2026-07-10
 - Backend: FastAPI, async SQLAlchemy, Neon Postgres, Alembic, JWT authentication, role-gated user management, company API-key kiosk auth, tenant-filtered school/student/attendance routes, and WhatsApp notification logs.
 - AI service: FastAPI, DeepFace ArcFace with RetinaFace detection, OpenCV quality gates, augmented embedding extraction, stateless embedding comparison endpoints, and HuggingFace Spaces Docker deployment files.
 - Backend and AI-service dependencies are installed locally.
-- The `initial_tables`, `employee_department_face_embeddings`, `9428e714984a`, `b7c4d9e8f012`, `a0ddfb82a57e`, `f4b9c2d1e8a7`, and `d2a7c9e4b631` Alembic migrations are generated and applied to the current Neon development database.
+- All Alembic migrations through `a7e2d5c8f310_school_attendance_schedule` are generated and applied to the current Neon development database; Alembic reports no schema drift.
 - `backend/.env` contains a working Neon pooled connection with SSL enabled.
 - Backend Phase 3 stores face vectors in the `face_embeddings` table as JSON for the MVP.`
 - Historical Phase 1 local `.npy` enrollment/recognition tests succeeded, but local AI-service embedding files are no longer the active Phase 3 storage contract.
-- Face-recognition accuracy pass switched the local AI model from Facenet to ArcFace, added blur/brightness/face-size quality validation, averages original plus horizontally flipped embeddings, and rejects ambiguous matches when the best and runner-up scores are too close. The AI service now also applies EXIF orientation correction, resizes images for detection, caps stale overly strict recognition/quality env values for the current test deployment, and tries fallback detectors. Existing Facenet enrollments must be re-enrolled to produce ArcFace-compatible vectors.
+- Face-recognition accuracy pass uses ArcFace, configurable RetinaFace/OpenCV/SSD detection, blur/brightness/face-size gates, EXIF orientation correction, detection resizing, original+horizontal-flip embedding averaging, ambiguous-match rejection, payload limits, and serialized inference on constrained Hugging Face hardware. Runtime quality values are validated instead of silently capped. Existing Facenet enrollments must be re-enrolled.
+- New production face embeddings can be encrypted at rest with `BIOMETRIC_ENCRYPTION_KEY`; model-mismatched embeddings are excluded from recognition. One legacy development embedding remains plaintext until re-enrollment or `python -m app.encrypt_face_embeddings` is run with a key.
 - Frontend dependencies are installed with Axios, AuthContext, signup/login flows, protected dashboard routes, and authenticated data requests.
 - Frontend Phase 3 includes employee search/filter/table management, add/edit employee modal with optional face-photo enrollment and retry-on-failure handling, enrolled-state-aware face enrollment/update UI, webcam or uploaded-photo face enrollment modal, enrollment-focused dashboard stats, and employee headshot display.
 - Frontend Phase 4 includes a standalone `/kiosk` webcam page using company API-key auth and displaying organization name, `/users` portal user management with deactivate/reactivate actions, `/attendance` Today/History tabs, conditional Users sidebar link, and `/settings` kiosk API-key setup.
@@ -27,7 +28,7 @@ Last updated: 2026-07-10
 - Mobile local HTTP testing cannot use live `getUserMedia` camera or modern Clipboard API reliably because phone browsers require trusted HTTPS secure contexts; kiosk has a `Capture/Upload Photo` fallback for local HTTP testing. True live mobile kiosk scanning should use a trusted HTTPS frontend URL with `NEXT_PUBLIC_API_URL=/api/backend` and `BACKEND_INTERNAL_URL` pointing to the local FastAPI backend so browser requests stay same-origin.
 - Backend Phase 4 includes `/users`, `/users/{id}/activate`, company API-key retrieval/regeneration, `/companies/kiosk-info`, `/attendance/auto-mark`, `/attendance/today`, `/attendance/history`, and `/attendance/export`.
 - Backend Phase 5 includes `students`, `whatsapp_logs`, `attendance.student_id`, WhatsApp school settings with global fallback credentials on companies, `/students`, `/students/import`, `/whatsapp/logs`, `/whatsapp/stats`, `/whatsapp/test`, `/whatsapp/retry-failed`, Vercel Cron-triggered absent alerts, Meta WhatsApp webhook verification/status callbacks at `/webhooks/whatsapp`, and optional template-based WhatsApp sends.
-- Backend now supports class-wise attendance sessions with `attendance_sessions`, `attendance.session_id`, `/attendance/sessions`, `/attendance/sessions/active`, `/attendance/sessions/start`, and `/attendance/sessions/{id}/stop`; public attendance/kiosk requests use `class_id` while legacy `branch_id` remains accepted for compatibility, and kiosk auto-marking requires an active session for the requested class.
+- Backend supports class-wise attendance sessions with one-active-session-per-class database enforcement, organization class discovery, configurable school start time/grace period, Pakistan-time day boundaries, and kiosk auto-marking that requires an active session for the requested class.
 - Portal login is tenant-aware: users must enter the exact organization/school name, email, and password; `/auth/login` validates the user against an active matching company record before issuing a JWT.
 - Portal user email uniqueness is tenant-scoped: the same email address may belong to multiple organizations, but each organization can only have one active user row for that email.
 - Portal user management uses soft deactivation for reversible access removal, supports reactivation, supports admin password reset from Edit User, and provides a separate permanent removal action for user rows that are not referenced by historical records. Creating a user with an inactive same-organization email reactivates and updates that existing row.
@@ -38,7 +39,9 @@ Last updated: 2026-07-10
 - `python -m app.reset_demo_data` resets the development database to one clean Demo School tenant, one demo admin, 3 classes, 8 students, today's attendance rows, and no face embeddings so real ArcFace enrollments can be added.
 - This workstation uses backend port 8004 through `frontend/.env.local` because orphaned/stale Windows listeners occupy ports 8000/8002/8003; project defaults remain port 8000.
 - WhatsApp Cloud API credentials were verified with Meta's built-in template send and the backend `/whatsapp/test` endpoint; both returned accepted/sent message IDs during local testing.
-- WhatsApp Settings and Dashboard now show whether sending is ready through school-specific credentials or default backend Meta credentials. Phone validation accepts Pakistan `92...` and local `03...` formats.
+- WhatsApp uses configurable Graph API/template languages, approved templates for retries, Meta request-signature verification, persisted delivery errors, inbound message deduplication, and a parent `STATUS` chatbot. Settings exposes credential/template/chatbot readiness. Phone validation accepts Pakistan `92...` and local `03...` formats.
+- Vercel-safe attendance notifications are awaited rather than launched with disposable in-process tasks. Daily absent cron remains fixed at 4:00 UTC/9:00 PKT; Hobby scheduling may run later within that hour.
+- Frontend optimizes/rotates source photos up to 12 MB into sub-2 MB JPEGs, gives face requests a 115-second timeout, uses real class selectors for kiosk links, and shows class-wise dashboard summaries.
 - HuggingFace AI service is deployed at `https://abdullah017-face-attendance-ai.hf.space`; `/health` reports ArcFace with RetinaFace.
 - Deployed backend at `https://face-detector-k4dl.vercel.app` passes `/health`, verifies Meta webhook challenge at `/webhooks/whatsapp`, rejects `/api/cron/absent-alerts` when called with an invalid cron bearer token, and accepts the demo login.
 - Production login previously returned 500 for existing users because password verification crashed in the production runtime; backend password hashing/verification now uses direct `bcrypt` instead of Passlib.
@@ -79,10 +82,10 @@ Last updated: 2026-07-10
 | AI service Docker build | `cd face-attendance/ai-service && docker build -t face-attendance-ai .` |
 
 ## Active Work
-- Re-enroll existing student faces after the ArcFace switch, then complete manual end-to-end student webcam and uploaded-photo enrollment testing in the browser with the backend and AI service running together.
-- Manually test `/kiosk?key=[API_KEY]&class_id=[CLASS_ID]` against live backend and AI service with real enrolled students.
-- Add real shift management; Phase 4 late detection currently uses a default 09:00 UTC shift start plus 15-minute grace period.
-- Add authorization tests, CI, login rate limiting, email verification, and a refresh-token or secure-cookie strategy.
+- Add the new production environment variables to Vercel/Hugging Face, deploy both repositories, and run one real browser kiosk scan against the deployed services.
+- Set `BIOMETRIC_ENCRYPTION_KEY`, run `python -m app.encrypt_face_embeddings`, and rotate the previously exposed AI API key in both deployments.
+- Set `META_APP_SECRET`, attendance template names/languages, and subscribe the Meta app to WhatsApp `messages`; verify a real inbound `STATUS` reply.
+- Add broader authorization/API integration tests, CI, email verification, and a refresh-token or secure-cookie strategy.
 - Define biometric consent, retention, deletion, encryption, WhatsApp opt-in, and audit requirements before production use.
 
 ## Open Questions
@@ -93,7 +96,7 @@ Last updated: 2026-07-10
 
 ## Handoff
 - Start with `face-attendance/README.md`.
-- Apply migrations with `python -m alembic upgrade head`; latest revision is `d2a7c9e4b631_class_attendance_sessions`.
+- Apply migrations with `python -m alembic upgrade head`; latest revision is `a7e2d5c8f310_school_attendance_schedule`.
 - HuggingFace Spaces deployment for `face-attendance/ai-service` is live at `https://abdullah017-face-attendance-ai.hf.space`; it listens on port `7860` and exposes `/health`.
 - `AI_API_KEY` is optional for the AI service. If set on the AI service, set the same value on the backend; otherwise leave it unset in both places for test deployment.
 - AI service now uses `DEEPFACE_MODEL=ArcFace`; any students enrolled under the previous Facenet configuration must be re-enrolled before kiosk recognition will work reliably.

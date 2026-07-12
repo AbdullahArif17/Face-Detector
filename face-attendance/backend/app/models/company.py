@@ -18,6 +18,12 @@ class Company(Base):
     school_phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
     school_logo: Mapped[str | None] = mapped_column(String(500), nullable=True)
     absent_alert_time: Mapped[str] = mapped_column(String(5), default="09:00", nullable=False)
+    attendance_start_time: Mapped[str] = mapped_column(
+        String(5),
+        default="09:00",
+        nullable=False,
+    )
+    late_grace_minutes: Mapped[int] = mapped_column(Integer, default=15, nullable=False)
     whatsapp_token: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     whatsapp_phone_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     api_key: Mapped[str] = mapped_column(

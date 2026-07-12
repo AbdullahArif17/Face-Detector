@@ -115,6 +115,19 @@ alembic upgrade head
 uvicorn main:app --reload --port 8000
 ```
 
+For production biometric encryption, generate a Fernet key without committing it:
+
+```powershell
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Set it as `BIOMETRIC_ENCRYPTION_KEY` in the backend deployment, run migrations,
+then convert any existing plaintext MVP embeddings:
+
+```bash
+python -m app.encrypt_face_embeddings
+```
+
 Reset the development database to a clean Demo School tenant with one admin, 3 classes, 8 students, today's attendance rows, and no face embeddings:
 
 ```bash
@@ -171,6 +184,7 @@ Phase 4 user, kiosk, and attendance endpoints:
 - `GET /attendance/sessions/active?branch_id=[CLASS_ID]`
 - `POST /attendance/sessions/start`
 - `POST /attendance/sessions/{session_id}/stop`
+- `GET /companies/{company_id}/classes`
 
 The frontend includes `/users`, `/settings` kiosk setup, `/attendance` class-wise start/stop controls, and standalone `/kiosk?key=[API_KEY]&branch=[BRANCH_ID]`. Kiosk attendance only marks while the selected class has an active attendance session.
 
@@ -190,6 +204,37 @@ Phase 5 student and WhatsApp endpoints:
 - `PUT /companies/{id}/settings`
 
 The frontend includes `/students` and `/notifications`. Parent phone numbers are masked in frontend displays. Live mobile kiosk camera access requires a trusted HTTPS frontend URL; local HTTP testing can use the kiosk photo fallback.
+
+### WhatsApp templates and chatbot
+
+Automated check-in, check-out, and absence notifications must use approved Meta
+Utility templates outside the 24-hour customer-service window. Configure:
+
+```text
+META_GRAPH_API_VERSION=v25.0
+META_TEMPLATE_LANGUAGE=en
+META_TEST_TEMPLATE_LANGUAGE=en_US
+META_CHECKIN_TEMPLATE_NAME=school_checkin_alert
+META_CHECKOUT_TEMPLATE_NAME=school_checkout_alert
+META_ABSENT_TEMPLATE_NAME=school_absent_alert
+META_TEST_TEMPLATE_NAME=hello_world
+```
+
+Secure webhook POST requests require `META_APP_SECRET`. Meta webhook verification
+uses `META_WEBHOOK_VERIFY_TOKEN`. Subscribe the WhatsApp Business Account to the
+`messages` field and use:
+
+```text
+https://YOUR-BACKEND.vercel.app/webhooks/whatsapp
+```
+
+Parents whose number matches an active student can send `STATUS` to receive the
+student's attendance for the current school day. Inbound webhook message IDs are
+deduplicated, and outbound delivery failures are visible on `/notifications`.
+
+Vercel Cron calls `/api/cron/absent-alerts` daily at `0 4 * * *` (9:00 AM PKT).
+On Vercel Hobby, daily cron execution can occur later within that hour; use a Pro
+plan or an external scheduler if exact-minute delivery is required.
 
 ## AI Service
 
@@ -212,15 +257,37 @@ Set the same `AI_API_KEY` value in `backend/.env` and `ai-service/.env` so the b
 
 The current accuracy-focused AI configuration uses `DEEPFACE_MODEL=ArcFace`, `DETECTOR_BACKEND=retinaface`, image quality gates, original+horizontal-flip embedding averaging, and a best-vs-runner-up margin check. If the model is changed, existing student faces must be re-enrolled because embedding dimensions/semantics are model-specific.
 
+New production embeddings are encrypted before database storage when
+`BIOMETRIC_ENCRYPTION_KEY` is configured. Recognition only compares embeddings
+created by the configured `AI_MODEL_NAME` (default `ArcFace`).
+
 DeepFace downloads the configured model weights on first use to the current user's `.deepface/weights` directory.
 
-## Production Follow-ups
+## Production checklist
 
-- Add automated backend and frontend tests in CI.
+- Apply `alembic upgrade head` before deploying backend code.
+- Set `APP_TIMEZONE=Asia/Karachi`, `APP_ENV=production`, a strong `SECRET_KEY`,
+  `CRON_SECRET`, `AI_API_KEY`, and `BIOMETRIC_ENCRYPTION_KEY` in Vercel.
+- Set the same `AI_API_KEY` as a Hugging Face Space secret and deploy the Docker Space.
+- Set `BACKEND_INTERNAL_URL` to the deployed backend in the frontend Vercel project.
+- Set `FRONTEND_ORIGINS` to exact HTTPS frontend domains; do not use `*`.
+- Confirm `/health`, `/ready`, Meta webhook verification, a signed webhook event,
+  student face enrollment, and a live class-session kiosk scan after each deployment.
+
+## Remaining production follow-ups
+
+- Run the existing backend, AI-service, frontend typecheck, lint, build, and dependency
+  audit checks in CI on every pull request.
 - Use Neon's pooled connection URL for the application runtime and review direct-connection requirements before running production migrations.
-- Replace JSON embedding storage with encrypted tenant-isolated biometric storage before production.
-- Move WhatsApp tokens into encrypted secret storage before production and add delivery webhooks.
-- Add liveness/readiness probes, structured logs, tracing, and rate limits.
-- Define biometric consent, retention, deletion, and audit policies before collecting real face data.
+- Move per-school WhatsApp tokens out of database columns into a managed encrypted
+  secret store before onboarding independent customer organizations.
+- Move browser authentication from localStorage to secure HttpOnly cookies and add
+  refresh-token rotation before handling high-risk production accounts.
+- Add centralized structured logs and tracing, and replace in-process rate limits with
+  a shared production store when the service scales beyond one instance.
+- Evaluate stronger passive liveness detection for camera-only deployments; the current
+  optional anti-spoofing mode is disabled by default so uploaded enrollment photos remain supported.
+- Define and implement biometric consent, retention, deletion, WhatsApp opt-in, and
+  audit policies before collecting real student data.
 
 Payment and billing functionality is intentionally excluded.

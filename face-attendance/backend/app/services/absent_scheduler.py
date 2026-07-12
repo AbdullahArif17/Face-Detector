@@ -1,4 +1,4 @@
-from datetime import datetime, time, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import select
@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.attendance import Attendance
 from app.models.company import Company
 from app.models.student import Student
+from app.core.time import local_day_bounds, local_now
 from app.services.whatsapp import (
     absent_message_body,
     get_whatsapp_credentials,
@@ -17,10 +18,7 @@ from app.services.whatsapp import (
 
 
 def today_bounds() -> tuple[datetime, datetime]:
-    today = datetime.now(timezone.utc).date()
-    start = datetime.combine(today, time.min, tzinfo=timezone.utc)
-    end = start + timedelta(days=1)
-    return start, end
+    return local_day_bounds()
 
 
 async def send_absent_alerts(session: AsyncSession) -> dict[str, Any]:
@@ -32,7 +30,7 @@ async def send_absent_alerts(session: AsyncSession) -> dict[str, Any]:
     """
     start, end = today_bounds()
     now = datetime.now(timezone.utc)
-    date_str = start.strftime("%A, %d %B %Y")
+    date_str = local_now().strftime("%A, %d %B %Y")
     results: dict[str, Any] = {
         "processed": 0,
         "sent": 0,
@@ -136,6 +134,9 @@ async def send_absent_alerts(session: AsyncSession) -> dict[str, Any]:
                 status=message_status,
                 meta_message_id=result["message_id"]
                 if isinstance(result["message_id"], str)
+                else None,
+                error_message=result["error"]
+                if isinstance(result["error"], str)
                 else None,
             )
 

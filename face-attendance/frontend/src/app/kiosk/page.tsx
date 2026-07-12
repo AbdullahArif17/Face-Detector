@@ -10,28 +10,12 @@ import {
   type KioskAttendanceResult,
 } from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/errors";
+import { optimizeImageFile } from "@/lib/images";
 import { cn } from "@/lib/utils";
 
 const videoConstraints = {
   facingMode: "user",
 };
-
-const MAX_UPLOAD_BYTES = 2_000_000;
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result);
-        return;
-      }
-      reject(new Error("Unable to read image file."));
-    };
-    reader.onerror = () => reject(new Error("Unable to read image file."));
-    reader.readAsDataURL(file);
-  });
-}
 
 function getCameraErrorMessage(error: unknown): string {
   if (typeof window !== "undefined" && !window.isSecureContext) {
@@ -265,41 +249,16 @@ export default function KioskPage() {
       return;
     }
 
-    if (!file.type.startsWith("image/")) {
-      setResult({
-        matched: false,
-        message: "Upload a valid image file.",
-        student: null,
-        employee: null,
-        action: null,
-        time: null,
-        confidence_score: null,
-        notification_status: null,
-      });
-      return;
-    }
-
-    if (file.size > MAX_UPLOAD_BYTES) {
-      setResult({
-        matched: false,
-        message: "Image is too large. Use an image under 2 MB.",
-        student: null,
-        employee: null,
-        action: null,
-        time: null,
-        confidence_score: null,
-        notification_status: null,
-      });
-      return;
-    }
-
     try {
-      const image = await readFileAsDataUrl(file);
+      const image = await optimizeImageFile(file);
       await submitImageForAttendance(image);
-    } catch {
+    } catch (imageError) {
       setResult({
         matched: false,
-        message: "Unable to read the selected image.",
+        message:
+          imageError instanceof Error
+            ? imageError.message
+            : "Unable to read the selected image.",
         student: null,
         employee: null,
         action: null,

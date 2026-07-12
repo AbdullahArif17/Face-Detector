@@ -11,10 +11,12 @@ import { canManageKiosk } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import {
   getCompanyApiKey,
+  getSchoolClasses,
   getSchoolSettings,
   regenerateCompanyApiKey,
   sendWhatsappTest,
   type SchoolSettings,
+  type SchoolClass,
   updateSchoolSettings,
 } from "@/lib/api";
 
@@ -76,13 +78,15 @@ async function copyToClipboard(text: string): Promise<boolean> {
 export default function SettingsPage() {
   const { user } = useAuth();
   const [apiKey, setApiKey] = useState<string | null>(null);
-  const [classId, setClassId] = useState("1");
+  const [classId, setClassId] = useState("");
+  const [schoolClasses, setSchoolClasses] = useState<SchoolClass[]>([]);
   const [schoolSettings, setSchoolSettings] = useState<SchoolSettings | null>(
     null,
   );
   const [showKey, setShowKey] = useState(false);
   const [schoolPhone, setSchoolPhone] = useState("");
-  const [absentAlertTime, setAbsentAlertTime] = useState("09:00");
+  const [attendanceStartTime, setAttendanceStartTime] = useState("09:00");
+  const [lateGraceMinutes, setLateGraceMinutes] = useState("15");
   const [whatsappToken, setWhatsappToken] = useState("");
   const [whatsappPhoneId, setWhatsappPhoneId] = useState("");
   const [showWhatsappToken, setShowWhatsappToken] = useState(false);
@@ -108,16 +112,22 @@ export default function SettingsPage() {
       }
 
       try {
-        const [keyResponse, settingsResponse] = await Promise.all([
+        const [keyResponse, settingsResponse, classesResponse] = await Promise.all([
           getCompanyApiKey(user.company_id),
           getSchoolSettings(user.company_id),
+          getSchoolClasses(user.company_id),
         ]);
         if (!isCancelled) {
           setApiKey(keyResponse.api_key);
           setSchoolPhone(settingsResponse.school_phone ?? "");
-          setAbsentAlertTime(settingsResponse.absent_alert_time);
+          setAttendanceStartTime(settingsResponse.attendance_start_time);
+          setLateGraceMinutes(settingsResponse.late_grace_minutes.toString());
           setWhatsappPhoneId(settingsResponse.whatsapp_phone_id ?? "");
           setSchoolSettings(settingsResponse);
+          setSchoolClasses(classesResponse);
+          setClassId((currentClassId) =>
+            currentClassId || (classesResponse[0]?.id.toString() ?? ""),
+          );
           setHasError(false);
         }
       } catch {
@@ -148,7 +158,10 @@ export default function SettingsPage() {
     if (!apiKey || typeof window === "undefined") {
       return "";
     }
-    const normalizedClass = classId.trim() || "1";
+    const normalizedClass = classId.trim();
+    if (!normalizedClass) {
+      return "";
+    }
     const baseUrl = getKioskBaseUrl();
     if (!baseUrl) {
       return "";
@@ -200,17 +213,29 @@ export default function SettingsPage() {
       return;
     }
 
+    const parsedGraceMinutes = Number.parseInt(lateGraceMinutes, 10);
+    if (
+      !Number.isFinite(parsedGraceMinutes) ||
+      parsedGraceMinutes < 0 ||
+      parsedGraceMinutes > 180
+    ) {
+      setToastMessage("Late grace period must be between 0 and 180 minutes");
+      return;
+    }
+
     setIsSavingSettings(true);
     setHasError(false);
     try {
       const response = await updateSchoolSettings(user.company_id, {
         school_phone: schoolPhone.trim() || null,
-        absent_alert_time: absentAlertTime,
+        attendance_start_time: attendanceStartTime,
+        late_grace_minutes: parsedGraceMinutes,
         whatsapp_phone_id: whatsappPhoneId.trim() || null,
         whatsapp_token: whatsappToken.trim() || undefined,
       });
       setSchoolPhone(response.school_phone ?? "");
-      setAbsentAlertTime(response.absent_alert_time);
+      setAttendanceStartTime(response.attendance_start_time);
+      setLateGraceMinutes(response.late_grace_minutes.toString());
       setWhatsappPhoneId(response.whatsapp_phone_id ?? "");
       setSchoolSettings(response);
       setWhatsappToken("");
@@ -283,20 +308,39 @@ export default function SettingsPage() {
         ) : (
           <div className="mt-6 grid gap-5">
             {schoolSettings ? (
-              <p
-                className={cn(
-                  "rounded-md border px-3 py-2 text-sm",
-                  schoolSettings.whatsapp_token_configured
-                    ? "border-green-200 bg-green-50 text-green-800"
-                    : "border-amber-200 bg-amber-50 text-amber-800",
-                )}
-              >
-                {schoolSettings.whatsapp_token_configured
-                  ? schoolSettings.whatsapp_uses_default_credentials
-                    ? "WhatsApp is ready using the default backend token and phone number ID. Admins can leave the school-specific fields blank."
-                    : "WhatsApp is ready using this school's configured credentials."
-                  : "WhatsApp is not configured. Add school credentials here or configure default backend credentials."}
-              </p>
+              <div className="grid gap-2">
+                <p
+                  className={cn(
+                    "rounded-md border px-3 py-2 text-sm",
+                    schoolSettings.whatsapp_token_configured
+                      ? "border-green-200 bg-green-50 text-green-800"
+                      : "border-amber-200 bg-amber-50 text-amber-800",
+                  )}
+                >
+                  {schoolSettings.whatsapp_token_configured
+                    ? schoolSettings.whatsapp_uses_default_credentials
+                      ? "WhatsApp is ready using the default backend token and phone number ID. Admins can leave the school-specific fields blank."
+                      : "WhatsApp is ready using this school's configured credentials."
+                    : "WhatsApp is not configured. Add school credentials here or configure default backend credentials."}
+                </p>
+                <div className="grid gap-2 rounded-md border bg-muted/20 p-3 text-sm sm:grid-cols-2">
+                  <span>
+                    Secure webhook: {schoolSettings.whatsapp_webhook_secure ? "Ready" : "Missing META_APP_SECRET"}
+                  </span>
+                  <span>
+                    Parent chatbot: {schoolSettings.whatsapp_chatbot_ready ? "Ready" : "Not ready"}
+                  </span>
+                  <span>
+                    Check-in template: {schoolSettings.whatsapp_checkin_template_configured ? "Configured" : "Missing"}
+                  </span>
+                  <span>
+                    Check-out template: {schoolSettings.whatsapp_checkout_template_configured ? "Configured" : "Missing"}
+                  </span>
+                  <span>
+                    Absent template: {schoolSettings.whatsapp_absent_template_configured ? "Configured" : "Missing"}
+                  </span>
+                </div>
+              </div>
             ) : null}
 
             <div className="grid gap-2">
@@ -332,6 +376,33 @@ export default function SettingsPage() {
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="attendance-start-time">
+                  Class Attendance Start Time
+                </label>
+                <Input
+                  id="attendance-start-time"
+                  type="time"
+                  value={attendanceStartTime}
+                  onChange={(event) => setAttendanceStartTime(event.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="late-grace-minutes">
+                  Late Grace Period (minutes)
+                </label>
+                <Input
+                  id="late-grace-minutes"
+                  type="number"
+                  min={0}
+                  max={180}
+                  value={lateGraceMinutes}
+                  onChange={(event) => setLateGraceMinutes(event.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-2">
                 <label className="text-sm font-medium" htmlFor="phone-number-id">
                   Phone Number ID
                 </label>
@@ -344,14 +415,18 @@ export default function SettingsPage() {
               </div>
               <div className="grid gap-2">
                 <label className="text-sm font-medium" htmlFor="absent-alert-time">
-                  Absent Alert Time
+                  Absent Alert Time (Pakistan)
                 </label>
                 <Input
                   id="absent-alert-time"
                   type="time"
-                  value={absentAlertTime}
-                  onChange={(event) => setAbsentAlertTime(event.target.value)}
+                  value="09:00"
+                  disabled
                 />
+                <p className="text-xs text-muted-foreground">
+                  Scheduled by Vercel Cron at 9:00 AM PKT. Hobby plans may run
+                  later within the 9:00 AM hour.
+                </p>
               </div>
             </div>
 
@@ -470,13 +545,19 @@ export default function SettingsPage() {
               <label className="text-sm font-medium" htmlFor="kiosk-class">
                 Class ID
               </label>
-              <Input
+              <select
                 id="kiosk-class"
-                inputMode="numeric"
                 value={classId}
                 onChange={(event) => setClassId(event.target.value)}
-                placeholder="1"
-              />
+                className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">Select class</option>
+                {schoolClasses.map((schoolClass) => (
+                  <option key={schoolClass.id} value={schoolClass.id}>
+                    {schoolClass.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="grid gap-2">

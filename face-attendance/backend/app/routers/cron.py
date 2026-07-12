@@ -21,6 +21,11 @@ async def absent_alerts_cron(
     If `CRON_SECRET` is configured, Vercel must send:
     `Authorization: Bearer <CRON_SECRET>`.
     """
+    if not settings.cron_secret and settings.app_env.lower() == "production":
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="CRON_SECRET is not configured",
+        )
     if settings.cron_secret and authorization != f"Bearer {settings.cron_secret}":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

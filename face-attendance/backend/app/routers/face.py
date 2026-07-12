@@ -1,5 +1,3 @@
-import base64
-import binascii
 from datetime import datetime, timezone
 from typing import Any
 
@@ -9,7 +7,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.biometrics import BiometricConfigurationError, prepare_embedding_storage
 from app.core.database import get_db
+from app.core.images import normalize_base64_image
 from app.dependencies import require_role
 from app.models.face_embedding import FaceEmbedding
 from app.models.student import Student
@@ -23,7 +23,6 @@ from app.schemas.face import (
 router = APIRouter(prefix="/face", tags=["face"])
 
 AI_SERVICE_TIMEOUT_SECONDS = 90.0
-MAX_HEADSHOT_BYTES = 2_000_000
 
 
 def ai_service_headers() -> dict[str, str]:
@@ -31,33 +30,6 @@ def ai_service_headers() -> dict[str, str]:
     if not api_key:
         return {}
     return {"X-API-Key": api_key}
-
-
-def normalize_headshot_image(image: str) -> str:
-    encoded = image.split(",", 1)[-1]
-    try:
-        decoded = base64.b64decode(encoded, validate=True)
-    except (binascii.Error, ValueError) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Image is not valid base64",
-        ) from exc
-
-    if not decoded:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Image is empty",
-        )
-
-    if len(decoded) > MAX_HEADSHOT_BYTES:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="Image is too large",
-        )
-
-    if image.startswith("data:image/"):
-        return image
-    return f"data:image/jpeg;base64,{encoded}"
 
 
 async def get_school_student(
@@ -95,13 +67,13 @@ async def enroll_face(
         student_id=student_id,
         current_user=current_user,
     )
-    headshot_url = normalize_headshot_image(payload.image)
+    headshot_url = normalize_base64_image(payload.image)
 
     try:
         client: httpx.AsyncClient = request.app.state.http_client
         response = await client.post(
             f"{settings.ai_service_url}/enroll",
-            json={"employee_id": str(student_id), "image": payload.image},
+            json={"student_id": student_id, "image": headshot_url},
             headers=ai_service_headers(),
             timeout=AI_SERVICE_TIMEOUT_SECONDS,
         )
@@ -131,6 +103,23 @@ async def enroll_face(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="AI service returned an invalid embedding",
         )
+    if not isinstance(model_name, str) or model_name.casefold() != settings.ai_model_name.casefold():
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                "AI service model does not match backend configuration; "
+                "check AI_MODEL_NAME"
+            ),
+        )
+
+    normalized_embedding = [float(value) for value in embedding]
+    try:
+        ciphertext, legacy_vector = prepare_embedding_storage(normalized_embedding)
+    except BiometricConfigurationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
 
     existing_embedding = await session.scalar(
         select(FaceEmbedding).where(FaceEmbedding.student_id == student_id),
@@ -139,15 +128,15 @@ async def enroll_face(
         session.add(
             FaceEmbedding(
                 student_id=student_id,
-                embedding_vector=[float(value) for value in embedding],
-                model_name=model_name if isinstance(model_name, str) else "deepface",
+                embedding_vector=legacy_vector,
+                embedding_ciphertext=ciphertext,
+                model_name=model_name,
             ),
         )
     else:
-        existing_embedding.embedding_vector = [float(value) for value in embedding]
-        existing_embedding.model_name = (
-            model_name if isinstance(model_name, str) else "deepface"
-        )
+        existing_embedding.embedding_vector = legacy_vector
+        existing_embedding.embedding_ciphertext = ciphertext
+        existing_embedding.model_name = model_name
         existing_embedding.updated_at = datetime.now(timezone.utc)
 
     student.profile_image = headshot_url

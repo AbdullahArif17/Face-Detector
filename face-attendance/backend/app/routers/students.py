@@ -2,11 +2,13 @@ import csv
 from io import StringIO
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
+from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.images import normalize_base64_image
 from app.dependencies import require_role
 from app.models.branch import Branch
 from app.models.face_embedding import FaceEmbedding
@@ -23,6 +25,8 @@ from app.schemas.student import (
 from app.schemas.whatsapp import WhatsappLogResponse
 
 router = APIRouter(prefix="/students", tags=["students"])
+MAX_CSV_BYTES = 1_000_000
+MAX_CSV_ROWS = 5_000
 
 
 def normalize_grade(grade: str) -> str:
@@ -102,10 +106,14 @@ async def ensure_unique_student_code(
 async def build_student_response(
     session: AsyncSession,
     student: Student,
+    *,
+    has_face_enrolled: bool | None = None,
 ) -> StudentResponse:
-    embedding_id = await session.scalar(
-        select(FaceEmbedding.id).where(FaceEmbedding.student_id == student.id),
-    )
+    if has_face_enrolled is None:
+        embedding_id = await session.scalar(
+            select(FaceEmbedding.id).where(FaceEmbedding.student_id == student.id),
+        )
+        has_face_enrolled = embedding_id is not None
     return StudentResponse(
         id=student.id,
         school_id=student.school_id,
@@ -119,7 +127,7 @@ async def build_student_response(
         parent_phone_2=student.parent_phone_2,
         profile_image=student.profile_image,
         status=student.status,
-        has_face_enrolled=embedding_id is not None,
+        has_face_enrolled=has_face_enrolled,
         created_at=student.created_at,
     )
 
@@ -146,8 +154,19 @@ async def list_students(
     if status_filter:
         query = query.where(Student.status == status_filter)
 
-    students = list((await session.execute(query)).scalars().all())
-    return [await build_student_response(session, student) for student in students]
+    query = query.add_columns(FaceEmbedding.id).outerjoin(
+        FaceEmbedding,
+        FaceEmbedding.student_id == Student.id,
+    )
+    rows = (await session.execute(query)).all()
+    return [
+        await build_student_response(
+            session,
+            student,
+            has_face_enrolled=embedding_id is not None,
+        )
+        for student, embedding_id in rows
+    ]
 
 
 @router.post("", response_model=StudentResponse, status_code=status.HTTP_201_CREATED)
@@ -190,7 +209,11 @@ async def create_student(
         parent_name=payload.parent_name.strip(),
         parent_phone=payload.parent_phone,
         parent_phone_2=payload.parent_phone_2,
-        profile_image=payload.profile_image,
+        profile_image=(
+            normalize_base64_image(payload.profile_image)
+            if payload.profile_image
+            else None
+        ),
         status="active",
     )
     session.add(student)
@@ -219,6 +242,11 @@ async def update_student(
         school_id=current_user.company_id,
     )
     update_data = payload.model_dump(exclude_unset=True)
+
+    if update_data.get("profile_image"):
+        update_data["profile_image"] = normalize_base64_image(
+            str(update_data["profile_image"]),
+        )
 
     if "student_code" in update_data and update_data["student_code"] is not None:
         student_code = str(update_data["student_code"]).strip()
@@ -314,6 +342,7 @@ async def get_student_whatsapp_logs(
             message_body=log.message_body,
             status=log.status,
             meta_message_id=log.meta_message_id,
+            error_message=log.error_message,
             sent_at=log.sent_at,
             created_at=log.created_at,
         )
@@ -330,7 +359,19 @@ async def import_students(
     if not file.filename or not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Upload a CSV file")
 
-    content = (await file.read()).decode("utf-8-sig")
+    raw_content = await file.read(MAX_CSV_BYTES + 1)
+    if len(raw_content) > MAX_CSV_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail="CSV file is too large",
+        )
+    try:
+        content = raw_content.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="CSV file must use UTF-8 encoding",
+        ) from exc
     reader = csv.DictReader(StringIO(content))
     required_columns = {
         "student_name",
@@ -350,6 +391,14 @@ async def import_students(
     errors: list[StudentImportError] = []
 
     for row_index, row in enumerate(reader, start=2):
+        if row_index > MAX_CSV_ROWS + 1:
+            errors.append(
+                StudentImportError(
+                    row=row_index,
+                    error=f"CSV is limited to {MAX_CSV_ROWS} student rows",
+                ),
+            )
+            break
         try:
             payload = StudentCreate(
                 student_name=row.get("student_name", ""),
@@ -361,13 +410,32 @@ async def import_students(
             )
             await create_student(payload, session=session, current_user=current_user)
             created += 1
-        except Exception as exc:
+        except HTTPException as exc:
             await session.rollback()
             errors.append(
                 StudentImportError(
                     row=row_index,
                     student_code=row.get("student_code"),
-                    error=str(exc),
+                    error=str(exc.detail),
+                ),
+            )
+        except ValidationError as exc:
+            await session.rollback()
+            first_error = exc.errors()[0] if exc.errors() else {}
+            errors.append(
+                StudentImportError(
+                    row=row_index,
+                    student_code=row.get("student_code"),
+                    error=str(first_error.get("msg", "Invalid student row")),
+                ),
+            )
+        except Exception:
+            await session.rollback()
+            errors.append(
+                StudentImportError(
+                    row=row_index,
+                    student_code=row.get("student_code"),
+                    error="Unable to import this student row",
                 ),
             )
 

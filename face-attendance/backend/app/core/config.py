@@ -16,14 +16,21 @@ class Settings:
     access_token_expire_minutes: int
     ai_service_url: str
     ai_api_key: str | None
+    ai_model_name: str
+    biometric_encryption_key: str | None
+    app_timezone: str
     frontend_origins: list[str]
     meta_whatsapp_token: str | None
     meta_phone_number_id: str | None
     meta_webhook_verify_token: str | None
+    meta_app_secret: str | None
+    meta_graph_api_version: str
     meta_template_language: str
+    meta_test_template_language: str
     meta_checkin_template_name: str | None
     meta_checkout_template_name: str | None
     meta_absent_template_name: str | None
+    meta_test_template_name: str | None
     cron_secret: str | None
     app_env: str
 
@@ -84,6 +91,9 @@ def get_settings() -> Settings:
         ),
         ai_service_url=os.getenv("AI_SERVICE_URL", "http://localhost:8001").rstrip("/"),
         ai_api_key=os.getenv("AI_API_KEY"),
+        ai_model_name=os.getenv("AI_MODEL_NAME", "ArcFace").strip(),
+        biometric_encryption_key=os.getenv("BIOMETRIC_ENCRYPTION_KEY"),
+        app_timezone=os.getenv("APP_TIMEZONE", "Asia/Karachi").strip(),
         frontend_origins=parse_csv_env(
             os.getenv(
                 "FRONTEND_ORIGINS",
@@ -93,10 +103,14 @@ def get_settings() -> Settings:
         meta_whatsapp_token=os.getenv("META_WHATSAPP_TOKEN"),
         meta_phone_number_id=os.getenv("META_PHONE_NUMBER_ID"),
         meta_webhook_verify_token=os.getenv("META_WEBHOOK_VERIFY_TOKEN"),
-        meta_template_language=os.getenv("META_TEMPLATE_LANGUAGE", "en_US"),
+        meta_app_secret=os.getenv("META_APP_SECRET"),
+        meta_graph_api_version=os.getenv("META_GRAPH_API_VERSION", "v25.0").strip(),
+        meta_template_language=os.getenv("META_TEMPLATE_LANGUAGE", "en"),
+        meta_test_template_language=os.getenv("META_TEST_TEMPLATE_LANGUAGE", "en_US"),
         meta_checkin_template_name=os.getenv("META_CHECKIN_TEMPLATE_NAME"),
         meta_checkout_template_name=os.getenv("META_CHECKOUT_TEMPLATE_NAME"),
         meta_absent_template_name=os.getenv("META_ABSENT_TEMPLATE_NAME"),
+        meta_test_template_name=os.getenv("META_TEST_TEMPLATE_NAME"),
         cron_secret=os.getenv("CRON_SECRET"),
         app_env=os.getenv("APP_ENV", "development"),
     )

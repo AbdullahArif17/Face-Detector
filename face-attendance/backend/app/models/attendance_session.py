@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -14,6 +14,13 @@ class AttendanceSession(Base):
             "company_id",
             "branch_id",
             "status",
+        ),
+        Index(
+            "uq_attendance_sessions_one_active_class",
+            "company_id",
+            "branch_id",
+            unique=True,
+            postgresql_where=text("status = 'active' AND stopped_at IS NULL"),
         ),
     )
 

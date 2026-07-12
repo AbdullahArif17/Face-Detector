@@ -38,11 +38,15 @@ async def get_current_user(
     try:
         payload = decode_access_token(token)
         user_id = int(payload.get("sub", ""))
+        token_company_id = int(payload.get("company_id", ""))
     except (TypeError, ValueError):
         raise credentials_error
 
     user = await session.get(User, user_id)
-    if user is None or not user.is_active:
+    if user is None or not user.is_active or user.company_id != token_company_id:
+        raise credentials_error
+    company = await session.get(Company, user.company_id)
+    if company is None or company.status != "active":
         raise credentials_error
     return user
 

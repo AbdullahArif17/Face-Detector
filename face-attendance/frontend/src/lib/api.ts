@@ -239,23 +239,38 @@ export interface CompanyKioskInfoResponse {
   name: string;
 }
 
+export interface SchoolClass {
+  id: number;
+  name: string;
+  location: string | null;
+}
+
 export interface SchoolSettings {
   company_id: number;
   school_phone: string | null;
   school_logo: string | null;
   absent_alert_time: string;
+  attendance_start_time: string;
+  late_grace_minutes: number;
   whatsapp_token_configured: boolean;
   whatsapp_school_token_configured: boolean;
   whatsapp_default_token_configured: boolean;
   whatsapp_uses_default_credentials: boolean;
   whatsapp_phone_id: string | null;
   whatsapp_effective_phone_id: string | null;
+  whatsapp_webhook_secure: boolean;
+  whatsapp_chatbot_ready: boolean;
+  whatsapp_checkin_template_configured: boolean;
+  whatsapp_checkout_template_configured: boolean;
+  whatsapp_absent_template_configured: boolean;
 }
 
 export interface SchoolSettingsInput {
   school_phone?: string | null;
   school_logo?: string | null;
   absent_alert_time?: string | null;
+  attendance_start_time?: string | null;
+  late_grace_minutes?: number | null;
   whatsapp_token?: string | null;
   whatsapp_phone_id?: string | null;
 }
@@ -270,6 +285,7 @@ export interface WhatsappLog {
   message_body: string;
   status: "sent" | "failed" | "pending" | string;
   meta_message_id: string | null;
+  error_message: string | null;
   sent_at: string | null;
   created_at: string;
 }
@@ -294,6 +310,7 @@ export interface WhatsappRetryResponse {
 }
 
 const API_PAGE_SIZE = 100;
+const FACE_REQUEST_TIMEOUT_MS = 115_000;
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000",
@@ -479,6 +496,7 @@ export async function enrollEmployeeFace(
   const response = await api.post<FaceEnrollResponse>(
     `/face/enroll/${employeeId}`,
     { image },
+    { timeout: FACE_REQUEST_TIMEOUT_MS },
   );
   return response.data;
 }
@@ -490,6 +508,7 @@ export async function enrollStudentFace(
   const response = await api.post<FaceEnrollResponse>(
     `/face/enroll/${studentId}`,
     { image },
+    { timeout: FACE_REQUEST_TIMEOUT_MS },
   );
   return response.data;
 }
@@ -634,7 +653,10 @@ export async function autoMarkAttendance(
   const response = await publicApi.post<KioskAttendanceResult>(
     "/attendance/auto-mark",
     { image, class_id: classId },
-    { headers: { "X-API-Key": apiKey } },
+    {
+      headers: { "X-API-Key": apiKey },
+      timeout: FACE_REQUEST_TIMEOUT_MS,
+    },
   );
   return response.data;
 }
@@ -690,6 +712,15 @@ export async function getCompanyApiKey(
 ): Promise<CompanyApiKeyResponse> {
   const response = await api.get<CompanyApiKeyResponse>(
     `/companies/${companyId}/api-key`,
+  );
+  return response.data;
+}
+
+export async function getSchoolClasses(
+  companyId: number,
+): Promise<SchoolClass[]> {
+  const response = await api.get<SchoolClass[]>(
+    `/companies/${companyId}/classes`,
   );
   return response.data;
 }

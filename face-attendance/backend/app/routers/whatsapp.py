@@ -1,10 +1,17 @@
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_db
+from app.core.time import (
+    display_local_date,
+    display_local_time,
+    local_day_bounds,
+    local_now,
+)
 from app.dependencies import require_role
 from app.models.company import Company
 from app.models.student import Student
@@ -18,23 +25,33 @@ from app.schemas.whatsapp import (
     WhatsappTestRequest,
     WhatsappTestResponse,
 )
-from app.services.whatsapp import get_whatsapp_credentials, send_text_message
+from app.services.whatsapp import (
+    get_whatsapp_credentials,
+    is_configured_value,
+    school_phone_or_default,
+    send_absent_message,
+    send_checkin_message,
+    send_checkout_message,
+    send_template_message,
+    send_text_message,
+)
 
 router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
 SUCCESSFUL_WHATSAPP_STATUSES = ("sent", "delivered", "read")
 
 
 def day_bounds(day: date) -> tuple[datetime, datetime]:
-    start = datetime.combine(day, time.min, tzinfo=timezone.utc)
-    return start, start + timedelta(days=1)
+    return local_day_bounds(day)
 
 
 def month_bounds(day: date) -> tuple[datetime, datetime]:
-    start = datetime(day.year, day.month, 1, tzinfo=timezone.utc)
+    first_day = date(day.year, day.month, 1)
     if day.month == 12:
-        end = datetime(day.year + 1, 1, 1, tzinfo=timezone.utc)
+        next_month = date(day.year + 1, 1, 1)
     else:
-        end = datetime(day.year, day.month + 1, 1, tzinfo=timezone.utc)
+        next_month = date(day.year, day.month + 1, 1)
+    start, _ = local_day_bounds(first_day)
+    end, _ = local_day_bounds(next_month)
     return start, end
 
 
@@ -55,6 +72,7 @@ async def build_log_response(
         message_body=log.message_body,
         status=log.status,
         meta_message_id=log.meta_message_id,
+        error_message=log.error_message,
         sent_at=log.sent_at,
         created_at=log.created_at,
     )
@@ -100,7 +118,7 @@ async def get_whatsapp_stats(
         require_role("super_admin", "admin", "hr", "branch_manager", "viewer"),
     ),
 ) -> WhatsappStatsResponse:
-    today = datetime.now(timezone.utc).date()
+    today = local_now().date()
     today_start, today_end = day_bounds(today)
     month_start, month_end = month_bounds(today)
 
@@ -160,12 +178,22 @@ async def send_test_whatsapp(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Phone must be Pakistan format, for example 923001234567 or 03001234567",
         ) from exc
-    result = await send_text_message(
-        phone_number_id=phone_number_id,
-        access_token=access_token,
-        parent_phone=parent_phone,
-        message=payload.message,
-    )
+    if is_configured_value(settings.meta_test_template_name):
+        result = await send_template_message(
+            phone_number_id=phone_number_id,
+            access_token=access_token,
+            parent_phone=parent_phone,
+            template_name=settings.meta_test_template_name.strip(),
+            body_parameters=[],
+            language_code=settings.meta_test_template_language,
+        )
+    else:
+        result = await send_text_message(
+            phone_number_id=phone_number_id,
+            access_token=access_token,
+            parent_phone=parent_phone,
+            message=payload.message,
+        )
     return WhatsappTestResponse(
         success=result["success"] is True,
         message_id=result["message_id"] if isinstance(result["message_id"], str) else None,
@@ -188,7 +216,7 @@ async def retry_failed_whatsapp(
             detail="WhatsApp token and phone number ID are not configured",
         )
 
-    start, end = day_bounds(datetime.now(timezone.utc).date())
+    start, end = day_bounds(local_now().date())
     result = await session.execute(
         select(WhatsappLog).where(
             WhatsappLog.school_id == current_user.company_id,
@@ -198,24 +226,81 @@ async def retry_failed_whatsapp(
         ),
     )
     failed_logs = list(result.scalars().all())
+    student_ids = {log.student_id for log in failed_logs}
+    students = {
+        student.id: student
+        for student in (
+            await session.execute(select(Student).where(Student.id.in_(student_ids)))
+        )
+        .scalars()
+        .all()
+    }
     success_count = 0
     still_failed = 0
 
     for log in failed_logs:
-        send_result = await send_text_message(
-            phone_number_id=phone_number_id,
-            access_token=access_token,
-            parent_phone=log.parent_phone,
-            message=log.message_body,
-        )
+        student = students.get(log.student_id)
+        event_time = log.sent_at or log.created_at
+        time_str = display_local_time(event_time)
+        date_str = display_local_date(event_time)
+        if student is not None and log.message_type == "check_in":
+            send_result = await send_checkin_message(
+                phone_number_id,
+                access_token,
+                log.parent_phone,
+                student.parent_name,
+                student.student_name,
+                school.name,
+                school_phone_or_default(school),
+                time_str,
+                date_str,
+                student.grade,
+                student.section,
+            )
+        elif student is not None and log.message_type == "check_out":
+            send_result = await send_checkout_message(
+                phone_number_id,
+                access_token,
+                log.parent_phone,
+                student.parent_name,
+                student.student_name,
+                school.name,
+                school_phone_or_default(school),
+                time_str,
+                date_str,
+                student.grade,
+                student.section,
+            )
+        elif student is not None and log.message_type == "absent":
+            send_result = await send_absent_message(
+                phone_number_id,
+                access_token,
+                log.parent_phone,
+                student.parent_name,
+                school.name,
+                school_phone_or_default(school),
+                student.student_name,
+                date_str,
+            )
+        else:
+            send_result = await send_text_message(
+                phone_number_id=phone_number_id,
+                access_token=access_token,
+                parent_phone=log.parent_phone,
+                message=log.message_body,
+            )
         if send_result["success"]:
             log.status = "sent"
             log.meta_message_id = (
                 send_result["message_id"] if isinstance(send_result["message_id"], str) else None
             )
             log.sent_at = datetime.now(timezone.utc)
+            log.error_message = None
             success_count += 1
         else:
+            log.error_message = (
+                send_result["error"] if isinstance(send_result["error"], str) else None
+            )
             still_failed += 1
 
     await session.commit()

@@ -66,12 +66,11 @@ async def signup(
         session.add(company)
         await session.flush()
 
-        # TODO: Replace this default branch bootstrap with a full branch setup flow.
         session.add(
             Branch(
                 company_id=company.id,
-                name="Main Branch",
-                location=None,
+                name="Class 1-A",
+                location="Classroom",
             ),
         )
 

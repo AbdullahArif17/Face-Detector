@@ -26,6 +26,12 @@ class handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         cron_secret = os.getenv("CRON_SECRET")
         authorization = self.headers.get("Authorization")
+        if not cron_secret and os.getenv("APP_ENV", "development").lower() == "production":
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                {"success": False, "error": "CRON_SECRET is not configured"},
+            )
+            return
         if cron_secret and authorization != f"Bearer {cron_secret}":
             self._send_json(
                 HTTPStatus.UNAUTHORIZED,
@@ -35,10 +41,10 @@ class handler(BaseHTTPRequestHandler):
 
         try:
             result = asyncio.run(_run_absent_alerts())
-        except Exception as exc:
+        except Exception:
             self._send_json(
                 HTTPStatus.INTERNAL_SERVER_ERROR,
-                {"success": False, "error": str(exc)},
+                {"success": False, "error": "Absent alert job failed"},
             )
             return
 

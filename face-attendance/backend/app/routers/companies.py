@@ -8,12 +8,15 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.dependencies import get_company_by_api_key, normalize_role, require_role
 from app.models.company import Company
+from app.models.branch import Branch
+from app.models.student import Student
 from app.models.user import User
 from app.schemas.company import (
     CompanyApiKeyResponse,
     CompanyCreate,
     CompanyKioskInfoResponse,
     CompanyRead,
+    SchoolClassResponse,
     SchoolSettingsResponse,
     SchoolSettingsUpdate,
 )
@@ -55,17 +58,35 @@ def build_school_settings_response(company: Company) -> SchoolSettingsResponse:
         not school_phone_id_configured
         and default_phone_id_configured
     )
+    credentials_ready = (
+        (school_token_configured or default_token_configured)
+        and (school_phone_id_configured or default_phone_id_configured)
+    )
+    webhook_secure = is_configured_secret(settings.meta_app_secret)
     return SchoolSettingsResponse(
         company_id=company.id,
         school_phone=company.school_phone,
         school_logo=company.school_logo,
         absent_alert_time=company.absent_alert_time,
+        attendance_start_time=company.attendance_start_time,
+        late_grace_minutes=company.late_grace_minutes,
         whatsapp_token_configured=school_token_configured or default_token_configured,
         whatsapp_school_token_configured=school_token_configured,
         whatsapp_default_token_configured=default_token_configured,
         whatsapp_uses_default_credentials=uses_default_credentials,
         whatsapp_phone_id=company.whatsapp_phone_id,
         whatsapp_effective_phone_id=effective_phone_id,
+        whatsapp_webhook_secure=webhook_secure,
+        whatsapp_chatbot_ready=credentials_ready and webhook_secure,
+        whatsapp_checkin_template_configured=is_configured_value(
+            settings.meta_checkin_template_name,
+        ),
+        whatsapp_checkout_template_configured=is_configured_value(
+            settings.meta_checkout_template_name,
+        ),
+        whatsapp_absent_template_configured=is_configured_value(
+            settings.meta_absent_template_name,
+        ),
     )
 
 
@@ -96,6 +117,28 @@ async def get_company_kiosk_info(
     company: Company = Depends(get_company_by_api_key),
 ) -> CompanyKioskInfoResponse:
     return CompanyKioskInfoResponse(company_id=company.id, name=company.name)
+
+
+@router.get("/{company_id}/classes", response_model=list[SchoolClassResponse])
+async def list_school_classes(
+    company_id: int,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        require_role("super_admin", "admin", "hr", "branch_manager", "viewer"),
+    ),
+) -> list[SchoolClassResponse]:
+    ensure_company_access(current_user, company_id)
+    result = await session.execute(
+        select(Branch)
+        .join(Student, Student.class_id == Branch.id)
+        .where(Branch.company_id == company_id)
+        .distinct()
+        .order_by(Branch.name),
+    )
+    return [
+        SchoolClassResponse(id=school_class.id, name=school_class.name, location=school_class.location)
+        for school_class in result.scalars().all()
+    ]
 
 
 @router.get("/{company_id}/settings", response_model=SchoolSettingsResponse)
@@ -135,6 +178,10 @@ async def update_school_settings(
             value = value.strip() or None
         if field == "absent_alert_time" and value is None:
             value = "09:00"
+        if field == "attendance_start_time" and value is None:
+            value = "09:00"
+        if field == "late_grace_minutes" and value is None:
+            value = 15
         setattr(company, field, value)
 
     await session.commit()

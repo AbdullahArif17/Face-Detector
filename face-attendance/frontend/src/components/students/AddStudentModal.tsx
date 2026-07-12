@@ -20,10 +20,10 @@ import {
   type StudentInput,
 } from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/errors";
+import { optimizeImageFile } from "@/lib/images";
 
 const grades = Array.from({ length: 12 }, (_, index) => `Class ${index + 1}`);
 const sections = ["A", "B", "C", "D"];
-const MAX_UPLOAD_BYTES = 2_000_000;
 
 interface AddStudentModalProps {
   open: boolean;
@@ -46,21 +46,6 @@ function getFaceErrorMessage(error: unknown): string {
 function isValidParentPhone(phone: string): boolean {
   const normalized = phone.trim().replace(/[\s\-()+]/g, "");
   return /^92\d{10}$/.test(normalized) || /^03\d{9}$/.test(normalized);
-}
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result);
-        return;
-      }
-      reject(new Error("Unable to read image file."));
-    };
-    reader.onerror = () => reject(new Error("Unable to read image file."));
-    reader.readAsDataURL(file);
-  });
 }
 
 export function AddStudentModal({
@@ -96,21 +81,16 @@ export function AddStudentModal({
     if (!file) {
       return;
     }
-    if (!file.type.startsWith("image/")) {
-      setError("Upload a valid image file.");
-      return;
-    }
-    if (file.size > MAX_UPLOAD_BYTES) {
-      setError("Image is too large. Use an image under 2 MB.");
-      return;
-    }
-
     try {
-      setProfileImage(await readFileAsDataUrl(file));
+      setProfileImage(await optimizeImageFile(file));
       setShouldEnrollFace(true);
       setError(null);
-    } catch {
-      setError("Unable to read image file.");
+    } catch (imageError) {
+      setError(
+        imageError instanceof Error
+          ? imageError.message
+          : "Unable to read image file.",
+      );
     }
   }
 

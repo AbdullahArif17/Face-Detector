@@ -13,33 +13,17 @@ import {
 } from "@/components/ui/dialog";
 import { enrollStudentFace, type Student } from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/errors";
+import { optimizeImageFile } from "@/lib/images";
 
 const videoConstraints = {
   facingMode: "user",
 };
-
-const MAX_UPLOAD_BYTES = 2_000_000;
 
 function getErrorMessage(error: unknown): string {
   return getApiErrorMessage(
     error,
     "Face enrollment failed. Capture or upload a clear front-facing photo.",
   );
-}
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result);
-        return;
-      }
-      reject(new Error("Unable to read image file."));
-    };
-    reader.onerror = () => reject(new Error("Unable to read image file."));
-    reader.readAsDataURL(file);
-  });
 }
 
 export function StudentFaceEnrollModal({
@@ -80,21 +64,17 @@ export function StudentFaceEnrollModal({
     if (!file) {
       return;
     }
-    if (!file.type.startsWith("image/")) {
-      setError("Upload a valid image file.");
-      return;
-    }
-    if (file.size > MAX_UPLOAD_BYTES) {
-      setError("Image is too large. Use an image under 2 MB.");
-      return;
-    }
     try {
-      setSelectedImage(await readFileAsDataUrl(file));
+      setSelectedImage(await optimizeImageFile(file));
       setIsCameraActive(false);
       setStatusMessage("Photo uploaded. Review it before saving.");
       setError(null);
-    } catch {
-      setError("Unable to read image file.");
+    } catch (imageError) {
+      setError(
+        imageError instanceof Error
+          ? imageError.message
+          : "Unable to read image file.",
+      );
     }
   }
 

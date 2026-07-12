@@ -1,6 +1,7 @@
 "use client";
 
 import { Clock3, MessageCircle, ShieldCheck, UserCheck, Users, UserX } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { ApiError } from "@/components/api-error";
@@ -111,11 +112,40 @@ export default function DashboardPage() {
   );
   const visibleStudents = students.slice(0, 12);
   const enrolledCount = students.filter((student) => student.has_face_enrolled).length;
+  const enrollmentPercentage = students.length
+    ? Math.round((enrolledCount / students.length) * 100)
+    : 0;
+  const classSummaries = useMemo(() => {
+    const summaries = new Map<
+      number,
+      { label: string; present: number; absent: number; late: number }
+    >();
+    for (const record of todayRecords) {
+      const current = summaries.get(record.class_id) ?? {
+        label: `${record.grade}-${record.section}`,
+        present: 0,
+        absent: 0,
+        late: 0,
+      };
+      if (record.status === "absent") {
+        current.absent += 1;
+      } else {
+        current.present += 1;
+        if (record.status === "late") {
+          current.late += 1;
+        }
+      }
+      summaries.set(record.class_id, current);
+    }
+    return [...summaries.entries()].sort((first, second) =>
+      first[1].label.localeCompare(second[1].label),
+    );
+  }, [todayRecords]);
   const whatsappStatusText = schoolSettings
     ? schoolSettings.whatsapp_token_configured
-      ? schoolSettings.whatsapp_uses_default_credentials
-        ? "Ready using default backend credentials"
-        : "Ready using school credentials"
+      ? schoolSettings.whatsapp_chatbot_ready
+        ? "Alerts and parent chatbot ready"
+        : "Alerts ready; chatbot security incomplete"
       : "Not configured"
     : hasAdminAccess
       ? "Checking configuration..."
@@ -169,11 +199,17 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold tabular-nums">
-              {isLoading ? "â€”" : `${enrolledCount}/${students.length}`}
+              {isLoading ? "—" : `${enrolledCount}/${students.length}`}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Students with enrolled face photos
+              {enrollmentPercentage}% of active students can use face attendance
             </p>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-blue-600 transition-[width]"
+                style={{ width: `${enrollmentPercentage}%` }}
+              />
+            </div>
           </CardContent>
         </Card>
 
@@ -190,6 +226,43 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
+          <div>
+            <CardTitle>Class attendance today</CardTitle>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Class-wise attendance uses each student&apos;s assigned grade and section.
+            </p>
+          </div>
+          <Link
+            href="/attendance"
+            className="rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted"
+          >
+            Manage sessions
+          </Link>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">Loading classes...</p>
+          ) : classSummaries.length ? (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {classSummaries.map(([classId, summary]) => (
+                <div key={classId} className="rounded-lg border p-4">
+                  <p className="font-semibold">{summary.label}</p>
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
+                    <span className="text-green-700">{summary.present} present</span>
+                    <span className="text-red-700">{summary.absent} absent</span>
+                    <span className="text-amber-700">{summary.late} late</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No active classes found.</p>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

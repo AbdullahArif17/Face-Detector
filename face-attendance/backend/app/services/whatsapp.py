@@ -9,7 +9,7 @@ from app.models.company import Company
 from app.models.student import Student
 from app.models.whatsapp_log import WhatsappLog
 
-WHATSAPP_API_URL = "https://graph.facebook.com/v19.0"
+WHATSAPP_API_URL = f"https://graph.facebook.com/{settings.meta_graph_api_version}"
 WHATSAPP_TIMEOUT_SECONDS = 20.0
 
 
@@ -115,6 +115,7 @@ async def send_template_message(
     parent_phone: str,
     template_name: str,
     body_parameters: list[str],
+    language_code: str | None = None,
 ) -> dict[str, str | bool | None]:
     components: list[dict[str, Any]] = []
     if body_parameters:
@@ -130,7 +131,7 @@ async def send_template_message(
 
     template: dict[str, Any] = {
         "name": template_name,
-        "language": {"code": settings.meta_template_language},
+        "language": {"code": language_code or settings.meta_template_language},
     }
     if components:
         template["components"] = components
@@ -372,6 +373,7 @@ async def log_whatsapp_message(
     message_body: str,
     status: str,
     meta_message_id: str | None,
+    error_message: str | None = None,
 ) -> WhatsappLog:
     log = WhatsappLog(
         school_id=school_id,
@@ -381,6 +383,7 @@ async def log_whatsapp_message(
         message_body=message_body,
         status=status,
         meta_message_id=meta_message_id,
+        error_message=error_message,
         sent_at=datetime.now(timezone.utc) if status == "sent" else None,
     )
     session.add(log)

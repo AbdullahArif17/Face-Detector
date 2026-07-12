@@ -8,8 +8,13 @@ from fastapi import HTTPException, status
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 
-def base64_to_image(b64_string: str) -> np.ndarray:
+def base64_to_image(b64_string: str, *, max_bytes: int = 5_000_000) -> np.ndarray:
     encoded = b64_string.split(",", 1)[-1]
+    if len(encoded) > ((max_bytes + 2) // 3) * 4 + 4:
+        raise HTTPException(
+            status_code=413,
+            detail="Image is too large",
+        )
     try:
         image_bytes = base64.b64decode(encoded, validate=True)
     except (binascii.Error, ValueError) as exc:
@@ -17,6 +22,11 @@ def base64_to_image(b64_string: str) -> np.ndarray:
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Image is not valid base64",
         ) from exc
+    if len(image_bytes) > max_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail="Image is too large",
+        )
 
     try:
         with Image.open(BytesIO(image_bytes)) as pil_image:

@@ -2,6 +2,8 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.core.images import MAX_IMAGE_BASE64_LENGTH
+
 
 class AttendanceBase(BaseModel):
     student_id: int
@@ -85,7 +87,7 @@ class AttendanceSessionStatus(BaseModel):
 
 
 class AttendanceAutoMarkRequest(ClassScopedRequest):
-    image: str = Field(min_length=1)
+    image: str = Field(min_length=1, max_length=MAX_IMAGE_BASE64_LENGTH)
 
 
 class AttendanceAutoStudent(BaseModel):

@@ -57,7 +57,7 @@ function StatusBadge({ status }: Readonly<{ status: string }>) {
     <span
       className={cn(
         "inline-flex rounded-full px-2 py-1 text-xs font-medium",
-        status === "sent"
+        ["sent", "delivered", "read"].includes(status)
           ? "bg-green-50 text-green-700"
           : status === "failed"
             ? "bg-red-50 text-red-700"
@@ -192,6 +192,8 @@ export default function NotificationsPage() {
           >
             <option value="">All statuses</option>
             <option value="sent">Sent</option>
+            <option value="delivered">Delivered</option>
+            <option value="read">Read</option>
             <option value="failed">Failed</option>
             <option value="pending">Pending</option>
           </select>
@@ -311,6 +313,11 @@ export default function NotificationsPage() {
           <pre className="whitespace-pre-wrap rounded-lg border bg-muted p-4 text-sm">
             {selectedLog?.message_body}
           </pre>
+          {selectedLog?.error_message ? (
+            <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              Meta error: {selectedLog.error_message}
+            </p>
+          ) : null}
         </DialogContent>
       </Dialog>
     </section>

@@ -15,6 +15,7 @@ class WhatsappLogResponse(BaseModel):
     message_body: str
     status: str
     meta_message_id: str | None
+    error_message: str | None = None
     sent_at: datetime | None
     created_at: datetime
 
