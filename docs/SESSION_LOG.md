@@ -321,6 +321,10 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: The authorized number is linked to one active student; Meta previously returned message IDs for it; the database contains no inbound `STATUS` webhook rows and no delivered/read callbacks. Nine backend tests and frontend typecheck/lint/build pass.
 - Pending: Deploy, enable the Vercel test allowlist for `923362725979`, subscribe the WhatsApp Business Account `messages` webhook and make the Meta app live/test-deliverable, then send `STATUS` to the Meta business/test number and confirm inbound/reply rows.
 
+## 2026-07-12 - WhatsApp test release deployed
+- Completed: Deployed commit `4334c72`; the production test endpoint now accepts `03362725979`, and Meta accepted one approved test template with a message ID.
+- Pending: Set `WHATSAPP_TEST_MODE=true` and `WHATSAPP_TEST_RECIPIENT=923362725979` in backend Vercel, redeploy, then fix/verify inbound `messages` webhook delivery and send `STATUS` from the linked test phone.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title
