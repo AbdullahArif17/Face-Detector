@@ -325,6 +325,11 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Completed: Deployed commit `4334c72`; the production test endpoint now accepts `03362725979`, and Meta accepted one approved test template with a message ID.
 - Pending: Set `WHATSAPP_TEST_MODE=true` and `WHATSAPP_TEST_RECIPIENT=923362725979` in backend Vercel, redeploy, then fix/verify inbound `messages` webhook delivery and send `STATUS` from the linked test phone.
 
+## 2026-07-12 - Meta app public policy pages
+- Completed: Added public Privacy Policy, Terms of Service, and Data Deletion instructions pages, linked them from login, and added an environment-based privacy contact without committing personal data.
+- Verified: Frontend typecheck, lint, and production build pass; all three pages are statically generated.
+- Pending: Set `NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL`, deploy, paste the three production URLs and frontend app domain into Meta, and have the policy text reviewed before onboarding real schools.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

@@ -270,6 +270,8 @@ DeepFace downloads the configured model weights on first use to the current user
   `CRON_SECRET`, `AI_API_KEY`, and `BIOMETRIC_ENCRYPTION_KEY` in Vercel.
 - Set the same `AI_API_KEY` as a Hugging Face Space secret and deploy the Docker Space.
 - Set `BACKEND_INTERNAL_URL` to the deployed backend in the frontend Vercel project.
+- Set `NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL` in the frontend Vercel project so the
+  public privacy, terms, and data-deletion pages show the responsible contact.
 - Set `FRONTEND_ORIGINS` to exact HTTPS frontend domains; do not use `*`.
 - Confirm `/health`, `/ready`, Meta webhook verification, a signed webhook event,
   student face enrollment, and a live class-session kiosk scan after each deployment.

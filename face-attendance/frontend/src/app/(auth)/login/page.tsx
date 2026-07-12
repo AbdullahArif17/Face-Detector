@@ -126,6 +126,13 @@ export default function LoginPage() {
               Create an account
             </Link>
           </p>
+          <p className="text-center text-xs text-muted-foreground">
+            <Link className="hover:underline" href="/privacy">Privacy</Link>
+            {" · "}
+            <Link className="hover:underline" href="/terms">Terms</Link>
+            {" · "}
+            <Link className="hover:underline" href="/data-deletion">Data deletion</Link>
+          </p>
         </CardContent>
       </Card>
     </main>
