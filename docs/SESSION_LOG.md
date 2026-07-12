@@ -312,6 +312,10 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: AI API-key protection is enabled; WhatsApp default credentials, signature verification, chatbot, and all three attendance template settings report ready.
 - Pending: Replace stale strict Hugging Face face-quality variable overrides with the tuned values in `ai-service/.env.example`, then repeat one real student enrollment and live class-session kiosk scan.
 
+## 2026-07-12 - WhatsApp templates approved
+- Completed: User confirmed the check-in, checkout, and absent WhatsApp templates are verified by Meta.
+- Pending: Complete the final deployed enrollment, class-session kiosk scan, and WhatsApp delivery acceptance test.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title
