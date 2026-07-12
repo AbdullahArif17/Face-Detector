@@ -307,6 +307,11 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: Production demo login passes, direct and proxied student lists return 9 rows, class discovery returns 4 classes, WhatsApp default credentials and attendance templates are detected, and the backend readiness check reaches Neon.
 - Pending: Wait for the Hugging Face Space build to reach `RUNNING`; add `BIOMETRIC_ENCRYPTION_KEY` and `META_APP_SECRET` to backend Vercel; rotate the previously exposed AI key on both services; encrypt the legacy embedding; then run a signed chatbot webhook and one live kiosk scan.
 
+## 2026-07-12 - Production services verified ready
+- Completed: User configured production secrets and confirmed deployment; Hugging Face commit `07e88ef` is running and backend `/ready` reports database, AI service, and biometric encryption ready.
+- Verified: AI API-key protection is enabled; WhatsApp default credentials, signature verification, chatbot, and all three attendance template settings report ready.
+- Pending: Replace stale strict Hugging Face face-quality variable overrides with the tuned values in `ai-service/.env.example`, then repeat one real student enrollment and live class-session kiosk scan.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title
