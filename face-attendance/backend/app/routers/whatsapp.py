@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.phones import normalize_pakistan_phone
 from app.core.time import (
     display_local_date,
     display_local_time,
@@ -17,7 +18,6 @@ from app.models.company import Company
 from app.models.student import Student
 from app.models.user import User
 from app.models.whatsapp_log import WhatsappLog
-from app.schemas.student import validate_pakistan_phone
 from app.schemas.whatsapp import (
     WhatsappLogResponse,
     WhatsappRetryResponse,
@@ -172,7 +172,7 @@ async def send_test_whatsapp(
         )
 
     try:
-        parent_phone = validate_pakistan_phone(payload.phone)
+        parent_phone = normalize_pakistan_phone(payload.phone)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

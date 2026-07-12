@@ -263,6 +263,8 @@ export interface SchoolSettings {
   whatsapp_checkin_template_configured: boolean;
   whatsapp_checkout_template_configured: boolean;
   whatsapp_absent_template_configured: boolean;
+  whatsapp_test_mode: boolean;
+  whatsapp_test_recipient_masked: string | null;
 }
 
 export interface SchoolSettingsInput {

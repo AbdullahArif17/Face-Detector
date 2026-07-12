@@ -309,6 +309,11 @@ export default function SettingsPage() {
           <div className="mt-6 grid gap-5">
             {schoolSettings ? (
               <div className="grid gap-2">
+                {schoolSettings.whatsapp_test_mode ? (
+                  <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+                    WhatsApp test mode is active. Messages can only be sent to {schoolSettings.whatsapp_test_recipient_masked ?? "the configured test recipient"}; all other recipients are blocked before contacting Meta.
+                  </p>
+                ) : null}
                 <p
                   className={cn(
                     "rounded-md border px-3 py-2 text-sm",

@@ -75,6 +75,8 @@ class SchoolSettingsResponse(BaseModel):
     whatsapp_checkin_template_configured: bool = False
     whatsapp_checkout_template_configured: bool = False
     whatsapp_absent_template_configured: bool = False
+    whatsapp_test_mode: bool = False
+    whatsapp_test_recipient_masked: str | None = None
 
 
 class SchoolSettingsUpdate(BaseModel):

@@ -316,6 +316,11 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Completed: User confirmed the check-in, checkout, and absent WhatsApp templates are verified by Meta.
 - Pending: Complete the final deployed enrollment, class-session kiosk scan, and WhatsApp delivery acceptance test.
 
+## 2026-07-12 - WhatsApp test-recipient safety and chatbot diagnosis
+- Completed: Added `WHATSAPP_TEST_MODE`/`WHATSAPP_TEST_RECIPIENT` outbound allowlisting, a Settings test-mode banner, shared phone normalization, and valid `03...` support on the WhatsApp test endpoint.
+- Verified: The authorized number is linked to one active student; Meta previously returned message IDs for it; the database contains no inbound `STATUS` webhook rows and no delivered/read callbacks. Nine backend tests and frontend typecheck/lint/build pass.
+- Pending: Deploy, enable the Vercel test allowlist for `923362725979`, subscribe the WhatsApp Business Account `messages` webhook and make the Meta app live/test-deliverable, then send `STATUS` to the Meta business/test number and confirm inbound/reply rows.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

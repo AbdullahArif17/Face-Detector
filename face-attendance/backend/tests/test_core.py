@@ -7,8 +7,11 @@ from fastapi import HTTPException
 
 from app.core import biometrics
 from app.core.images import MAX_IMAGE_BYTES, normalize_base64_image
+from app.core.phones import normalize_pakistan_phone
 from app.core.time import local_day_bounds, to_local
 from app.routers.attendance import csv_safe, get_check_in_status
+from app.schemas.whatsapp import WhatsappTestRequest
+from app.services import whatsapp
 
 
 def test_local_day_bounds_use_pakistan_timezone() -> None:
@@ -38,6 +41,39 @@ def test_image_normalization_rejects_oversized_payload() -> None:
 def test_csv_safe_blocks_spreadsheet_formula_prefixes() -> None:
     assert csv_safe("=HYPERLINK('https://example.com')").startswith("'")
     assert csv_safe("Student Name") == "Student Name"
+
+
+def test_pakistan_phone_normalization() -> None:
+    assert normalize_pakistan_phone("0336-2725979") == "923362725979"
+    assert WhatsappTestRequest(phone="03362725979", message="test").phone == "03362725979"
+
+
+@pytest.mark.asyncio
+async def test_whatsapp_test_mode_blocks_other_recipients(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        whatsapp,
+        "settings",
+        type(
+            "TestSettings",
+            (),
+            {
+                "whatsapp_test_mode": True,
+                "whatsapp_test_recipient": "923362725979",
+            },
+        )(),
+    )
+
+    result = await whatsapp.send_meta_message(
+        phone_number_id="test-phone-id",
+        access_token="test-token",
+        payload={"to": "923001234567", "type": "text"},
+    )
+
+    assert result["success"] is False
+    assert result["message_id"] is None
+    assert "test mode" in str(result["error"])
 
 
 def test_embedding_encryption_round_trip(monkeypatch: pytest.MonkeyPatch) -> None:

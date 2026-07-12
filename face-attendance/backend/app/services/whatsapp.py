@@ -60,6 +60,17 @@ async def send_meta_message(
     access_token: str,
     payload: dict[str, Any],
 ) -> dict[str, str | bool | None]:
+    recipient = payload.get("to")
+    if (
+        settings.whatsapp_test_mode
+        and recipient != settings.whatsapp_test_recipient
+    ):
+        return {
+            "success": False,
+            "message_id": None,
+            "error": "Blocked by WhatsApp test mode: recipient is not allowlisted",
+        }
+
     try:
         async with httpx.AsyncClient(timeout=WHATSAPP_TIMEOUT_SECONDS) as client:
             response = await client.post(

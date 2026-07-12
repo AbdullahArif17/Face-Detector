@@ -63,6 +63,11 @@ def build_school_settings_response(company: Company) -> SchoolSettingsResponse:
         and (school_phone_id_configured or default_phone_id_configured)
     )
     webhook_secure = is_configured_secret(settings.meta_app_secret)
+    test_recipient_masked = (
+        f"{settings.whatsapp_test_recipient[:3]}***{settings.whatsapp_test_recipient[-4:]}"
+        if settings.whatsapp_test_recipient
+        else None
+    )
     return SchoolSettingsResponse(
         company_id=company.id,
         school_phone=company.school_phone,
@@ -87,6 +92,8 @@ def build_school_settings_response(company: Company) -> SchoolSettingsResponse:
         whatsapp_absent_template_configured=is_configured_value(
             settings.meta_absent_template_name,
         ),
+        whatsapp_test_mode=settings.whatsapp_test_mode,
+        whatsapp_test_recipient_masked=test_recipient_masked,
     )
 
 

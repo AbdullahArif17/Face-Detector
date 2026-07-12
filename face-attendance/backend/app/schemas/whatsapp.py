@@ -28,7 +28,7 @@ class WhatsappStatsResponse(BaseModel):
 
 
 class WhatsappTestRequest(BaseModel):
-    phone: str = Field(min_length=12, max_length=20)
+    phone: str = Field(min_length=11, max_length=20)
     message: str = Field(min_length=1, max_length=1000)
 
 

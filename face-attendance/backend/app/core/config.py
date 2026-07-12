@@ -5,6 +5,8 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from dotenv import load_dotenv
 
+from app.core.phones import normalize_pakistan_phone
+
 load_dotenv()
 
 
@@ -31,6 +33,8 @@ class Settings:
     meta_checkout_template_name: str | None
     meta_absent_template_name: str | None
     meta_test_template_name: str | None
+    whatsapp_test_mode: bool
+    whatsapp_test_recipient: str | None
     cron_secret: str | None
     app_env: str
 
@@ -72,6 +76,18 @@ def parse_csv_env(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
+def parse_bool_env(name: str, default: bool = False) -> bool:
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+    normalized = raw_value.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise RuntimeError(f"{name} must be true or false")
+
+
 @lru_cache
 def get_settings() -> Settings:
     database_url = os.getenv("DATABASE_URL")
@@ -81,6 +97,19 @@ def get_settings() -> Settings:
         raise RuntimeError("DATABASE_URL is not configured")
     if not secret_key:
         raise RuntimeError("SECRET_KEY is not configured")
+
+    whatsapp_test_mode = parse_bool_env("WHATSAPP_TEST_MODE")
+    raw_test_recipient = os.getenv("WHATSAPP_TEST_RECIPIENT", "").strip()
+    try:
+        whatsapp_test_recipient = (
+            normalize_pakistan_phone(raw_test_recipient) if raw_test_recipient else None
+        )
+    except ValueError as exc:
+        raise RuntimeError("WHATSAPP_TEST_RECIPIENT is not a valid Pakistan phone") from exc
+    if whatsapp_test_mode and whatsapp_test_recipient is None:
+        raise RuntimeError(
+            "WHATSAPP_TEST_RECIPIENT is required when WHATSAPP_TEST_MODE=true",
+        )
 
     return Settings(
         database_url=normalize_database_url(database_url),
@@ -111,6 +140,8 @@ def get_settings() -> Settings:
         meta_checkout_template_name=os.getenv("META_CHECKOUT_TEMPLATE_NAME"),
         meta_absent_template_name=os.getenv("META_ABSENT_TEMPLATE_NAME"),
         meta_test_template_name=os.getenv("META_TEST_TEMPLATE_NAME"),
+        whatsapp_test_mode=whatsapp_test_mode,
+        whatsapp_test_recipient=whatsapp_test_recipient,
         cron_secret=os.getenv("CRON_SECRET"),
         app_env=os.getenv("APP_ENV", "development"),
     )

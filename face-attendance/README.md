@@ -273,6 +273,9 @@ DeepFace downloads the configured model weights on first use to the current user
 - Set `FRONTEND_ORIGINS` to exact HTTPS frontend domains; do not use `*`.
 - Confirm `/health`, `/ready`, Meta webhook verification, a signed webhook event,
   student face enrollment, and a live class-session kiosk scan after each deployment.
+- For Meta test-number deployments, set `WHATSAPP_TEST_MODE=true` and
+  `WHATSAPP_TEST_RECIPIENT=923...`. The backend then blocks every outbound recipient
+  except that exact normalized number. Disable test mode before onboarding real parents.
 
 ## Remaining production follow-ups
 
