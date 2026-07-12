@@ -302,6 +302,11 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: Frontend typecheck/lint/build and zero-vulnerability npm audit; 7 backend tests; 2 AI tests; no Alembic drift; student create/update/deactivate cleanup; class session start/stop cleanup; backend-to-AI face enrollment; two-photo ArcFace recognition at 0.6693; Meta accepted the approved WhatsApp test template; no QA rows remain.
 - Pending: Deploy GitHub/Hugging Face commits, set new production secrets/variables, encrypt the one legacy embedding, verify a signed inbound `STATUS` webhook, and perform one deployed live-camera kiosk scan.
 
+## 2026-07-12 - Production hardening deployment
+- Completed: Pushed Hugging Face commit `07e88ef` and GitHub commit `6275dee`; Vercel deployed the new frontend/backend code.
+- Verified: Production demo login passes, direct and proxied student lists return 9 rows, class discovery returns 4 classes, WhatsApp default credentials and attendance templates are detected, and the backend readiness check reaches Neon.
+- Pending: Wait for the Hugging Face Space build to reach `RUNNING`; add `BIOMETRIC_ENCRYPTION_KEY` and `META_APP_SECRET` to backend Vercel; rotate the previously exposed AI key on both services; encrypt the legacy embedding; then run a signed chatbot webhook and one live kiosk scan.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title
