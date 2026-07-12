@@ -330,6 +330,11 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: Frontend typecheck, lint, and production build pass; all three pages are statically generated.
 - Pending: Set `NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL`, deploy, paste the three production URLs and frontend app domain into Meta, and have the policy text reviewed before onboarding real schools.
 
+## 2026-07-12 - Meta app switched Live
+- Completed: User switched the Meta app to Live; production WhatsApp allowlist is active for `923***5979`, and secure webhook/chatbot readiness report true.
+- Verified: The inbound-message table still contains zero rows.
+- Pending: Send `STATUS` from the linked test phone to the Meta business/test number and confirm the webhook records and replies to it.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title
