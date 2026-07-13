@@ -49,6 +49,12 @@ class CompanyApiKeyResponse(BaseModel):
 class CompanyKioskInfoResponse(BaseModel):
     company_id: int
     name: str
+    school_logo: str | None = None
+    class_id: int | None = None
+    class_name: str | None = None
+    class_location: str | None = None
+    student_count: int = Field(default=0, ge=0)
+    attendance_active: bool = False
 
 
 class SchoolClassResponse(BaseModel):

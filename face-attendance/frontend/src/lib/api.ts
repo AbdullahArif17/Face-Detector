@@ -244,6 +244,12 @@ export interface CompanyApiKeyResponse {
 export interface CompanyKioskInfoResponse {
   company_id: number;
   name: string;
+  school_logo: string | null;
+  class_id: number | null;
+  class_name: string | null;
+  class_location: string | null;
+  student_count: number;
+  attendance_active: boolean;
 }
 
 export interface SchoolClass {
@@ -681,10 +687,14 @@ export async function autoMarkAttendance(
 
 export async function getKioskCompanyInfo(
   apiKey: string,
+  classId?: number,
 ): Promise<CompanyKioskInfoResponse> {
   const response = await publicApi.get<CompanyKioskInfoResponse>(
     "/companies/kiosk-info",
-    { headers: { "X-API-Key": apiKey } },
+    {
+      headers: { "X-API-Key": apiKey },
+      params: classId ? { class_id: classId } : undefined,
+    },
   );
   return response.data;
 }

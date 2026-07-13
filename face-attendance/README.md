@@ -136,6 +136,14 @@ python -m app.reset_demo_data
 
 This reset is intentionally destructive for local/dev data. It preserves the Demo School company row, API key, and WhatsApp settings, then recreates the demo admin and school data. Re-enroll real student faces after reset because ArcFace embeddings must be generated from real photos.
 
+Add extra synthetic students and seven school days of attendance history without deleting or replacing existing Demo School data:
+
+```bash
+python -m app.add_demo_data
+```
+
+The additive demo command is idempotent and never creates face embeddings or sends WhatsApp messages.
+
 Demo portal login:
 
 ```text

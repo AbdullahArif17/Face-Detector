@@ -24,8 +24,8 @@ Last updated: 2026-07-13
 - Frontend Phase 3 includes employee search/filter/table management, add/edit employee modal with optional face-photo enrollment and retry-on-failure handling, enrolled-state-aware face enrollment/update UI, webcam or uploaded-photo face enrollment modal, enrollment-focused dashboard stats, and employee headshot display.
 - Frontend Phase 4 includes a standalone `/kiosk` webcam page using company API-key auth and displaying organization name, `/users` portal user management with deactivate/reactivate actions, `/attendance` Today/History tabs, conditional Users sidebar link, and `/settings` kiosk API-key setup.
 - Frontend Phase 5 includes `/students`, `/notifications`, student-focused dashboard/attendance/kiosk views, WhatsApp configuration/status in Settings, masked parent phone displays, CSV student import, optional student profile-photo upload in Add/Edit Student with one-step face enrollment, student face enrollment/update, and per-student WhatsApp logs.
-- Frontend mobile responsiveness includes a dashboard mobile top bar and slide-out navigation drawer, mobile-safe page spacing/headings, horizontally scrollable data tables with minimum widths, stacked modal action buttons, and phone-friendly kiosk layout.
-- Mobile local HTTP testing cannot use live `getUserMedia` camera or modern Clipboard API reliably because phone browsers require trusted HTTPS secure contexts; kiosk has a `Capture/Upload Photo` fallback for local HTTP testing. True live mobile kiosk scanning should use a trusted HTTPS frontend URL with `NEXT_PUBLIC_API_URL=/api/backend` and `BACKEND_INTERNAL_URL` pointing to the local FastAPI backend so browser requests stay same-origin.
+- Frontend mobile responsiveness includes a dashboard mobile top bar and slide-out navigation drawer, mobile-safe page spacing/headings, horizontally scrollable data tables with minimum widths, stacked modal action buttons, and a responsive kiosk interface.
+- The kiosk shows organization/class/room/student/session metadata, blocks scanning while the class session is closed, polls session state, reports camera readiness and actionable failures, supports camera retry, and provides separate photo capture and upload fallbacks. Mobile live camera access still requires a trusted HTTPS secure context.
 - Backend Phase 4 includes `/users`, `/users/{id}/activate`, company API-key retrieval/regeneration, `/companies/kiosk-info`, `/attendance/auto-mark`, `/attendance/today`, `/attendance/history`, and `/attendance/export`.
 - Backend Phase 5 includes `students`, `whatsapp_logs`, `attendance.student_id`, WhatsApp school settings with global fallback credentials on companies, `/students`, `/students/import`, `/whatsapp/logs`, `/whatsapp/stats`, `/whatsapp/test`, `/whatsapp/retry-failed`, Vercel Cron-triggered absent alerts, Meta WhatsApp webhook verification/status callbacks at `/webhooks/whatsapp`, and optional template-based WhatsApp sends.
 - Backend supports class-wise attendance sessions with one-active-session-per-class database enforcement, organization class discovery, configurable school start time/grace period, Pakistan-time day boundaries, and kiosk auto-marking that requires an active session for the requested class.
@@ -38,6 +38,7 @@ Last updated: 2026-07-13
 - Backend and AI service support optional `AI_API_KEY` through environment configuration. If set on both services, backend sends `X-API-Key`; if unset, the HuggingFace Space can run without an AI-service secret for test deployment.
 - Frontend list consumers fetch all employee/attendance pages so dashboard stats are not truncated by backend pagination.
 - `python -m app.reset_demo_data` resets the development database to one clean Demo School tenant, one demo admin, 3 classes, 8 students, today's attendance rows, and no face embeddings so real ArcFace enrollments can be added.
+- `python -m app.add_demo_data` idempotently adds 15 synthetic students, missing demo classes, avatar placeholders, and seven school days of attendance history without resetting the tenant, enrolling faces, or sending WhatsApp messages.
 - This workstation uses backend port 8004 through `frontend/.env.local` because orphaned/stale Windows listeners occupy ports 8000/8002/8003; project defaults remain port 8000.
 - WhatsApp Cloud API credentials were verified with Meta's built-in template send and the backend `/whatsapp/test` endpoint; both returned accepted/sent message IDs during local testing.
 - WhatsApp uses configurable Graph API/template languages, approved templates for retries, Meta request-signature verification, persisted delivery errors, inbound message deduplication, and a parent `STATUS` chatbot. Settings exposes credential/template/chatbot readiness. Phone validation accepts Pakistan `92...` and local `03...` formats.
@@ -47,7 +48,7 @@ Last updated: 2026-07-13
 - HuggingFace AI service production-hardening commit `07e88ef` is running at `https://abdullah017-face-attendance-ai.hf.space`; `/health` reports ArcFace/RetinaFace with API-key protection. The Space still has older strict quality overrides (`RECOGNITION_THRESHOLD=0.7`, `RECOGNITION_MARGIN=0.05`, 70px face minimums, `MIN_FACE_AREA_RATIO=0.03`, `MIN_BLUR_SCORE=20`) that should be replaced with `.env.example` values.
 - GitHub production-hardening commit `6275dee` is deployed. Backend `https://face-detector-k4dl.vercel.app` passes `/health` and `/ready`; Neon, the AI service, and biometric encryption all report ready.
 - Class-session commit `6e36c38` is deployed. The direct backend and frontend proxy return the four Demo School class states independently, and the deployed frontend bundle contains the all-class ON/OFF board.
-- Deployed organization-scoped demo login, direct `/students`, real class discovery, and the frontend same-origin `/api/backend` proxy all pass; Demo School currently returns 9 students and 4 classes.
+- Deployed organization-scoped demo login, direct `/students`, real class discovery, and the frontend same-origin `/api/backend` proxy all pass; Demo School currently contains 24 active students across 6 classes after the additive demo seed.
 - Production default WhatsApp credentials, all three approved attendance templates, Meta signature verification, and the inbound parent `STATUS` chatbot all report ready.
 - WhatsApp supports an environment-controlled outbound test allowlist through `WHATSAPP_TEST_MODE` and `WHATSAPP_TEST_RECIPIENT`; it blocks non-allowlisted API calls rather than rerouting private student messages. Production diagnostics found the test phone linked to Abdullah and accepted outbound template IDs, but zero inbound webhook rows or delivery callbacks, so Meta still needs to deliver/subscribe the `messages` webhook before chatbot replies can work.
 - WhatsApp allowlist commit `4334c72` is deployed. The corrected `/whatsapp/test` accepts local `03...` format and Meta accepted one approved test template for the masked test recipient.
@@ -86,11 +87,12 @@ Last updated: 2026-07-13
 | Backend migrate | `cd face-attendance/backend && .\.venv\Scripts\python.exe -m alembic upgrade head` |
 | Seed demo data | `cd face-attendance/backend && .\.venv\Scripts\python.exe -m app.seed` |
 | Reset demo data | `cd face-attendance/backend && .\.venv\Scripts\python.exe -m app.reset_demo_data` |
+| Add demo data without reset | `cd face-attendance/backend && .\.venv\Scripts\python.exe -m app.add_demo_data` |
 | AI service run | `cd face-attendance/ai-service && uvicorn main:app --reload --port 8001` |
 | AI service Docker build | `cd face-attendance/ai-service && docker build -t face-attendance-ai .` |
 
 ## Active Work
-- Visually verify independent ON/OFF controls and record filtering for two classes in the authenticated production Attendance page.
+- Verify the redesigned kiosk against the deployed rich class metadata endpoint and perform one live-camera scan with a real enrolled student.
 - In Hugging Face Space settings, change the stale `RECOGNITION_MARGIN=0.3` override to `0.03`, restart the Space, and run one enrollment plus live kiosk scan.
 - Set `BIOMETRIC_ENCRYPTION_KEY`, run `python -m app.encrypt_face_embeddings`, and rotate the previously exposed AI API key in both deployments.
 - Set `META_APP_SECRET`, attendance template names/languages, and subscribe the Meta app to WhatsApp `messages`; verify a real inbound `STATUS` reply.
@@ -111,6 +113,7 @@ Last updated: 2026-07-13
 - `AI_API_KEY` is optional for the AI service. If set on the AI service, set the same value on the backend; otherwise leave it unset in both places for test deployment.
 - AI service now uses `DEEPFACE_MODEL=ArcFace`; any students enrolled under the previous Facenet configuration must be re-enrolled before kiosk recognition will work reliably.
 - Use `python -m app.reset_demo_data` to wipe old development data and recreate the clean Demo School dataset.
+- Use `python -m app.add_demo_data` to restore the larger synthetic dashboard dataset after a reset; rerunning it is safe.
 - Demo login uses organization `Demo School`, email `admin@demo.com`, and password `admin123`.
 - If a portal user cannot log in after being "deleted", check `/users`: soft-deactivated accounts must be activated or permanently removed before reuse.
 - Frontend uses `NEXT_PUBLIC_API_URL` from `frontend/.env.local`.

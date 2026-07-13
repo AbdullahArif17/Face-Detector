@@ -1,14 +1,16 @@
 import secrets
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.time import local_day_bounds
 from app.dependencies import get_company_by_api_key, normalize_role, require_role
-from app.models.company import Company
+from app.models.attendance_session import AttendanceSession
 from app.models.branch import Branch
+from app.models.company import Company
 from app.models.student import Student
 from app.models.user import User
 from app.schemas.company import (
@@ -121,9 +123,64 @@ async def create_company(
 
 @router.get("/kiosk-info", response_model=CompanyKioskInfoResponse)
 async def get_company_kiosk_info(
+    class_id: int | None = Query(default=None, gt=0),
+    session: AsyncSession = Depends(get_db),
     company: Company = Depends(get_company_by_api_key),
 ) -> CompanyKioskInfoResponse:
-    return CompanyKioskInfoResponse(company_id=company.id, name=company.name)
+    if class_id is None:
+        return CompanyKioskInfoResponse(
+            company_id=company.id,
+            name=company.name,
+            school_logo=company.school_logo,
+        )
+
+    school_class = await session.scalar(
+        select(Branch).where(
+            Branch.id == class_id,
+            Branch.company_id == company.id,
+        ),
+    )
+    if school_class is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Class not found for this organization",
+        )
+
+    student_count = int(
+        await session.scalar(
+            select(func.count(Student.id)).where(
+                Student.school_id == company.id,
+                Student.class_id == class_id,
+                Student.status == "active",
+            ),
+        )
+        or 0,
+    )
+    day_start, day_end = local_day_bounds()
+    attendance_active = (
+        await session.scalar(
+            select(AttendanceSession.id).where(
+                AttendanceSession.company_id == company.id,
+                AttendanceSession.branch_id == class_id,
+                AttendanceSession.status == "active",
+                AttendanceSession.stopped_at.is_(None),
+                AttendanceSession.started_at >= day_start,
+                AttendanceSession.started_at < day_end,
+            ),
+        )
+        is not None
+    )
+
+    return CompanyKioskInfoResponse(
+        company_id=company.id,
+        name=company.name,
+        school_logo=company.school_logo,
+        class_id=school_class.id,
+        class_name=school_class.name,
+        class_location=school_class.location,
+        student_count=student_count,
+        attendance_active=attendance_active,
+    )
 
 
 @router.get("/{company_id}/classes", response_model=list[SchoolClassResponse])

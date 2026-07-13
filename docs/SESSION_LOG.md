@@ -343,6 +343,13 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Deployment verified: The direct production backend and same-origin frontend proxy both return four independent Demo School class states, all currently OFF; the deployed frontend chunk contains the new board and records filter.
 - Pending: Visually exercise two class controls in the browser; correct the Hugging Face margin override and run one real enrollment/kiosk scan.
 
+## 2026-07-13 - Kiosk interface and expanded demo dataset
+- Completed: Redesigned the attendance kiosk and expanded Demo School without resetting existing tenant data.
+- Changed: Kiosk metadata now includes the real class name, room, active-student count, and current session state; the UI adds responsive camera status, face guidance, retry, explicit photo capture/upload fallbacks, clearer results, and session-aware scanning. Added an idempotent additive demo-data command.
+- Data: Added 15 synthetic students, two missing classes, avatar placeholders, and 85 historical attendance rows. Demo School now has 24 active students across 6 classes; no face embeddings or WhatsApp messages were generated.
+- Verified: Backend tests (10), frontend typecheck/lint/build, local API contract checks, idempotent reseeding, production data counts, and a headless visual kiosk smoke test pass. The temporary test session was stopped.
+- Pending: Deploy the code and verify the rich kiosk metadata response plus redesigned production bundle.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title
