@@ -348,7 +348,7 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Changed: Kiosk metadata now includes the real class name, room, active-student count, and current session state; the UI adds responsive camera status, face guidance, retry, explicit photo capture/upload fallbacks, clearer results, and session-aware scanning. Added an idempotent additive demo-data command.
 - Data: Added 15 synthetic students, two missing classes, avatar placeholders, and 85 historical attendance rows. Demo School now has 24 active students across 6 classes; no face embeddings or WhatsApp messages were generated.
 - Verified: Backend tests (10), frontend typecheck/lint/build, local API contract checks, idempotent reseeding, production data counts, and a headless visual kiosk smoke test pass. The temporary test session was stopped.
-- Pending: Deploy the code and verify the rich kiosk metadata response plus redesigned production bundle.
+- Deployment verified: Pushed commit `37e4e14`; production backend returned Class 10-A with 5 active students and its closed session state, while the deployed frontend bundle contains the redesigned scanner, photo fallback, and upload action.
 
 ## Entry Template
 ```markdown
