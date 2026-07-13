@@ -350,6 +350,14 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: Backend tests (10), frontend typecheck/lint/build, local API contract checks, idempotent reseeding, production data counts, and a headless visual kiosk smoke test pass. The temporary test session was stopped.
 - Deployment verified: Pushed commit `37e4e14`; production backend returned Class 10-A with 5 active students and its closed session state, while the deployed frontend bundle contains the redesigned scanner, photo fallback, and upload action.
 
+## 2026-07-13 - Final release review and empty-response proxy fix
+- Completed: Audited local builds/tests, production auth and tenant data, class sessions, kiosk metadata, user lifecycle, student CRUD/profile image flow, AI health, WhatsApp readiness/webhook security, environment hygiene, and deployment-source synchronization.
+- Fixed: The Next.js backend proxy constructed an empty body for FastAPI `204 No Content` responses, causing production user/student delete actions to appear as HTTP 500. Commit `518e520` returns a null body for HEAD/204/205/304 responses.
+- Verified locally: Backend tests 10/10, no Alembic drift, Python dependency checks, AI tests 2/2, frontend typecheck/lint/build, zero npm audit findings, and proxy deactivate/reactivate/permanent-delete integration all pass.
+- Verified in production: Health/readiness, database/AI/encryption configuration, demo login and viewer permissions, 24 students across 6 classes, class session ON/OFF cleanup, kiosk API-key rejection, cron-secret rejection, student create/profile/update/deactivate cleanup, user deactivate/reactivate/permanent-delete cleanup, approved WhatsApp templates, webhook challenge, unsigned webhook rejection, and AI API-key rejection all pass. No QA rows or active sessions remain.
+- Local setup: Synced the stale root Hugging Face checkout to deployed commit `07e88ef`; both AI checkouts now match the monorepo service files.
+- Remaining acceptance: Do one real live-camera recognition and one real inbound/outbound WhatsApp delivery test. One legacy ArcFace embedding is still plaintext; encrypt it only after confirming the local Fernet key matches the production backend key.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

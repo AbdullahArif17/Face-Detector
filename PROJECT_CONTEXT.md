@@ -45,10 +45,11 @@ Last updated: 2026-07-13
 - Vercel-safe attendance notifications are awaited rather than launched with disposable in-process tasks. Daily absent cron remains fixed at 4:00 UTC/9:00 PKT; Hobby scheduling may run later within that hour.
 - Frontend optimizes/rotates source photos up to 12 MB into sub-2 MB JPEGs, gives face requests a 115-second timeout, uses real class selectors for kiosk links, and shows class-wise dashboard summaries.
 - Frontend exposes public `/privacy`, `/terms`, and `/data-deletion` pages for Meta app compliance; the public contact comes from `NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL` and is not committed to source control.
-- HuggingFace AI service production-hardening commit `07e88ef` is running at `https://abdullah017-face-attendance-ai.hf.space`; `/health` reports ArcFace/RetinaFace with API-key protection. The Space still has older strict quality overrides (`RECOGNITION_THRESHOLD=0.7`, `RECOGNITION_MARGIN=0.05`, 70px face minimums, `MIN_FACE_AREA_RATIO=0.03`, `MIN_BLUR_SCORE=20`) that should be replaced with `.env.example` values.
+- HuggingFace AI service production-hardening commit `07e88ef` is running at `https://abdullah017-face-attendance-ai.hf.space`; `/health` reports API-key-protected ArcFace/RetinaFace with the intended `RECOGNITION_THRESHOLD=0.58`, `RECOGNITION_MARGIN=0.03`, 30px face minimums, `MIN_FACE_AREA_RATIO=0.001`, and `MIN_BLUR_SCORE=8`.
 - GitHub production-hardening commit `6275dee` is deployed. Backend `https://face-detector-k4dl.vercel.app` passes `/health` and `/ready`; Neon, the AI service, and biometric encryption all report ready.
 - Class-session commit `6e36c38` is deployed. The direct backend and frontend proxy return the four Demo School class states independently, and the deployed frontend bundle contains the all-class ON/OFF board.
 - Kiosk/demo-data commit `37e4e14` is deployed. The production kiosk bundle contains the redesigned scanner and upload fallback; the class-aware kiosk API returns real class metadata, student count, and session state.
+- Frontend proxy fix commit `518e520` is deployed. The proxy now returns FastAPI `204 No Content` responses without constructing an invalid empty body, so user/student deactivation and permanent user removal work through production.
 - Deployed organization-scoped demo login, direct `/students`, real class discovery, and the frontend same-origin `/api/backend` proxy all pass; Demo School currently contains 24 active students across 6 classes after the additive demo seed.
 - Production default WhatsApp credentials, all three approved attendance templates, Meta signature verification, and the inbound parent `STATUS` chatbot all report ready.
 - WhatsApp supports an environment-controlled outbound test allowlist through `WHATSAPP_TEST_MODE` and `WHATSAPP_TEST_RECIPIENT`; it blocks non-allowlisted API calls rather than rerouting private student messages. Production diagnostics found the test phone linked to Abdullah and accepted outbound template IDs, but zero inbound webhook rows or delivery callbacks, so Meta still needs to deliver/subscribe the `messages` webhook before chatbot replies can work.
@@ -93,10 +94,10 @@ Last updated: 2026-07-13
 | AI service Docker build | `cd face-attendance/ai-service && docker build -t face-attendance-ai .` |
 
 ## Active Work
-- Verify the redesigned kiosk against the deployed rich class metadata endpoint and perform one live-camera scan with a real enrolled student.
-- In Hugging Face Space settings, change the stale `RECOGNITION_MARGIN=0.3` override to `0.03`, restart the Space, and run one enrollment plus live kiosk scan.
-- Set `BIOMETRIC_ENCRYPTION_KEY`, run `python -m app.encrypt_face_embeddings`, and rotate the previously exposed AI API key in both deployments.
-- Set `META_APP_SECRET`, attendance template names/languages, and subscribe the Meta app to WhatsApp `messages`; verify a real inbound `STATUS` reply.
+- Perform one live-camera scan with a real enrolled student and verify the complete browser-to-ArcFace attendance result.
+- Confirm the local `BIOMETRIC_ENCRYPTION_KEY` matches production before running `python -m app.encrypt_face_embeddings`; one legacy ArcFace embedding remains plaintext.
+- Rotate the previously exposed AI API key in both deployments if that credential has not already been replaced.
+- Send a real inbound `STATUS` message from the linked test phone and confirm the webhook reply plus delivery/read callbacks.
 - Add broader authorization/API integration tests, CI, email verification, and a refresh-token or secure-cookie strategy.
 - Define biometric consent, retention, deletion, encryption, WhatsApp opt-in, and audit requirements before production use.
 
