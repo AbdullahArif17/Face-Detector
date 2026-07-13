@@ -197,7 +197,7 @@ export function AddUserModal({
                 >
                   {companies.map((company) => (
                     <option key={company.id} value={company.id}>
-                      {company.name} (ID {company.id})
+                      {company.name}
                     </option>
                   ))}
                 </select>
