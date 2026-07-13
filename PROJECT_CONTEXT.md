@@ -46,6 +46,7 @@ Last updated: 2026-07-13
 - Frontend exposes public `/privacy`, `/terms`, and `/data-deletion` pages for Meta app compliance; the public contact comes from `NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL` and is not committed to source control.
 - HuggingFace AI service production-hardening commit `07e88ef` is running at `https://abdullah017-face-attendance-ai.hf.space`; `/health` reports ArcFace/RetinaFace with API-key protection. The Space still has older strict quality overrides (`RECOGNITION_THRESHOLD=0.7`, `RECOGNITION_MARGIN=0.05`, 70px face minimums, `MIN_FACE_AREA_RATIO=0.03`, `MIN_BLUR_SCORE=20`) that should be replaced with `.env.example` values.
 - GitHub production-hardening commit `6275dee` is deployed. Backend `https://face-detector-k4dl.vercel.app` passes `/health` and `/ready`; Neon, the AI service, and biometric encryption all report ready.
+- Class-session commit `6e36c38` is deployed. The direct backend and frontend proxy return the four Demo School class states independently, and the deployed frontend bundle contains the all-class ON/OFF board.
 - Deployed organization-scoped demo login, direct `/students`, real class discovery, and the frontend same-origin `/api/backend` proxy all pass; Demo School currently returns 9 students and 4 classes.
 - Production default WhatsApp credentials, all three approved attendance templates, Meta signature verification, and the inbound parent `STATUS` chatbot all report ready.
 - WhatsApp supports an environment-controlled outbound test allowlist through `WHATSAPP_TEST_MODE` and `WHATSAPP_TEST_RECIPIENT`; it blocks non-allowlisted API calls rather than rerouting private student messages. Production diagnostics found the test phone linked to Abdullah and accepted outbound template IDs, but zero inbound webhook rows or delivery callbacks, so Meta still needs to deliver/subscribe the `messages` webhook before chatbot replies can work.
@@ -89,7 +90,7 @@ Last updated: 2026-07-13
 | AI service Docker build | `cd face-attendance/ai-service && docker build -t face-attendance-ai .` |
 
 ## Active Work
-- Deploy the class-session lifecycle/dashboard changes, then verify independent ON/OFF controls and records for two production classes.
+- Visually verify independent ON/OFF controls and record filtering for two classes in the authenticated production Attendance page.
 - In Hugging Face Space settings, change the stale `RECOGNITION_MARGIN=0.3` override to `0.03`, restart the Space, and run one enrollment plus live kiosk scan.
 - Set `BIOMETRIC_ENCRYPTION_KEY`, run `python -m app.encrypt_face_embeddings`, and rotate the previously exposed AI API key in both deployments.
 - Set `META_APP_SECRET`, attendance template names/languages, and subscribe the Meta app to WhatsApp `messages`; verify a real inbound `STATUS` reply.

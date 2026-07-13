@@ -336,11 +336,12 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Pending: Send `STATUS` from the linked test phone to the Meta business/test number and confirm the webhook records and replies to it.
 
 ## 2026-07-13 - Daily class session lifecycle and dashboard controls
-- Completed: Fixed stale class sessions and replaced the selected-class attendance control with an organization-wide class ON/OFF board.
+- Completed: Fixed stale class sessions, replaced the selected-class attendance control with an organization-wide class ON/OFF board, and deployed commit `6e36c38`.
 - Changed: Active sessions are limited to the current school day; starting a class expires its forgotten prior-day row; a batch endpoint returns every class, student count, and current session; admin, HR, and branch-manager roles can independently start/stop each class while viewers remain read-only.
 - Verified: Ten backend tests, frontend typecheck/lint/build, and Alembic drift check pass. A reversible Neon-backed test showed all four classes OFF, started only Class 10-A, confirmed it was the sole ON class, then stopped it and verified OFF.
 - Decision: Retained the existing API-key-protected ArcFace service because no suitable permanently free third-party identification API was found. Production AI health exposed a stale ambiguity margin override of `0.3`; change it to `0.03` in Hugging Face settings before the next live recognition test.
-- Pending: Commit/push and verify the new Attendance board after Vercel deployment; correct the Hugging Face margin override and run one real enrollment/kiosk scan.
+- Deployment verified: The direct production backend and same-origin frontend proxy both return four independent Demo School class states, all currently OFF; the deployed frontend chunk contains the new board and records filter.
+- Pending: Visually exercise two class controls in the browser; correct the Hugging Face margin override and run one real enrollment/kiosk scan.
 
 ## Entry Template
 ```markdown
