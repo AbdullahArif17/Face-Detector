@@ -19,6 +19,8 @@ const HOP_BY_HOP_HEADERS = new Set([
   "upgrade",
 ]);
 
+const NULL_BODY_STATUSES = new Set([204, 205, 304]);
+
 function getBackendBaseUrl(): string {
   return (
     process.env.BACKEND_INTERNAL_URL?.replace(/\/$/, "") ??
@@ -61,7 +63,13 @@ async function proxyBackendRequest(request: NextRequest): Promise<Response> {
     body: hasBody ? await request.arrayBuffer() : undefined,
     cache: "no-store",
   });
-  const responseBody = await upstreamResponse.arrayBuffer();
+  // The Fetch Response constructor rejects a body for these statuses, even
+  // when the upstream body is an empty ArrayBuffer. This matters for FastAPI
+  // DELETE endpoints, which correctly return 204 No Content.
+  const responseBody =
+    request.method === "HEAD" || NULL_BODY_STATUSES.has(upstreamResponse.status)
+      ? null
+      : await upstreamResponse.arrayBuffer();
 
   return new Response(responseBody, {
     status: upstreamResponse.status,
