@@ -140,6 +140,13 @@
 - Decision: Use `Asia/Karachi` day/time calculations, configurable school start/grace settings, a partial unique index for active class sessions, long per-face client timeouts, client-side image optimization, Fernet encryption for new embeddings, model-compatible recognition candidates, synchronous persisted WhatsApp outcomes, Graph API v25 configuration, signed/deduplicated webhook processing, and a deterministic parent `STATUS` chatbot.
 - Consequences: Production must set `BIOMETRIC_ENCRYPTION_KEY`, matching AI keys/model names, `META_APP_SECRET`, template names, and template languages. Legacy embeddings require conversion or re-enrollment. Static-photo kiosk fallback remains incompatible with optional anti-spoofing, so liveness must be validated for live-camera-only deployments.
 
+## D-021: Keep hosted student face recognition self-managed until vendor approval
+- Date: 2026-07-13
+- Status: Accepted
+- Context: A third-party API could reduce model hosting work, but current free offers are temporary or do not support identity recognition, and sending student biometrics to a new processor changes privacy, consent, residency, retention, and billing obligations.
+- Decision: Keep the existing ArcFace/RetinaFace Hugging Face service as the default API-key-protected recognition provider. Do not send student images or vectors to a third-party recognition vendor until the school approves the processor and its legal/operational requirements. AWS Rekognition is the leading future opt-in candidate, not a permanently free dependency.
+- Consequences: The current service remains under project control and has no per-scan vendor charge, but its free CPU host can sleep and has limited throughput. A future provider adapter and migration must preserve tenant separation, re-enrollment strategy, auditability, consent, deletion, cost limits, and a self-hosted fallback.
+
 ## Decision Template
 ```markdown
 ## D-NNN: Decision title

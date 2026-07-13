@@ -86,6 +86,13 @@ class AttendanceSessionStatus(BaseModel):
     active_session: AttendanceSessionRead | None = None
 
 
+class AttendanceClassSessionStatus(BaseModel):
+    class_id: int
+    class_name: str
+    student_count: int = Field(ge=0)
+    active_session: AttendanceSessionRead | None = None
+
+
 class AttendanceAutoMarkRequest(ClassScopedRequest):
     image: str = Field(min_length=1, max_length=MAX_IMAGE_BASE64_LENGTH)
 

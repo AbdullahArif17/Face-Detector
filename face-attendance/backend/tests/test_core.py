@@ -1,5 +1,6 @@
 import base64
 from datetime import date
+from types import SimpleNamespace
 
 import pytest
 from cryptography.fernet import Fernet
@@ -9,7 +10,11 @@ from app.core import biometrics
 from app.core.images import MAX_IMAGE_BYTES, normalize_base64_image
 from app.core.phones import normalize_pakistan_phone
 from app.core.time import local_day_bounds, to_local
-from app.routers.attendance import csv_safe, get_check_in_status
+from app.routers.attendance import (
+    csv_safe,
+    expire_stale_attendance_sessions,
+    get_check_in_status,
+)
 from app.schemas.whatsapp import WhatsappTestRequest
 from app.services import whatsapp
 
@@ -46,6 +51,37 @@ def test_csv_safe_blocks_spreadsheet_formula_prefixes() -> None:
 def test_pakistan_phone_normalization() -> None:
     assert normalize_pakistan_phone("0336-2725979") == "923362725979"
     assert WhatsappTestRequest(phone="03362725979", message="test").phone == "03362725979"
+
+
+@pytest.mark.asyncio
+async def test_stale_attendance_session_is_expired_before_new_start() -> None:
+    stale_session = SimpleNamespace(
+        status="active",
+        stopped_at=None,
+        stopped_by_id=None,
+    )
+
+    class FakeSession:
+        flushed = False
+
+        async def scalars(self, _query: object) -> list[SimpleNamespace]:
+            return [stale_session]
+
+        async def flush(self) -> None:
+            self.flushed = True
+
+    fake_session = FakeSession()
+    await expire_stale_attendance_sessions(
+        fake_session,  # type: ignore[arg-type]
+        company_id=1,
+        branch_id=2,
+        stopped_by_id=3,
+    )
+
+    assert stale_session.status == "expired"
+    assert stale_session.stopped_at is not None
+    assert stale_session.stopped_by_id == 3
+    assert fake_session.flushed is True
 
 
 @pytest.mark.asyncio

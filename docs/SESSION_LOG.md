@@ -319,11 +319,11 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 ## 2026-07-12 - WhatsApp test-recipient safety and chatbot diagnosis
 - Completed: Added `WHATSAPP_TEST_MODE`/`WHATSAPP_TEST_RECIPIENT` outbound allowlisting, a Settings test-mode banner, shared phone normalization, and valid `03...` support on the WhatsApp test endpoint.
 - Verified: The authorized number is linked to one active student; Meta previously returned message IDs for it; the database contains no inbound `STATUS` webhook rows and no delivered/read callbacks. Nine backend tests and frontend typecheck/lint/build pass.
-- Pending: Deploy, enable the Vercel test allowlist for `923362725979`, subscribe the WhatsApp Business Account `messages` webhook and make the Meta app live/test-deliverable, then send `STATUS` to the Meta business/test number and confirm inbound/reply rows.
+- Pending: Deploy, enable the Vercel test allowlist for the masked test recipient, subscribe the WhatsApp Business Account `messages` webhook and make the Meta app live/test-deliverable, then send `STATUS` to the Meta business/test number and confirm inbound/reply rows.
 
 ## 2026-07-12 - WhatsApp test release deployed
-- Completed: Deployed commit `4334c72`; the production test endpoint now accepts `03362725979`, and Meta accepted one approved test template with a message ID.
-- Pending: Set `WHATSAPP_TEST_MODE=true` and `WHATSAPP_TEST_RECIPIENT=923362725979` in backend Vercel, redeploy, then fix/verify inbound `messages` webhook delivery and send `STATUS` from the linked test phone.
+- Completed: Deployed commit `4334c72`; the production test endpoint accepts local Pakistan mobile format, and Meta accepted one approved test template with a message ID.
+- Pending: Set `WHATSAPP_TEST_MODE=true` and configure the masked test recipient in backend Vercel, redeploy, then fix/verify inbound `messages` webhook delivery and send `STATUS` from the linked test phone.
 
 ## 2026-07-12 - Meta app public policy pages
 - Completed: Added public Privacy Policy, Terms of Service, and Data Deletion instructions pages, linked them from login, and added an environment-based privacy contact without committing personal data.
@@ -334,6 +334,13 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Completed: User switched the Meta app to Live; production WhatsApp allowlist is active for `923***5979`, and secure webhook/chatbot readiness report true.
 - Verified: The inbound-message table still contains zero rows.
 - Pending: Send `STATUS` from the linked test phone to the Meta business/test number and confirm the webhook records and replies to it.
+
+## 2026-07-13 - Daily class session lifecycle and dashboard controls
+- Completed: Fixed stale class sessions and replaced the selected-class attendance control with an organization-wide class ON/OFF board.
+- Changed: Active sessions are limited to the current school day; starting a class expires its forgotten prior-day row; a batch endpoint returns every class, student count, and current session; admin, HR, and branch-manager roles can independently start/stop each class while viewers remain read-only.
+- Verified: Ten backend tests, frontend typecheck/lint/build, and Alembic drift check pass. A reversible Neon-backed test showed all four classes OFF, started only Class 10-A, confirmed it was the sole ON class, then stopped it and verified OFF.
+- Decision: Retained the existing API-key-protected ArcFace service because no suitable permanently free third-party identification API was found. Production AI health exposed a stale ambiguity margin override of `0.3`; change it to `0.03` in Hugging Face settings before the next live recognition test.
+- Pending: Commit/push and verify the new Attendance board after Vercel deployment; correct the Hugging Face margin override and run one real enrollment/kiosk scan.
 
 ## Entry Template
 ```markdown

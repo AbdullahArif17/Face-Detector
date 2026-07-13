@@ -1,6 +1,6 @@
 # Project Context
 
-Last updated: 2026-07-12
+Last updated: 2026-07-13
 
 ## Project
 - Name: Face Attendance
@@ -29,6 +29,7 @@ Last updated: 2026-07-12
 - Backend Phase 4 includes `/users`, `/users/{id}/activate`, company API-key retrieval/regeneration, `/companies/kiosk-info`, `/attendance/auto-mark`, `/attendance/today`, `/attendance/history`, and `/attendance/export`.
 - Backend Phase 5 includes `students`, `whatsapp_logs`, `attendance.student_id`, WhatsApp school settings with global fallback credentials on companies, `/students`, `/students/import`, `/whatsapp/logs`, `/whatsapp/stats`, `/whatsapp/test`, `/whatsapp/retry-failed`, Vercel Cron-triggered absent alerts, Meta WhatsApp webhook verification/status callbacks at `/webhooks/whatsapp`, and optional template-based WhatsApp sends.
 - Backend supports class-wise attendance sessions with one-active-session-per-class database enforcement, organization class discovery, configurable school start time/grace period, Pakistan-time day boundaries, and kiosk auto-marking that requires an active session for the requested class.
+- Class session state is school-day scoped: prior-day sessions no longer keep a class open, and starting a new session expires any forgotten stale row. The Attendance dashboard shows every class in one ON/OFF board with role-gated controls and independent records filtering.
 - Portal login is tenant-aware: users must enter the exact organization/school name, email, and password; `/auth/login` validates the user against an active matching company record before issuing a JWT.
 - Portal user email uniqueness is tenant-scoped: the same email address may belong to multiple organizations, but each organization can only have one active user row for that email.
 - Portal user management uses soft deactivation for reversible access removal, supports reactivation, supports admin password reset from Edit User, and provides a separate permanent removal action for user rows that are not referenced by historical records. Creating a user with an inactive same-organization email reactivates and updates that existing row.
@@ -48,7 +49,7 @@ Last updated: 2026-07-12
 - Deployed organization-scoped demo login, direct `/students`, real class discovery, and the frontend same-origin `/api/backend` proxy all pass; Demo School currently returns 9 students and 4 classes.
 - Production default WhatsApp credentials, all three approved attendance templates, Meta signature verification, and the inbound parent `STATUS` chatbot all report ready.
 - WhatsApp supports an environment-controlled outbound test allowlist through `WHATSAPP_TEST_MODE` and `WHATSAPP_TEST_RECIPIENT`; it blocks non-allowlisted API calls rather than rerouting private student messages. Production diagnostics found the test phone linked to Abdullah and accepted outbound template IDs, but zero inbound webhook rows or delivery callbacks, so Meta still needs to deliver/subscribe the `messages` webhook before chatbot replies can work.
-- WhatsApp allowlist commit `4334c72` is deployed. The corrected `/whatsapp/test` accepts local `03...` format and Meta accepted one approved test template for `923362725979`.
+- WhatsApp allowlist commit `4334c72` is deployed. The corrected `/whatsapp/test` accepts local `03...` format and Meta accepted one approved test template for the masked test recipient.
 - Meta app is Live and backend Vercel test mode is active for masked recipient `923***5979`; secure webhook and chatbot readiness both report true. No inbound webhook row has arrived yet, so the final chatbot acceptance test is still pending an actual `STATUS` message from the linked phone to the Meta business/test number.
 - Production login previously returned 500 for existing users because password verification crashed in the production runtime; backend password hashing/verification now uses direct `bcrypt` instead of Passlib.
 - Frontend production proxy buffers upstream backend responses before returning them; direct response streaming returned empty bodies for some JSON endpoints such as `/students` on Vercel.
@@ -88,7 +89,8 @@ Last updated: 2026-07-12
 | AI service Docker build | `cd face-attendance/ai-service && docker build -t face-attendance-ai .` |
 
 ## Active Work
-- Add the new production environment variables to Vercel/Hugging Face, deploy both repositories, and run one real browser kiosk scan against the deployed services.
+- Deploy the class-session lifecycle/dashboard changes, then verify independent ON/OFF controls and records for two production classes.
+- In Hugging Face Space settings, change the stale `RECOGNITION_MARGIN=0.3` override to `0.03`, restart the Space, and run one enrollment plus live kiosk scan.
 - Set `BIOMETRIC_ENCRYPTION_KEY`, run `python -m app.encrypt_face_embeddings`, and rotate the previously exposed AI API key in both deployments.
 - Set `META_APP_SECRET`, attendance template names/languages, and subscribe the Meta app to WhatsApp `messages`; verify a real inbound `STATUS` reply.
 - Add broader authorization/API integration tests, CI, email verification, and a refresh-token or secure-cookie strategy.
@@ -99,6 +101,7 @@ Last updated: 2026-07-12
 - Will attendance recognition use kiosk cameras, school devices, or uploaded images?
 - What jurisdiction-specific biometric compliance requirements apply?
 - Which production embedding store and deployment platform will be used?
+- Should a future opt-in provider use AWS Rekognition after billing, biometric consent, data-region, and retention requirements are approved, or should inference remain self-hosted?
 
 ## Handoff
 - Start with `face-attendance/README.md`.
@@ -113,7 +116,7 @@ Last updated: 2026-07-12
 - Production frontend proxy requires `BACKEND_INTERNAL_URL=https://face-detector-k4dl.vercel.app`; deployed proxy health and demo login through `https://face-detector-seven.vercel.app/api/backend/*` now pass.
 - On this workstation, start the backend on port 8004 or restore `.env.local` to port 8000 after clearing the orphaned/stale listeners.
 - Kiosk URLs are created from Settings and use `/kiosk?key=[company_api_key]&class_id=[class_id]`; old `/kiosk?...&branch=[class_id]` URLs remain accepted. The kiosk uses `X-API-Key`, not JWT.
-- Before using a kiosk URL for a class, an admin/HR/branch manager must open `/attendance`, select the class, and start that class attendance session; stopping the session blocks additional kiosk marks for that class.
+- Before using a kiosk URL for a class, an admin/HR/branch manager must open `/attendance` and turn that class ON; turning it OFF blocks additional kiosk marks for that class. Forgotten sessions stop counting as active after the school day ends.
 - WhatsApp credentials can be configured per school in Settings or via global fallback `META_WHATSAPP_TOKEN` and `META_PHONE_NUMBER_ID`; real tokens must not be stored in repository memory.
 - Meta WhatsApp webhook verification uses `META_WEBHOOK_VERIFY_TOKEN` and callback URL `/webhooks/whatsapp`.
 - Production outbound WhatsApp alerts should use approved templates by setting `META_CHECKIN_TEMPLATE_NAME`, `META_CHECKOUT_TEMPLATE_NAME`, `META_ABSENT_TEMPLATE_NAME`, and `META_TEMPLATE_LANGUAGE` on the backend.

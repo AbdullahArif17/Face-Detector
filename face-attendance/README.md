@@ -181,12 +181,13 @@ Phase 4 user, kiosk, and attendance endpoints:
 - `GET /attendance/history`
 - `GET /attendance/export`
 - `GET /attendance/sessions`
-- `GET /attendance/sessions/active?branch_id=[CLASS_ID]`
+- `GET /attendance/sessions/classes`
+- `GET /attendance/sessions/active?class_id=[CLASS_ID]`
 - `POST /attendance/sessions/start`
 - `POST /attendance/sessions/{session_id}/stop`
 - `GET /companies/{company_id}/classes`
 
-The frontend includes `/users`, `/settings` kiosk setup, `/attendance` class-wise start/stop controls, and standalone `/kiosk?key=[API_KEY]&branch=[BRANCH_ID]`. Kiosk attendance only marks while the selected class has an active attendance session.
+The frontend includes `/users`, `/settings` kiosk setup, an `/attendance` ON/OFF board for every class, and standalone `/kiosk?key=[API_KEY]&class_id=[CLASS_ID]`. Kiosk attendance only marks while that class has a session open for the current school day. Legacy `branch_id` URLs remain accepted.
 
 Phase 5 student and WhatsApp endpoints:
 
@@ -253,6 +254,8 @@ uvicorn main:app --reload --port 8001
 
 Set the same `AI_API_KEY` value in `backend/.env` and `ai-service/.env` so the backend can call protected AI-service endpoints.
 
+This service already follows an API-key model: the backend calls the isolated inference API with `X-API-Key`. It remains self-hosted because currently available cloud face-identification free tiers are temporary or restricted, and switching providers would send student biometrics to another processor. Treat any future managed provider as an explicit privacy, consent, residency, retention, and billing decision.
+
 `POST /enroll` returns a DeepFace embedding vector to the backend. The backend stores that vector in the `face_embeddings` database table against a student. `POST /recognize` accepts a request image plus candidate vectors and returns the best cosine-similarity match above the configured threshold.
 
 The current accuracy-focused AI configuration uses `DEEPFACE_MODEL=ArcFace`, `DETECTOR_BACKEND=retinaface`, image quality gates, original+horizontal-flip embedding averaging, and a best-vs-runner-up margin check. If the model is changed, existing student faces must be re-enrolled because embedding dimensions/semantics are model-specific.
@@ -269,6 +272,9 @@ DeepFace downloads the configured model weights on first use to the current user
 - Set `APP_TIMEZONE=Asia/Karachi`, `APP_ENV=production`, a strong `SECRET_KEY`,
   `CRON_SECRET`, `AI_API_KEY`, and `BIOMETRIC_ENCRYPTION_KEY` in Vercel.
 - Set the same `AI_API_KEY` as a Hugging Face Space secret and deploy the Docker Space.
+- Confirm Hugging Face `RECOGNITION_THRESHOLD=0.58` and
+  `RECOGNITION_MARGIN=0.03`; stale stricter overrides can reject otherwise valid
+  matches in classes with multiple enrolled students.
 - Set `BACKEND_INTERNAL_URL` to the deployed backend in the frontend Vercel project.
 - Set `NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL` in the frontend Vercel project so the
   public privacy, terms, and data-deletion pages show the responsible contact.

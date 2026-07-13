@@ -1,6 +1,12 @@
 import type { User } from "@/lib/api";
 
 const ADMIN_ROLES = new Set(["admin", "super_admin"]);
+const ATTENDANCE_MANAGER_ROLES = new Set([
+  "super_admin",
+  "admin",
+  "hr",
+  "branch_manager",
+]);
 
 const ROLE_ALIASES: Record<string, string> = {
   company_admin: "admin",
@@ -23,4 +29,10 @@ export function canManageUsers(user: User | null | undefined): boolean {
 
 export function canManageKiosk(user: User | null | undefined): boolean {
   return canManageUsers(user);
+}
+
+export function canManageAttendanceSessions(
+  user: User | null | undefined,
+): boolean {
+  return ATTENDANCE_MANAGER_ROLES.has(normalizeRole(user?.role));
 }

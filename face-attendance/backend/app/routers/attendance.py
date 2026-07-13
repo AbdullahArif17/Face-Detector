@@ -33,6 +33,7 @@ from app.models.face_embedding import FaceEmbedding
 from app.models.student import Student
 from app.models.user import User
 from app.schemas.attendance import (
+    AttendanceClassSessionStatus,
     AttendanceAutoMarkRequest,
     AttendanceAutoMarkResponse,
     AttendanceAutoStudent,
@@ -195,6 +196,7 @@ async def get_active_attendance_session(
     company_id: int,
     branch_id: int,
 ) -> AttendanceSession | None:
+    day_start, day_end = today_bounds()
     return await session.scalar(
         select(AttendanceSession)
         .where(
@@ -202,9 +204,42 @@ async def get_active_attendance_session(
             AttendanceSession.branch_id == branch_id,
             AttendanceSession.status == "active",
             AttendanceSession.stopped_at.is_(None),
+            AttendanceSession.started_at >= day_start,
+            AttendanceSession.started_at < day_end,
         )
         .order_by(AttendanceSession.started_at.desc()),
     )
+
+
+async def expire_stale_attendance_sessions(
+    session: AsyncSession,
+    *,
+    company_id: int,
+    branch_id: int,
+    stopped_by_id: int,
+) -> None:
+    """Close forgotten sessions from earlier school days before a new start."""
+    day_start, _ = today_bounds()
+    stale_sessions = list(
+        await session.scalars(
+            select(AttendanceSession).where(
+                AttendanceSession.company_id == company_id,
+                AttendanceSession.branch_id == branch_id,
+                AttendanceSession.status == "active",
+                AttendanceSession.stopped_at.is_(None),
+                AttendanceSession.started_at < day_start,
+            ),
+        ),
+    )
+    if not stale_sessions:
+        return
+
+    stopped_at = datetime.now(timezone.utc)
+    for stale_session in stale_sessions:
+        stale_session.status = "expired"
+        stale_session.stopped_at = stopped_at
+        stale_session.stopped_by_id = stopped_by_id
+    await session.flush()
 
 
 async def get_company_branch(
@@ -342,11 +377,80 @@ async def list_attendance_sessions(
         query = query.where(AttendanceSession.branch_id == selected_class_id)
     if status_filter:
         query = query.where(AttendanceSession.status == status_filter)
+        if status_filter.lower() == "active":
+            day_start, day_end = today_bounds()
+            query = query.where(
+                AttendanceSession.started_at >= day_start,
+                AttendanceSession.started_at < day_end,
+            )
 
     result = await session.execute(query)
     return [
         build_attendance_session_read(attendance_session, branch)
         for attendance_session, branch in result.all()
+    ]
+
+
+@router.get("/sessions/classes", response_model=list[AttendanceClassSessionStatus])
+async def get_class_session_statuses(
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        require_role("super_admin", "admin", "hr", "branch_manager", "viewer"),
+    ),
+) -> list[AttendanceClassSessionStatus]:
+    branches = list(
+        await session.scalars(
+            select(Branch)
+            .where(Branch.company_id == current_user.company_id)
+            .order_by(Branch.name.asc()),
+        ),
+    )
+    if not branches:
+        return []
+
+    student_counts_result = await session.execute(
+        select(Student.class_id, func.count(Student.id))
+        .where(
+            Student.school_id == current_user.company_id,
+            Student.status == "active",
+        )
+        .group_by(Student.class_id),
+    )
+    student_counts = {
+        class_id: int(student_count)
+        for class_id, student_count in student_counts_result.all()
+    }
+
+    day_start, day_end = today_bounds()
+    active_sessions = list(
+        await session.scalars(
+            select(AttendanceSession).where(
+                AttendanceSession.company_id == current_user.company_id,
+                AttendanceSession.status == "active",
+                AttendanceSession.stopped_at.is_(None),
+                AttendanceSession.started_at >= day_start,
+                AttendanceSession.started_at < day_end,
+            ),
+        ),
+    )
+    active_by_class = {
+        attendance_session.branch_id: attendance_session
+        for attendance_session in active_sessions
+    }
+
+    return [
+        AttendanceClassSessionStatus(
+            class_id=branch.id,
+            class_name=branch.name,
+            student_count=student_counts.get(branch.id, 0),
+            active_session=build_attendance_session_read(
+                active_by_class[branch.id],
+                branch,
+            )
+            if branch.id in active_by_class
+            else None,
+        )
+        for branch in branches
     ]
 
 
@@ -398,6 +502,12 @@ async def start_attendance_session(
         session,
         company_id=current_user.company_id,
         branch_id=selected_class_id,
+    )
+    await expire_stale_attendance_sessions(
+        session,
+        company_id=current_user.company_id,
+        branch_id=selected_class_id,
+        stopped_by_id=current_user.id,
     )
     existing_session = await get_active_attendance_session(
         session,

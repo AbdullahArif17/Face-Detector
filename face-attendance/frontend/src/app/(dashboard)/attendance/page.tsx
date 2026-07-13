@@ -1,31 +1,29 @@
 "use client";
 
-import { Download, RefreshCcw } from "lucide-react";
+import { Download, Power, PowerOff, RefreshCcw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ApiError } from "@/components/api-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
+import { getApiErrorMessage } from "@/lib/errors";
+import { canManageAttendanceSessions } from "@/lib/permissions";
 import {
   exportAttendanceHistory,
-  getActiveAttendanceSession,
+  getAttendanceClassSessionStatuses,
   getAttendanceHistory,
   getAttendanceToday,
   getStudents,
   startAttendanceSession,
   stopAttendanceSession,
-  type AttendanceSession,
+  type AttendanceClassSessionStatus,
   type AttendanceDashboardRecord,
   type Student,
 } from "@/lib/api";
 
 type AttendanceTab = "today" | "history";
-
-interface ClassOption {
-  classId: number;
-  label: string;
-}
 
 const timeFormatter = new Intl.DateTimeFormat("en-US", {
   timeStyle: "short",
@@ -136,6 +134,8 @@ function AttendanceTable({
 }
 
 export default function AttendancePage() {
+  const { user } = useAuth();
+  const canManageSessions = canManageAttendanceSessions(user);
   const [activeTab, setActiveTab] = useState<AttendanceTab>("today");
   const [todayRecords, setTodayRecords] = useState<AttendanceDashboardRecord[]>(
     [],
@@ -144,19 +144,20 @@ export default function AttendancePage() {
     AttendanceDashboardRecord[]
   >([]);
   const [students, setStudents] = useState<Student[]>([]);
+  const [classSessionStatuses, setClassSessionStatuses] = useState<
+    AttendanceClassSessionStatus[]
+  >([]);
   const [selectedClassId, setSelectedClassId] = useState("");
-  const [activeSession, setActiveSession] = useState<AttendanceSession | null>(
-    null,
-  );
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [startDate, setStartDate] = useState(daysAgoInputValue(7));
   const [endDate, setEndDate] = useState(todayInputValue());
   const [isTodayLoading, setIsTodayLoading] = useState(true);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
-  const [isSessionLoading, setIsSessionLoading] = useState(false);
-  const [isSessionUpdating, setIsSessionUpdating] = useState(false);
+  const [isSessionLoading, setIsSessionLoading] = useState(true);
+  const [updatingClassId, setUpdatingClassId] = useState<number | null>(null);
   const [hasError, setHasError] = useState(false);
   const [sessionMessage, setSessionMessage] = useState("");
+  const [sessionMessageIsError, setSessionMessageIsError] = useState(false);
 
   const loadToday = useCallback(async (): Promise<void> => {
     setIsTodayLoading(true);
@@ -195,21 +196,6 @@ export default function AttendancePage() {
     }
   }, [endDate, selectedClassId, selectedStudentId, startDate]);
 
-  const classOptions = useMemo<ClassOption[]>(() => {
-    const classesById = new Map<number, ClassOption>();
-    for (const student of students) {
-      if (!classesById.has(student.class_id)) {
-        classesById.set(student.class_id, {
-          classId: student.class_id,
-          label: `${student.grade}-${student.section}`,
-        });
-      }
-    }
-    return [...classesById.values()].sort((first, second) =>
-      first.label.localeCompare(second.label),
-    );
-  }, [students]);
-
   const filteredStudents = useMemo(() => {
     if (!selectedClassId) {
       return students;
@@ -218,42 +204,37 @@ export default function AttendancePage() {
     return students.filter((student) => student.class_id === classId);
   }, [selectedClassId, students]);
 
-  const loadSessionStatus = useCallback(async (): Promise<void> => {
-    setSessionMessage("");
-    if (!selectedClassId) {
-      setActiveSession(null);
-      return;
-    }
-
+  const loadClassSessionStatuses = useCallback(async (): Promise<void> => {
     setIsSessionLoading(true);
     try {
-      const sessionStatus = await getActiveAttendanceSession(
-        Number.parseInt(selectedClassId, 10),
-      );
-      setActiveSession(sessionStatus.active_session);
+      const statuses = await getAttendanceClassSessionStatuses();
+      setClassSessionStatuses(statuses);
       setHasError(false);
     } catch {
       setHasError(true);
     } finally {
       setIsSessionLoading(false);
     }
-  }, [selectedClassId]);
+  }, []);
 
   useEffect(() => {
     let isCancelled = false;
 
     void Promise.resolve().then(async () => {
       try {
-        const [, studentRecords] = await Promise.all([
-          loadToday(),
+        const [studentRecords, sessionStatuses] = await Promise.all([
           getStudents({ status: "active" }),
+          getAttendanceClassSessionStatuses(),
         ]);
         if (!isCancelled) {
           setStudents(studentRecords);
+          setClassSessionStatuses(sessionStatuses);
+          setIsSessionLoading(false);
         }
       } catch {
         if (!isCancelled) {
           setHasError(true);
+          setIsSessionLoading(false);
         }
       }
     });
@@ -261,18 +242,19 @@ export default function AttendancePage() {
     return () => {
       isCancelled = true;
     };
-  }, [loadToday]);
+  }, []);
 
   useEffect(() => {
-    void Promise.resolve().then(loadSessionStatus);
-  }, [loadSessionStatus]);
+    void Promise.resolve().then(loadToday);
+  }, [loadToday]);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
       void loadToday();
+      void loadClassSessionStatuses();
     }, 30_000);
     return () => window.clearInterval(interval);
-  }, [loadToday]);
+  }, [loadClassSessionStatuses, loadToday]);
 
   useEffect(() => {
     if (activeTab === "history") {
@@ -317,47 +299,51 @@ export default function AttendancePage() {
     setSelectedStudentId("");
   }
 
-  async function handleStartSession(): Promise<void> {
-    if (!selectedClassId) {
-      setSessionMessage("Select a class before starting attendance.");
-      return;
-    }
+  async function handleRefresh(): Promise<void> {
+    await Promise.all([loadToday(), loadClassSessionStatuses()]);
+  }
 
-    setIsSessionUpdating(true);
+  async function handleStartSession(classId: number): Promise<void> {
+    setUpdatingClassId(classId);
     setSessionMessage("");
+    setSessionMessageIsError(false);
     try {
-      const session = await startAttendanceSession(
-        Number.parseInt(selectedClassId, 10),
-      );
-      setActiveSession(session);
+      await startAttendanceSession(classId);
       setSessionMessage("Attendance session started for this class.");
-      await loadToday();
-    } catch {
-      setHasError(true);
-      setSessionMessage("Unable to start attendance for this class.");
+      await Promise.all([loadClassSessionStatuses(), loadToday()]);
+    } catch (error) {
+      setSessionMessageIsError(true);
+      setSessionMessage(
+        getApiErrorMessage(error, "Unable to start attendance for this class."),
+      );
     } finally {
-      setIsSessionUpdating(false);
+      setUpdatingClassId(null);
     }
   }
 
-  async function handleStopSession(): Promise<void> {
-    if (!activeSession) {
+  async function handleStopSession(
+    classStatus: AttendanceClassSessionStatus,
+  ): Promise<void> {
+    if (!classStatus.active_session) {
+      setSessionMessageIsError(true);
       setSessionMessage("No active attendance session for this class.");
       return;
     }
 
-    setIsSessionUpdating(true);
+    setUpdatingClassId(classStatus.class_id);
     setSessionMessage("");
+    setSessionMessageIsError(false);
     try {
-      await stopAttendanceSession(activeSession.id);
-      setActiveSession(null);
+      await stopAttendanceSession(classStatus.active_session.id);
       setSessionMessage("Attendance session stopped for this class.");
-      await loadToday();
-    } catch {
-      setHasError(true);
-      setSessionMessage("Unable to stop attendance for this class.");
+      await Promise.all([loadClassSessionStatuses(), loadToday()]);
+    } catch (error) {
+      setSessionMessageIsError(true);
+      setSessionMessage(
+        getApiErrorMessage(error, "Unable to stop attendance for this class."),
+      );
     } finally {
-      setIsSessionUpdating(false);
+      setUpdatingClassId(null);
     }
   }
 
@@ -376,7 +362,7 @@ export default function AttendancePage() {
           type="button"
           variant="outline"
           className="w-full gap-2 sm:w-auto"
-          onClick={() => void loadToday()}
+          onClick={() => void handleRefresh()}
         >
           <RefreshCcw aria-hidden="true" className="size-4" />
           Refresh Today
@@ -400,79 +386,152 @@ export default function AttendancePage() {
         </Button>
       </div>
 
-      <div className="grid gap-4 rounded-lg border bg-card p-4 lg:grid-cols-[1fr_auto] lg:items-end">
-        <div className="grid gap-3 md:grid-cols-[minmax(220px,320px)_1fr] md:items-end">
-          <div className="grid gap-2">
-            <label className="text-sm font-medium" htmlFor="class-filter">
-              Class
-            </label>
-            <select
-              id="class-filter"
-              value={selectedClassId}
-              onChange={(event) => handleClassChange(event.target.value)}
-              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <option value="">Select class</option>
-              {classOptions.map((classOption) => (
-                <option key={classOption.classId} value={classOption.classId}>
-                  {classOption.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
-            <p className="font-medium">
-              {isSessionLoading
-                ? "Checking attendance session..."
-                : activeSession
-                  ? "Attendance is active for this class"
-                  : "Attendance is stopped for this class"}
+      <div className="space-y-4 rounded-lg border bg-card p-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Class attendance sessions</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Turn attendance on only for classes currently taking attendance.
+              Open sessions automatically expire at the end of the school day.
             </p>
-            <p className="mt-1 text-muted-foreground">
-              {activeSession
-                ? `Started ${dateTimeFormatter.format(new Date(activeSession.started_at))}`
-                : "Start a session before students can mark attendance from the kiosk."}
-            </p>
-            {sessionMessage ? (
-              <p className="mt-2 text-xs text-muted-foreground">
-                {sessionMessage}
-              </p>
-            ) : null}
           </div>
+          {!canManageSessions ? (
+            <p className="text-xs text-muted-foreground">
+              Your role can view sessions but cannot change them.
+            </p>
+          ) : null}
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Button
-            type="button"
-            disabled={
-              !selectedClassId ||
-              isSessionLoading ||
-              isSessionUpdating ||
-              activeSession !== null
-            }
-            onClick={() => void handleStartSession()}
+        {sessionMessage ? (
+          <div
+            className={cn(
+              "rounded-md border px-3 py-2 text-sm",
+              sessionMessageIsError
+                ? "border-red-200 bg-red-50 text-red-700"
+                : "border-green-200 bg-green-50 text-green-700",
+            )}
+            role={sessionMessageIsError ? "alert" : "status"}
           >
-            {isSessionUpdating && activeSession === null
-              ? "Starting..."
-              : "Start Attendance"}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={
-              !selectedClassId ||
-              isSessionLoading ||
-              isSessionUpdating ||
-              activeSession === null
-            }
-            onClick={() => void handleStopSession()}
-          >
-            {isSessionUpdating && activeSession !== null
-              ? "Stopping..."
-              : "Stop Attendance"}
-          </Button>
+            {sessionMessage}
+          </div>
+        ) : null}
+
+        {isSessionLoading ? (
+          <p className="text-sm text-muted-foreground">
+            Loading class sessions...
+          </p>
+        ) : null}
+
+        {!isSessionLoading && classSessionStatuses.length === 0 ? (
+          <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+            No classes found. Add a class and students before starting attendance.
+          </p>
+        ) : null}
+
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {classSessionStatuses.map((classStatus) => {
+            const isActive = classStatus.active_session !== null;
+            const isUpdating = updatingClassId === classStatus.class_id;
+
+            return (
+              <article
+                className={cn(
+                  "space-y-3 rounded-lg border p-4",
+                  selectedClassId === String(classStatus.class_id) &&
+                    "border-primary ring-1 ring-primary/20",
+                )}
+                key={classStatus.class_id}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-semibold">{classStatus.class_name}</h3>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {classStatus.student_count} active student
+                      {classStatus.student_count === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                  <span
+                    className={cn(
+                      "inline-flex rounded-full px-2.5 py-1 text-xs font-semibold",
+                      isActive
+                        ? "bg-green-100 text-green-700"
+                        : "bg-slate-100 text-slate-600",
+                    )}
+                  >
+                    {isActive ? "ON" : "OFF"}
+                  </span>
+                </div>
+
+                <p className="min-h-10 text-sm text-muted-foreground">
+                  {classStatus.active_session
+                    ? `Started ${dateTimeFormatter.format(
+                        new Date(classStatus.active_session.started_at),
+                      )}`
+                    : "Kiosk scans are blocked for this class."}
+                </p>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() =>
+                      handleClassChange(String(classStatus.class_id))
+                    }
+                  >
+                    View records
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={isActive ? "outline" : "default"}
+                    disabled={
+                      !canManageSessions ||
+                      isUpdating ||
+                      classStatus.student_count === 0
+                    }
+                    className="gap-2"
+                    onClick={() =>
+                      void (isActive
+                        ? handleStopSession(classStatus)
+                        : handleStartSession(classStatus.class_id))
+                    }
+                  >
+                    {isActive ? (
+                      <PowerOff aria-hidden="true" className="size-4" />
+                    ) : (
+                      <Power aria-hidden="true" className="size-4" />
+                    )}
+                    {isUpdating
+                      ? isActive
+                        ? "Stopping..."
+                        : "Starting..."
+                      : isActive
+                        ? "Turn OFF"
+                        : "Turn ON"}
+                  </Button>
+                </div>
+              </article>
+            );
+          })}
         </div>
+      </div>
+
+      <div className="grid gap-2 rounded-lg border bg-card p-4 sm:max-w-sm">
+        <label className="text-sm font-medium" htmlFor="class-filter">
+          Records class filter
+        </label>
+        <select
+          id="class-filter"
+          value={selectedClassId}
+          onChange={(event) => handleClassChange(event.target.value)}
+          className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <option value="">All classes</option>
+          {classSessionStatuses.map((classStatus) => (
+            <option key={classStatus.class_id} value={classStatus.class_id}>
+              {classStatus.class_name}
+            </option>
+          ))}
+        </select>
       </div>
 
       {hasError ? <ApiError /> : null}

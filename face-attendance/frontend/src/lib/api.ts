@@ -194,6 +194,13 @@ export interface AttendanceSessionStatus {
   active_session: AttendanceSession | null;
 }
 
+export interface AttendanceClassSessionStatus {
+  class_id: number;
+  class_name: string;
+  student_count: number;
+  active_session: AttendanceSession | null;
+}
+
 export interface PortalUser {
   id: number;
   name: string;
@@ -577,6 +584,15 @@ export async function getActiveAttendanceSession(
   const response = await api.get<AttendanceSessionStatus>(
     "/attendance/sessions/active",
     { params: { class_id: classId } },
+  );
+  return response.data;
+}
+
+export async function getAttendanceClassSessionStatuses(): Promise<
+  AttendanceClassSessionStatus[]
+> {
+  const response = await api.get<AttendanceClassSessionStatus[]>(
+    "/attendance/sessions/classes",
   );
   return response.data;
 }
