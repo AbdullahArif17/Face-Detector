@@ -358,6 +358,12 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Local setup: Synced the stale root Hugging Face checkout to deployed commit `07e88ef`; both AI checkouts now match the monorepo service files.
 - Remaining acceptance: Do one real live-camera recognition and one real inbound/outbound WhatsApp delivery test. One legacy ArcFace embedding is still plaintext; encrypt it only after confirming the local Fernet key matches the production backend key.
 
+## 2026-07-14 - Fix missing WhatsApp chatbot events
+- Diagnosed: Neon contained zero inbound webhook rows and zero chatbot logs despite a linked active student, valid permanent token, correct scopes, verified production callback, and a `messages` field subscription. The chatbot code was never reached.
+- Root cause: The WABA was subscribed to a different older Meta app, not the current Student Attendance app.
+- Fixed: Added the current app to the WABA through the Graph API without removing the older subscription. Meta returned success, and the WABA now reports the current app as subscribed.
+- Pending: Send a fresh `STATUS` message from the allowlisted linked phone to the Meta business/test number, then confirm an inbound row and chatbot reply. Messages sent before the subscription fix will not be replayed.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title
