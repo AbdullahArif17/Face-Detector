@@ -3,6 +3,7 @@ FROM python:3.10-slim
 WORKDIR /app
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
+    TF_USE_LEGACY_KERAS=1 \
     HOME=/home/appuser
 
 # Install system dependencies required by OpenCV and DeepFace.
@@ -18,7 +19,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN useradd --create-home --shell /usr/sbin/nologin appuser
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip uninstall -y opencv-python \
+    && pip install --no-cache-dir --force-reinstall --no-deps opencv-python-headless==4.13.0.92
 
 COPY --chown=appuser:appuser . .
 

@@ -39,7 +39,7 @@ export function StudentFaceEnrollModal({
 }>) {
   const webcamRef = useRef<Webcam>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [isCameraActive, setIsCameraActive] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -52,7 +52,7 @@ export function StudentFaceEnrollModal({
       setError("Unable to capture photo from webcam.");
       return;
     }
-    setSelectedImage(screenshot);
+    setSelectedImages((images) => [...images, screenshot].slice(-3));
     setIsCameraActive(false);
     setStatusMessage("Photo captured. Review it before saving.");
     setError(null);
@@ -65,7 +65,8 @@ export function StudentFaceEnrollModal({
       return;
     }
     try {
-      setSelectedImage(await optimizeImageFile(file));
+      const image = await optimizeImageFile(file);
+      setSelectedImages((images) => [...images, image].slice(-3));
       setIsCameraActive(false);
       setStatusMessage("Photo uploaded. Review it before saving.");
       setError(null);
@@ -79,15 +80,15 @@ export function StudentFaceEnrollModal({
   }
 
   async function handleEnroll(): Promise<void> {
-    if (!selectedImage || isSubmitting) {
+    if (selectedImages.length === 0 || isSubmitting) {
       return;
     }
     setIsSubmitting(true);
     setError(null);
     setStatusMessage(isUpdating ? "Updating face..." : "Enrolling face...");
     try {
-      await enrollStudentFace(student.id, selectedImage);
-      onEnrolled(student.id, selectedImage);
+      await enrollStudentFace(student.id, selectedImages);
+      onEnrolled(student.id, selectedImages[0]);
       setStatusMessage(isUpdating ? "Face updated." : "Face enrolled.");
       onOpenChange(false);
     } catch (enrollError) {
@@ -120,11 +121,11 @@ export function StudentFaceEnrollModal({
                 videoConstraints={videoConstraints}
                 className="aspect-video w-full object-cover"
               />
-            ) : selectedImage ? (
+            ) : selectedImages[0] ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 alt="Selected student face preview"
-                src={selectedImage}
+                src={selectedImages[0]}
                 className="aspect-video w-full object-cover"
               />
             ) : (
@@ -159,13 +160,12 @@ export function StudentFaceEnrollModal({
               variant="outline"
               className="w-full sm:w-auto"
               onClick={() => {
-                setSelectedImage(null);
                 setIsCameraActive(true);
                 setStatusMessage(null);
                 setError(null);
               }}
             >
-              Use Camera
+              {selectedImages.length > 0 ? "Add camera sample" : "Use Camera"}
             </Button>
             <Button
               type="button"
@@ -179,7 +179,7 @@ export function StudentFaceEnrollModal({
               type="button"
               variant="outline"
               className="w-full sm:w-auto"
-              disabled={!isCameraActive}
+              disabled={!isCameraActive || selectedImages.length >= 3}
               onClick={handleCapture}
             >
               Capture Photo
@@ -187,16 +187,21 @@ export function StudentFaceEnrollModal({
             <Button
               type="button"
               className="w-full sm:w-auto"
-              disabled={!selectedImage || isSubmitting}
+              disabled={selectedImages.length === 0 || isSubmitting}
               onClick={() => void handleEnroll()}
             >
               {isSubmitting
                 ? "Saving..."
                 : isUpdating
                   ? "Update Face"
-                  : "Enroll Face"}
+                : `Enroll Face${selectedImages.length > 1 ? ` (${selectedImages.length})` : ""}`}
             </Button>
           </div>
+          {selectedImages.length > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              {selectedImages.length}/3 samples selected. Add different clear angles for better matching.
+            </p>
+          ) : null}
         </div>
       </DialogContent>
     </Dialog>

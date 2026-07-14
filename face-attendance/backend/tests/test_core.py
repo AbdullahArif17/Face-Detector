@@ -16,6 +16,7 @@ from app.routers.attendance import (
     get_check_in_status,
 )
 from app.schemas.whatsapp import WhatsappTestRequest
+from app.schemas.face import FaceEnrollRequest
 from app.services import whatsapp
 
 
@@ -41,6 +42,12 @@ def test_image_normalization_rejects_oversized_payload() -> None:
         normalize_base64_image(oversized)
 
     assert error.value.status_code == 413
+
+
+def test_face_enrollment_accepts_multiple_samples() -> None:
+    request = FaceEnrollRequest(images=["first", "second"])
+
+    assert request.resolved_images() == ["first", "second"]
 
 
 def test_csv_safe_blocks_spreadsheet_formula_prefixes() -> None:

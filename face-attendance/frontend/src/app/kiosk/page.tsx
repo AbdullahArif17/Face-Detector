@@ -442,7 +442,7 @@ export default function KioskPage() {
       <div className="pointer-events-none absolute -left-40 top-24 size-96 rounded-full bg-blue-600/15 blur-3xl" />
       <div className="pointer-events-none absolute -right-40 bottom-10 size-96 rounded-full bg-cyan-500/10 blur-3xl" />
 
-      <div className="relative mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+      <div className="relative mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-3 py-3 sm:px-6 sm:py-6 lg:px-8">
         <header className="flex flex-col gap-5 border-b border-white/10 pb-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-400 text-white shadow-lg shadow-blue-500/20 sm:size-14">
@@ -548,7 +548,7 @@ export default function KioskPage() {
               </span>
             </div>
 
-            <div className="relative aspect-video min-h-64 overflow-hidden bg-[#090f20]">
+            <div className="relative aspect-[4/3] min-h-72 overflow-hidden bg-[#090f20] sm:aspect-video sm:min-h-64">
               {shouldStartCamera ? (
                 <Webcam
                   key={cameraAttempt}
@@ -700,7 +700,7 @@ export default function KioskPage() {
                 onChange={(event) => void handleFileCapture(event)}
               />
 
-              <div className="mt-4 grid gap-2">
+              <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
                 <Button
                   type="button"
                   disabled={fallbackDisabled}

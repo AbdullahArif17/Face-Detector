@@ -65,6 +65,7 @@ export function AddStudentModal({
   const [profileImage, setProfileImage] = useState<string | null>(
     student?.profile_image ?? null,
   );
+  const [enrollmentImages, setEnrollmentImages] = useState<string[]>([]);
   const [shouldEnrollFace, setShouldEnrollFace] = useState(false);
   const [draftSavedStudent, setDraftSavedStudent] = useState<Student | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -75,14 +76,19 @@ export function AddStudentModal({
   async function handleImageUpload(
     event: ChangeEvent<HTMLInputElement>,
   ): Promise<void> {
-    const file = event.target.files?.[0];
+    const files = Array.from(event.target.files ?? []).slice(0, 3);
     event.target.value = "";
 
-    if (!file) {
+    if (files.length === 0) {
       return;
     }
     try {
-      setProfileImage(await optimizeImageFile(file));
+      const optimizedImages: string[] = [];
+      for (const file of files) {
+        optimizedImages.push(await optimizeImageFile(file));
+      }
+      setProfileImage(optimizedImages[0]);
+      setEnrollmentImages(optimizedImages);
       setShouldEnrollFace(true);
       setError(null);
     } catch (imageError) {
@@ -132,7 +138,10 @@ export function AddStudentModal({
 
       if (profileImage && shouldEnrollFace) {
         try {
-          await enrollStudentFace(savedStudent.id, profileImage);
+          await enrollStudentFace(
+            savedStudent.id,
+            enrollmentImages.length > 0 ? enrollmentImages : profileImage,
+          );
         } catch (enrollError) {
           setDraftSavedStudent(savedStudent);
           setError(
@@ -213,6 +222,7 @@ export function AddStudentModal({
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
+                  multiple
                   className="hidden"
                   onChange={(event) => void handleImageUpload(event)}
                 />
@@ -223,7 +233,7 @@ export function AddStudentModal({
                     className="w-full sm:w-auto"
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    Upload Photo
+                    Choose Face Photos
                   </Button>
                   {profileImage ? (
                     <Button
@@ -232,6 +242,7 @@ export function AddStudentModal({
                       className="w-full text-red-600 hover:text-red-700 sm:w-auto"
                       onClick={() => {
                         setProfileImage(null);
+                        setEnrollmentImages([]);
                         setShouldEnrollFace(false);
                       }}
                     >
@@ -240,19 +251,36 @@ export function AddStudentModal({
                   ) : null}
                 </div>
                 {profileImage ? (
-                  <label className="flex items-start gap-2 text-xs text-muted-foreground">
-                    <input
-                      type="checkbox"
-                      className="mt-0.5"
-                      checked={shouldEnrollFace}
-                      onChange={(event) =>
-                        setShouldEnrollFace(event.target.checked)
-                      }
-                    />
-                    <span>
-                      Also enroll this photo for attendance recognition now.
-                    </span>
-                  </label>
+                  <div className="space-y-2">
+                    {enrollmentImages.length > 1 ? (
+                      <div className="flex gap-2 overflow-x-auto pb-1">
+                        {enrollmentImages.map((image, index) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            alt={`Face sample ${index + 1}`}
+                            className="size-14 shrink-0 rounded-md border bg-background object-cover"
+                            key={`${image.slice(-24)}-${index}`}
+                            src={image}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+                    <label className="flex items-start gap-2 text-xs text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5"
+                        checked={shouldEnrollFace}
+                        onChange={(event) =>
+                          setShouldEnrollFace(event.target.checked)
+                        }
+                      />
+                      <span>
+                        Enroll {enrollmentImages.length || 1} selected photo
+                        {(enrollmentImages.length || 1) === 1 ? "" : "s"} for
+                        attendance. Two or three angles give better results.
+                      </span>
+                    </label>
+                  </div>
                 ) : null}
               </div>
             </div>

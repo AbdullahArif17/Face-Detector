@@ -22,7 +22,7 @@ from app.schemas.face import (
 
 router = APIRouter(prefix="/face", tags=["face"])
 
-AI_SERVICE_TIMEOUT_SECONDS = 90.0
+AI_SERVICE_TIMEOUT_SECONDS = 110.0
 
 
 def ai_service_headers() -> dict[str, str]:
@@ -67,13 +67,20 @@ async def enroll_face(
         student_id=student_id,
         current_user=current_user,
     )
-    headshot_url = normalize_base64_image(payload.image)
+    normalized_images = [
+        normalize_base64_image(image) for image in payload.resolved_images()
+    ]
+    headshot_url = normalized_images[0]
 
     try:
         client: httpx.AsyncClient = request.app.state.http_client
         response = await client.post(
             f"{settings.ai_service_url}/enroll",
-            json={"student_id": student_id, "image": headshot_url},
+            json={
+                "student_id": student_id,
+                "image": headshot_url,
+                "images": normalized_images,
+            },
             headers=ai_service_headers(),
             timeout=AI_SERVICE_TIMEOUT_SECONDS,
         )
@@ -144,7 +151,11 @@ async def enroll_face(
     return FaceEnrollResponse(
         success=True,
         student_id=student_id,
-        message="Face enrolled successfully",
+        message=(
+            "Face enrolled successfully"
+            if len(normalized_images) == 1
+            else f"Face enrolled from {len(normalized_images)} photos"
+        ),
     )
 
 

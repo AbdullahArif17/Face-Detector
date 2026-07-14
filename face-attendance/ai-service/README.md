@@ -27,7 +27,13 @@ Set these Space variables/secrets before production use:
 - Variable: `RECOGNITION_THRESHOLD=0.58`
 - Variable: `RECOGNITION_MARGIN=0.03`
 - Variable: `MIN_FACE_AREA_RATIO=0.001`
+- Variable: `MAX_ENROLLMENT_IMAGES=3`
+- Variable: `MIN_ENROLLMENT_SAMPLE_SIMILARITY=0.40`
 - Variable: `INFERENCE_CONCURRENCY=1`
+
+`POST /enroll` accepts either the backward-compatible `image` field or an
+`images` array containing up to three photos. For better recognition, enroll
+two or three clear photos of the same student with small pose differences.
 
 `ENABLE_ANTI_SPOOFING=false` keeps uploaded-photo kiosk fallback compatible.
 Enable it only for live-camera-only kiosks after validating the deployment hardware;

@@ -325,7 +325,7 @@ export interface WhatsappRetryResponse {
 }
 
 const API_PAGE_SIZE = 100;
-const FACE_REQUEST_TIMEOUT_MS = 115_000;
+const FACE_REQUEST_TIMEOUT_MS = 125_000;
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000",
@@ -518,11 +518,12 @@ export async function enrollEmployeeFace(
 
 export async function enrollStudentFace(
   studentId: number,
-  image: string,
+  imageOrImages: string | string[],
 ): Promise<FaceEnrollResponse> {
+  const images = Array.isArray(imageOrImages) ? imageOrImages : [imageOrImages];
   const response = await api.post<FaceEnrollResponse>(
     `/face/enroll/${studentId}`,
-    { image },
+    { image: images[0], images },
     { timeout: FACE_REQUEST_TIMEOUT_MS },
   );
   return response.data;

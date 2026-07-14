@@ -9,9 +9,9 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Header, HTTPException, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from starlette.concurrency import run_in_threadpool
 
 # DeepFace emits Unicode status symbols while downloading model weights. Windows
@@ -64,10 +64,10 @@ RECOGNITION_MARGIN = bounded_float_env(
     "RECOGNITION_MARGIN", "0.03", minimum=0.0, maximum=1.0,
 )
 DEEPFACE_MODEL = os.getenv("DEEPFACE_MODEL", "ArcFace")
-DETECTOR_BACKEND = os.getenv("DETECTOR_BACKEND", "retinaface")
+DETECTOR_BACKEND = os.getenv("DETECTOR_BACKEND", "opencv")
 FALLBACK_DETECTOR_BACKENDS = [
     backend.strip()
-    for backend in os.getenv("FALLBACK_DETECTOR_BACKENDS", "opencv,ssd").split(",")
+    for backend in os.getenv("FALLBACK_DETECTOR_BACKENDS", "ssd,mtcnn,retinaface").split(",")
     if backend.strip()
 ]
 ENABLE_EMBEDDING_AUGMENTATION = (
@@ -94,6 +94,12 @@ MAX_IMAGE_BYTES = bounded_int_env(
 INFERENCE_CONCURRENCY = bounded_int_env(
     "INFERENCE_CONCURRENCY", "1", minimum=1, maximum=4,
 )
+MAX_ENROLLMENT_IMAGES = bounded_int_env(
+    "MAX_ENROLLMENT_IMAGES", "3", minimum=1, maximum=5,
+)
+MIN_ENROLLMENT_SAMPLE_SIMILARITY = bounded_float_env(
+    "MIN_ENROLLMENT_SAMPLE_SIMILARITY", "0.40", minimum=-1.0, maximum=1.0,
+)
 ENABLE_ANTI_SPOOFING = (
     os.getenv("ENABLE_ANTI_SPOOFING", "false").strip().lower()
     in {"1", "true", "yes", "on"}
@@ -106,10 +112,12 @@ AI_CORS_ORIGINS = [
     if origin.strip()
 ]
 INFERENCE_SEMAPHORE = asyncio.Semaphore(INFERENCE_CONCURRENCY)
+MODEL_READY = False
+MODEL_STARTUP_ERROR: str | None = None
 
 app = FastAPI(
     title="Face Attendance AI Service",
-    version="0.2.0",
+    version="0.3.0",
     description="Face enrollment and recognition service for the MVP.",
 )
 if AI_CORS_ORIGINS:
@@ -129,9 +137,34 @@ class FaceImageRequest(BaseModel):
     )
 
 
-class EnrollRequest(FaceImageRequest):
+class EnrollRequest(BaseModel):
     employee_id: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]+$", max_length=100)
     student_id: int | None = Field(default=None, gt=0)
+    image: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=2_700_000,
+        description="Backward-compatible single base64 image or data URL",
+    )
+    images: list[str] = Field(
+        default_factory=list,
+        max_length=MAX_ENROLLMENT_IMAGES,
+        description="One to three enrollment photos of the same person",
+    )
+
+    @model_validator(mode="after")
+    def validate_images(self) -> "EnrollRequest":
+        resolved = self.resolved_images()
+        if not resolved:
+            raise ValueError("image or images is required")
+        if any(not image or len(image) > 2_700_000 for image in resolved):
+            raise ValueError("Each enrollment image must be valid and under the size limit")
+        return self
+
+    def resolved_images(self) -> list[str]:
+        if self.images:
+            return self.images
+        return [self.image] if self.image else []
 
     def resolved_employee_id(self) -> str:
         if self.employee_id:
@@ -148,6 +181,7 @@ class EnrollResponse(BaseModel):
     employee_id: str
     embedding: list[float]
     model: str
+    sample_count: int
 
 
 class EmbeddingCandidate(BaseModel):
@@ -179,6 +213,10 @@ class RecognitionResponse(BaseModel):
     employee_id: str | None = None
     confidence: float | None = None
     reason: str | None = None
+    best_score: float | None = None
+    runner_up_score: float | None = None
+    margin: float | None = None
+    threshold_used: float | None = None
 
 
 @dataclass(frozen=True)
@@ -375,6 +413,44 @@ def extract_embedding(
     return normalized_average.tolist()
 
 
+def aggregate_embeddings(embeddings: list[list[float]]) -> list[float]:
+    if not embeddings:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="At least one usable enrollment photo is required",
+        )
+
+    vectors = [normalize_embedding(embedding) for embedding in embeddings]
+    expected_shape = vectors[0].shape
+    if any(vector.shape != expected_shape for vector in vectors[1:]):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Enrollment photos produced incompatible face embeddings",
+        )
+
+    if len(vectors) > 1:
+        lowest_similarity = min(
+            float(np.dot(vectors[first], vectors[second]))
+            for first in range(len(vectors))
+            for second in range(first + 1, len(vectors))
+        )
+        if lowest_similarity < MIN_ENROLLMENT_SAMPLE_SIMILARITY:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    "Enrollment photos do not appear to show the same person. "
+                    "Use clear photos of one student only."
+                ),
+            )
+
+    centroid = np.mean(np.stack(vectors, axis=0), axis=0)
+    return normalize_embedding(centroid.tolist()).tolist()
+
+
+def extract_enrollment_embedding(images: list[str]) -> list[float]:
+    return aggregate_embeddings([extract_embedding(image) for image in images])
+
+
 def find_best_match(
     query_embedding: list[float],
     candidates: list[EmbeddingCandidate],
@@ -408,22 +484,39 @@ def find_best_match(
     )
 
 
+def initialize_models() -> None:
+    """Load both recognition and detection models before declaring readiness."""
+    DeepFace.build_model(model_name=DEEPFACE_MODEL, task="facial_recognition")
+    dummy = np.zeros((224, 224, 3), dtype=np.uint8)
+    errors: list[str] = []
+    for detector_backend in detector_backends():
+        try:
+            DeepFace.extract_faces(img_path=dummy, detector_backend=detector_backend, enforce_detection=False)
+            return
+        except Exception as exc:
+            errors.append(f"{detector_backend}: {exc}")
+    raise RuntimeError("No configured face detector is available: " + " | ".join(errors))
+
+
 @app.on_event("startup")
 async def warmup_model() -> None:
-    """Pre-download and load the configured DeepFace model on container startup."""
-    logger.info("Warming up DeepFace %s model", DEEPFACE_MODEL)
+    """Pre-download and validate the configured DeepFace runtime."""
+    global MODEL_READY, MODEL_STARTUP_ERROR
+
+    logger.info(
+        "Warming up DeepFace %s model and %s detector",
+        DEEPFACE_MODEL,
+        DETECTOR_BACKEND,
+    )
     try:
-        dummy = np.zeros((224, 224, 3), dtype=np.uint8)
-        await run_in_threadpool(
-            DeepFace.represent,
-            img_path=dummy,
-            model_name=DEEPFACE_MODEL,
-            detector_backend=DETECTOR_BACKEND,
-            enforce_detection=False,
-        )
-        logger.info("Model ready")
+        await run_in_threadpool(initialize_models)
+        MODEL_READY = True
+        MODEL_STARTUP_ERROR = None
+        logger.info("Face recognition runtime ready")
     except Exception as exc:
-        logger.warning("Warmup error (non-fatal): %s", exc)
+        MODEL_READY = False
+        MODEL_STARTUP_ERROR = type(exc).__name__
+        logger.exception("Face recognition warmup failed")
 
 
 @app.get("/", tags=["health"])
@@ -432,9 +525,15 @@ async def root_health_check() -> dict[str, str]:
 
 
 @app.get("/health", tags=["health"])
-async def health_check() -> dict[str, str | float | int | bool | list[str]]:
+async def health_check(
+    response: Response,
+) -> dict[str, str | float | int | bool | list[str] | None]:
+    if not MODEL_READY:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     return {
-        "status": "ok",
+        "status": "ok" if MODEL_READY else "error",
+        "model_ready": MODEL_READY,
+        "startup_error": MODEL_STARTUP_ERROR,
         "model": DEEPFACE_MODEL,
         "detector_backend": DETECTOR_BACKEND,
         "fallback_detector_backends": FALLBACK_DETECTOR_BACKENDS,
@@ -446,6 +545,8 @@ async def health_check() -> dict[str, str | float | int | bool | list[str]]:
         "min_blur_score": MIN_BLUR_SCORE,
         "max_image_bytes": MAX_IMAGE_BYTES,
         "inference_concurrency": INFERENCE_CONCURRENCY,
+        "max_enrollment_images": MAX_ENROLLMENT_IMAGES,
+        "min_enrollment_sample_similarity": MIN_ENROLLMENT_SAMPLE_SIMILARITY,
         "anti_spoofing": ENABLE_ANTI_SPOOFING,
         "api_key_required": bool(AI_API_KEY),
     }
@@ -463,14 +564,28 @@ def verify_api_key(x_api_key: str | None = Header(default=None)) -> None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API Key")
 
 
-@app.post("/enroll", response_model=EnrollResponse, dependencies=[Depends(verify_api_key)])
+def verify_model_ready() -> None:
+    if not MODEL_READY:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Face recognition model is not ready",
+        )
+
+
+@app.post(
+    "/enroll",
+    response_model=EnrollResponse,
+    dependencies=[Depends(verify_api_key), Depends(verify_model_ready)],
+)
 async def enroll(payload: EnrollRequest) -> EnrollResponse:
+    images = payload.resolved_images()
     async with INFERENCE_SEMAPHORE:
-        embedding = await run_in_threadpool(extract_embedding, payload.image)
+        embedding = await run_in_threadpool(extract_enrollment_embedding, images)
     return EnrollResponse(
         employee_id=payload.resolved_employee_id(),
         embedding=embedding,
         model=DEEPFACE_MODEL,
+        sample_count=len(images),
     )
 
 
@@ -478,7 +593,7 @@ async def enroll(payload: EnrollRequest) -> EnrollResponse:
     "/recognize",
     response_model=RecognitionResponse,
     response_model_exclude_none=True,
-    dependencies=[Depends(verify_api_key)],
+    dependencies=[Depends(verify_api_key), Depends(verify_model_ready)],
 )
 async def recognize(payload: RecognizeRequest) -> RecognitionResponse:
     if not payload.embeddings:
@@ -499,12 +614,34 @@ async def recognize(payload: RecognizeRequest) -> RecognitionResponse:
     if match.employee_id is None or match.score is None:
         return RecognitionResponse(matched=False, reason="no_valid_candidates")
 
-    if match.score <= RECOGNITION_THRESHOLD:
-        return RecognitionResponse(matched=False, reason="below_threshold")
+    best_score = round(match.score, 4)
+    runner_up_score = (
+        round(match.runner_up_score, 4)
+        if match.runner_up_score is not None
+        else None
+    )
+    margin = round(match.margin, 4) if match.margin is not None else None
+
+    if match.score < RECOGNITION_THRESHOLD:
+        return RecognitionResponse(
+            matched=False,
+            reason="below_threshold",
+            best_score=best_score,
+            runner_up_score=runner_up_score,
+            margin=margin,
+            threshold_used=RECOGNITION_THRESHOLD,
+        )
 
     if match.runner_up_score is not None and match.margin is not None:
         if match.margin < RECOGNITION_MARGIN:
-            return RecognitionResponse(matched=False, reason="ambiguous_match")
+            return RecognitionResponse(
+                matched=False,
+                reason="ambiguous_match",
+                best_score=best_score,
+                runner_up_score=runner_up_score,
+                margin=margin,
+                threshold_used=RECOGNITION_THRESHOLD,
+            )
 
     if match.employee_id is None:
         return RecognitionResponse(matched=False, reason="no_valid_candidates")
@@ -513,4 +650,8 @@ async def recognize(payload: RecognizeRequest) -> RecognitionResponse:
         matched=True,
         employee_id=match.employee_id,
         confidence=round(max(0.0, min(match.score, 1.0)), 4),
+        best_score=best_score,
+        runner_up_score=runner_up_score,
+        margin=margin,
+        threshold_used=RECOGNITION_THRESHOLD,
     )
