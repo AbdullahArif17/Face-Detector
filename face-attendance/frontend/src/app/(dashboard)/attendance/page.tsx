@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Power, PowerOff, RefreshCcw } from "lucide-react";
+import { Download, Pencil, Power, PowerOff, RefreshCcw, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ApiError } from "@/components/api-error";
@@ -18,12 +18,22 @@ import {
   getStudents,
   startAttendanceSession,
   stopAttendanceSession,
+  updateManualAttendance,
   type AttendanceClassSessionStatus,
   type AttendanceDashboardRecord,
   type Student,
 } from "@/lib/api";
 
 type AttendanceTab = "today" | "history";
+type AttendanceEditableStatus = "present" | "absent" | "excused";
+
+interface AttendanceEditState {
+  record: AttendanceDashboardRecord;
+  status: AttendanceEditableStatus;
+  checkInTime: string;
+  checkOutTime: string;
+  error: string;
+}
 
 const timeFormatter = new Intl.DateTimeFormat("en-US", {
   timeStyle: "short",
@@ -48,6 +58,21 @@ function formatTime(value: string | null): string {
   return value ? timeFormatter.format(new Date(value)) : "—";
 }
 
+function timeInputValue(value: string | null): string {
+  if (!value) {
+    return "";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  return date.toTimeString().slice(0, 5);
+}
+
+function defaultCheckInTime(): string {
+  return new Date().toTimeString().slice(0, 5);
+}
+
 function StatusBadge({ status }: Readonly<{ status: string }>) {
   return (
     <span
@@ -70,13 +95,19 @@ function StatusBadge({ status }: Readonly<{ status: string }>) {
 function AttendanceTable({
   records,
   isLoading,
+  canEdit,
+  onEdit,
 }: Readonly<{
   records: AttendanceDashboardRecord[];
   isLoading: boolean;
+  canEdit: boolean;
+  onEdit: (record: AttendanceDashboardRecord) => void;
 }>) {
+  const columnCount = canEdit ? 7 : 6;
+
   return (
     <div className="overflow-x-auto rounded-lg border bg-card">
-      <table className="min-w-[760px] w-full text-left text-sm">
+      <table className="min-w-[860px] w-full text-left text-sm">
         <thead className="border-b bg-muted/50 text-muted-foreground">
           <tr>
             <th className="px-4 py-3 font-medium">Student Name</th>
@@ -85,12 +116,15 @@ function AttendanceTable({
             <th className="px-4 py-3 font-medium">Check-out</th>
             <th className="px-4 py-3 font-medium">Status</th>
             <th className="px-4 py-3 font-medium">Working Hours</th>
+            {canEdit ? (
+              <th className="px-4 py-3 font-medium">Actions</th>
+            ) : null}
           </tr>
         </thead>
         <tbody>
           {isLoading ? (
             <tr>
-              <td className="px-4 py-6 text-muted-foreground" colSpan={6}>
+              <td className="px-4 py-6 text-muted-foreground" colSpan={columnCount}>
                 Loading attendance...
               </td>
             </tr>
@@ -98,7 +132,7 @@ function AttendanceTable({
 
           {!isLoading && records.length === 0 ? (
             <tr>
-              <td className="px-4 py-6 text-muted-foreground" colSpan={6}>
+              <td className="px-4 py-6 text-muted-foreground" colSpan={columnCount}>
                 No attendance records found.
               </td>
             </tr>
@@ -125,6 +159,20 @@ function AttendanceTable({
               <td className="px-4 py-3 tabular-nums">
                 {record.working_hours}
               </td>
+              {canEdit ? (
+                <td className="px-4 py-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => onEdit(record)}
+                  >
+                    <Pencil aria-hidden="true" className="size-4" />
+                    Edit
+                  </Button>
+                </td>
+              ) : null}
             </tr>
           ))}
         </tbody>
@@ -136,6 +184,7 @@ function AttendanceTable({
 export default function AttendancePage() {
   const { user } = useAuth();
   const canManageSessions = canManageAttendanceSessions(user);
+  const canEditAttendance = canManageSessions;
   const [activeTab, setActiveTab] = useState<AttendanceTab>("today");
   const [todayRecords, setTodayRecords] = useState<AttendanceDashboardRecord[]>(
     [],
@@ -158,6 +207,8 @@ export default function AttendancePage() {
   const [hasError, setHasError] = useState(false);
   const [sessionMessage, setSessionMessage] = useState("");
   const [sessionMessageIsError, setSessionMessageIsError] = useState(false);
+  const [editState, setEditState] = useState<AttendanceEditState | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const loadToday = useCallback(async (): Promise<void> => {
     setIsTodayLoading(true);
@@ -344,6 +395,59 @@ export default function AttendancePage() {
       );
     } finally {
       setUpdatingClassId(null);
+    }
+  }
+
+  function handleEditRecord(record: AttendanceDashboardRecord): void {
+    const normalizedStatus = ["present", "absent", "excused"].includes(record.status)
+      ? (record.status as AttendanceEditableStatus)
+      : "present";
+    setEditState({
+      record,
+      status: normalizedStatus,
+      checkInTime:
+        normalizedStatus === "present"
+          ? timeInputValue(record.check_in) || defaultCheckInTime()
+          : "",
+      checkOutTime: normalizedStatus === "present" ? timeInputValue(record.check_out) : "",
+      error: "",
+    });
+  }
+
+  async function handleSaveAttendanceEdit(): Promise<void> {
+    if (!editState || isSavingEdit) {
+      return;
+    }
+    if (editState.status === "present" && !editState.checkInTime) {
+      setEditState({ ...editState, error: "Check-in time is required." });
+      return;
+    }
+
+    setIsSavingEdit(true);
+    try {
+      await updateManualAttendance({
+        attendance_id: editState.record.attendance_id,
+        student_id: editState.record.student_id,
+        attendance_date: editState.record.attendance_date,
+        status: editState.status,
+        check_in_time: editState.status === "present" ? editState.checkInTime : null,
+        check_out_time:
+          editState.status === "present" && editState.checkOutTime
+            ? editState.checkOutTime
+            : null,
+      });
+      setEditState(null);
+      await Promise.all([
+        loadToday(),
+        activeTab === "history" ? loadHistory() : Promise.resolve(),
+      ]);
+    } catch (error) {
+      setEditState({
+        ...editState,
+        error: getApiErrorMessage(error, "Unable to save attendance."),
+      });
+    } finally {
+      setIsSavingEdit(false);
     }
   }
 
@@ -558,7 +662,12 @@ export default function AttendancePage() {
               </p>
             </div>
           </div>
-          <AttendanceTable records={todayRecords} isLoading={isTodayLoading} />
+          <AttendanceTable
+            records={todayRecords}
+            isLoading={isTodayLoading}
+            canEdit={canEditAttendance}
+            onEdit={handleEditRecord}
+          />
         </div>
       ) : (
         <div className="space-y-4">
@@ -625,9 +734,128 @@ export default function AttendancePage() {
           <AttendanceTable
             records={historyRecords}
             isLoading={isHistoryLoading}
+            canEdit={canEditAttendance}
+            onEdit={handleEditRecord}
           />
         </div>
       )}
+
+      {editState ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-lg border bg-background p-5 shadow-lg">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold">Edit attendance</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {editState.record.student_name} · {editState.record.grade}-
+                  {editState.record.section}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => setEditState(null)}
+              >
+                <X aria-hidden="true" className="size-4" />
+              </Button>
+            </div>
+
+            <div className="mt-5 grid gap-4">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="attendance-status">
+                  Status
+                </label>
+                <select
+                  id="attendance-status"
+                  value={editState.status}
+                  onChange={(event) => {
+                    const nextStatus = event.target.value as AttendanceEditableStatus;
+                    setEditState({
+                      ...editState,
+                      status: nextStatus,
+                      checkInTime:
+                        nextStatus === "present"
+                          ? editState.checkInTime || defaultCheckInTime()
+                          : "",
+                      checkOutTime:
+                        nextStatus === "present" ? editState.checkOutTime : "",
+                      error: "",
+                    });
+                  }}
+                  className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="present">Present</option>
+                  <option value="absent">Absent</option>
+                  <option value="excused">Excused</option>
+                </select>
+              </div>
+
+              {editState.status === "present" ? (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid gap-2">
+                    <label className="text-sm font-medium" htmlFor="check-in-time">
+                      Check-in
+                    </label>
+                    <Input
+                      id="check-in-time"
+                      type="time"
+                      value={editState.checkInTime}
+                      onChange={(event) =>
+                        setEditState({
+                          ...editState,
+                          checkInTime: event.target.value,
+                          error: "",
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <label className="text-sm font-medium" htmlFor="check-out-time">
+                      Check-out
+                    </label>
+                    <Input
+                      id="check-out-time"
+                      type="time"
+                      value={editState.checkOutTime}
+                      onChange={(event) =>
+                        setEditState({
+                          ...editState,
+                          checkOutTime: event.target.value,
+                          error: "",
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              ) : null}
+
+              {editState.error ? (
+                <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {editState.error}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditState(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                disabled={isSavingEdit}
+                onClick={() => void handleSaveAttendanceEdit()}
+              >
+                {isSavingEdit ? "Saving..." : "Save changes"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

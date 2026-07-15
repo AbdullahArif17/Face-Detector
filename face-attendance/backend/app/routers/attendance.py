@@ -39,6 +39,7 @@ from app.schemas.attendance import (
     AttendanceAutoStudent,
     AttendanceDashboardRecord,
     AttendanceMark,
+    AttendanceManualUpdate,
     AttendanceRead,
     AttendanceSessionRead,
     AttendanceSessionStart,
@@ -58,10 +59,7 @@ router = APIRouter(prefix="/attendance", tags=["attendance"])
 
 AI_SERVICE_TIMEOUT_SECONDS = 90.0
 COOLDOWN_MINUTES = 5
-
-DEFAULT_SHIFT_START = time(hour=9, minute=0)
-DEFAULT_SHIFT_GRACE_MINUTES = 15
-
+MANUAL_ATTENDANCE_STATUSES = {"present", "absent", "excused"}
 
 def ai_service_headers() -> dict[str, str]:
     api_key = settings.ai_api_key
@@ -86,6 +84,15 @@ def display_time(value: datetime) -> str:
 
 def display_date(value: datetime) -> str:
     return display_local_date(value)
+
+
+def parse_local_clock(attendance_date: date, clock_value: str) -> datetime:
+    hour, minute = [int(part) for part in clock_value.split(":", 1)]
+    return datetime.combine(
+        attendance_date,
+        time(hour=hour, minute=minute),
+        tzinfo=school_timezone(),
+    ).astimezone(timezone.utc)
 
 
 def working_hours(check_in: datetime | None, check_out: datetime | None) -> str:
@@ -125,30 +132,17 @@ def resolve_class_query(
     return resolved_class_id
 
 
-def get_check_in_status(
-    check_in: datetime,
-    attendance_start_time: str = "09:00",
-    late_grace_minutes: int = DEFAULT_SHIFT_GRACE_MINUTES,
-) -> str:
-    local_check_in = to_local(check_in)
-    try:
-        shift_hour, shift_minute = [int(part) for part in attendance_start_time.split(":", 1)]
-        shift_start = time(hour=shift_hour, minute=shift_minute)
-    except (TypeError, ValueError):
-        shift_start = DEFAULT_SHIFT_START
-    shift_deadline = datetime.combine(
-        local_check_in.date(),
-        shift_start,
-        tzinfo=school_timezone(),
-    ) + timedelta(minutes=late_grace_minutes)
-    return "late" if local_check_in > shift_deadline else "present"
-
-
 def build_dashboard_record(
     student: Student,
     attendance: Attendance | None,
     attendance_date: date,
 ) -> AttendanceDashboardRecord:
+    check_in = attendance.check_in if attendance is not None else None
+    check_out = attendance.check_out if attendance is not None else None
+    if attendance is not None and attendance.status in {"absent", "excused"}:
+        check_in = None
+        check_out = None
+
     return AttendanceDashboardRecord(
         attendance_id=attendance.id if attendance is not None else None,
         student_id=student.id,
@@ -160,15 +154,15 @@ def build_dashboard_record(
         section=student.section,
         branch_id=student.class_id,
         class_id=student.class_id,
-        check_in=attendance.check_in if attendance is not None else None,
-        check_out=attendance.check_out if attendance is not None else None,
+        check_in=check_in,
+        check_out=check_out,
         status=attendance.status if attendance is not None else "absent",
         confidence_score=attendance.confidence_score if attendance is not None else None,
         notification_sent=attendance.notification_sent if attendance is not None else False,
         notification_status=attendance.notification_status if attendance is not None else None,
         working_hours=working_hours(
-            attendance.check_in if attendance is not None else None,
-            attendance.check_out if attendance is not None else None,
+            check_in,
+            check_out,
         ),
         attendance_date=attendance_date,
     )
@@ -712,11 +706,7 @@ async def auto_mark_attendance(
         attendance.check_in = now
         attendance.check_out = None
         attendance.session_id = active_session.id
-        attendance.status = get_check_in_status(
-            now,
-            company.attendance_start_time,
-            company.late_grace_minutes,
-        )
+        attendance.status = "present"
         attendance.confidence_score = confidence
         attendance.notification_sent = False
         attendance.notification_status = "pending" if should_notify else None
@@ -802,6 +792,97 @@ async def auto_mark_attendance(
         notification_status=existing_attendance.notification_status,
         message="Already completed for today",
     )
+
+
+@router.put("/manual", response_model=AttendanceDashboardRecord)
+async def upsert_manual_attendance(
+    payload: AttendanceManualUpdate,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("super_admin", "admin", "hr", "branch_manager")),
+) -> AttendanceDashboardRecord:
+    status_value = payload.status.strip().lower()
+    if status_value not in MANUAL_ATTENDANCE_STATUSES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Status must be present, absent, or excused",
+        )
+
+    student = await session.get(Student, payload.student_id)
+    if student is None or student.school_id != current_user.company_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Student not found",
+        )
+
+    day_start, day_end = local_day_bounds(payload.attendance_date)
+    attendance: Attendance | None = None
+    if payload.attendance_id is not None:
+        attendance = await session.get(Attendance, payload.attendance_id)
+        if (
+            attendance is None
+            or attendance.company_id != current_user.company_id
+            or attendance.student_id != student.id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Attendance record not found",
+            )
+        if not (day_start <= attendance.check_in < day_end):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Attendance record does not belong to the selected date",
+            )
+    else:
+        attendance = await session.scalar(
+            select(Attendance)
+            .where(
+                Attendance.company_id == current_user.company_id,
+                Attendance.student_id == student.id,
+                Attendance.check_in >= day_start,
+                Attendance.check_in < day_end,
+            )
+            .order_by(Attendance.check_in.desc()),
+        )
+
+    if status_value == "present":
+        if payload.check_in_time is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Check-in time is required for present attendance",
+            )
+        check_in = parse_local_clock(payload.attendance_date, payload.check_in_time)
+        check_out = (
+            parse_local_clock(payload.attendance_date, payload.check_out_time)
+            if payload.check_out_time
+            else None
+        )
+        if check_out is not None and check_out <= check_in:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Check-out time must be after check-in time",
+            )
+    else:
+        check_in = day_start
+        check_out = None
+
+    if attendance is None:
+        attendance = Attendance(
+            student_id=student.id,
+            company_id=current_user.company_id,
+            check_in=check_in,
+        )
+        session.add(attendance)
+
+    attendance.check_in = check_in
+    attendance.check_out = check_out
+    attendance.status = status_value
+    attendance.confidence_score = None
+    attendance.notification_sent = False
+    attendance.notification_status = "manual"
+    await session.commit()
+    await session.refresh(attendance)
+
+    return build_dashboard_record(student, attendance, payload.attendance_date)
 
 
 @router.get("/today", response_model=list[AttendanceDashboardRecord])

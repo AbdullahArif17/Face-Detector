@@ -13,10 +13,10 @@ from app.core.time import local_day_bounds, to_local
 from app.routers.attendance import (
     csv_safe,
     expire_stale_attendance_sessions,
-    get_check_in_status,
 )
 from app.schemas.whatsapp import WhatsappTestRequest
 from app.schemas.face import FaceEnrollRequest
+from app.services.absent_scheduler import send_absent_alerts
 from app.services import whatsapp
 
 
@@ -26,13 +26,6 @@ def test_local_day_bounds_use_pakistan_timezone() -> None:
     assert start.isoformat() == "2026-07-10T19:00:00+00:00"
     assert end.isoformat() == "2026-07-11T19:00:00+00:00"
     assert to_local(start).date() == date(2026, 7, 11)
-
-
-def test_late_status_uses_local_school_time() -> None:
-    start, _ = local_day_bounds(date(2026, 7, 11))
-
-    assert get_check_in_status(start.replace(hour=3, minute=59)) == "present"
-    assert get_check_in_status(start.replace(hour=4, minute=16)) == "late"
 
 
 def test_image_normalization_rejects_oversized_payload() -> None:
@@ -89,6 +82,14 @@ async def test_stale_attendance_session_is_expired_before_new_start() -> None:
     assert stale_session.stopped_at is not None
     assert stale_session.stopped_by_id == 3
     assert fake_session.flushed is True
+
+
+@pytest.mark.asyncio
+async def test_absent_cron_is_disabled_for_realtime_sessions() -> None:
+    result = await send_absent_alerts(SimpleNamespace())
+
+    assert result["disabled"] is True
+    assert result["processed"] == 0
 
 
 @pytest.mark.asyncio

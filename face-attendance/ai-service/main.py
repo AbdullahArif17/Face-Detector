@@ -320,6 +320,28 @@ def prepare_image_for_detection(image: np.ndarray) -> np.ndarray:
     return cv2.resize(image, None, fx=scale, fy=scale, interpolation=interpolation)
 
 
+def crop_detection_variants(image: np.ndarray) -> list[np.ndarray]:
+    """Return original plus practical crops for kiosk/mobile photos."""
+    height, width = image.shape[:2]
+    variants = [image]
+    if height < 160 or width < 160:
+        return variants
+
+    upper_crop = image[0 : max(int(height * 0.72), 1), :]
+    if upper_crop.shape[:2] != image.shape[:2]:
+        variants.append(upper_crop)
+
+    side = min(height, width)
+    if side >= 160 and (height != width):
+        y1 = max((height - side) // 3, 0)
+        x1 = max((width - side) // 2, 0)
+        center_crop = image[y1 : y1 + side, x1 : x1 + side]
+        if center_crop.shape[0] >= 160 and center_crop.shape[1] >= 160:
+            variants.append(center_crop)
+
+    return variants
+
+
 def detector_backends() -> list[str]:
     ordered_backends = [DETECTOR_BACKEND, *FALLBACK_DETECTOR_BACKENDS]
     unique_backends: list[str] = []
@@ -397,16 +419,29 @@ def extract_embedding(
 ) -> list[float]:
     image = base64_to_image(image_base64, max_bytes=MAX_IMAGE_BYTES)
     validate_image_quality(image)
-    detection_image = prepare_image_for_detection(image)
+    last_error: HTTPException | None = None
 
-    embeddings = [
-        represent_single_face(detection_image, anti_spoofing=anti_spoofing),
-    ]
-    if ENABLE_EMBEDDING_AUGMENTATION:
-        flipped_image = cv2.flip(detection_image, 1)
-        flipped_embedding = represent_single_face(flipped_image, anti_spoofing=False)
-        if flipped_embedding.shape == embeddings[0].shape:
-            embeddings.append(flipped_embedding)
+    for variant in crop_detection_variants(image):
+        detection_image = prepare_image_for_detection(variant)
+        try:
+            embeddings = [
+                represent_single_face(detection_image, anti_spoofing=anti_spoofing),
+            ]
+            if ENABLE_EMBEDDING_AUGMENTATION:
+                flipped_image = cv2.flip(detection_image, 1)
+                flipped_embedding = represent_single_face(flipped_image, anti_spoofing=False)
+                if flipped_embedding.shape == embeddings[0].shape:
+                    embeddings.append(flipped_embedding)
+            break
+        except HTTPException as exc:
+            last_error = exc
+    else:
+        if last_error is not None:
+            raise last_error
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="No usable face was detected in the image",
+        )
 
     averaged_embedding = np.mean(np.stack(embeddings, axis=0), axis=0)
     normalized_average = normalize_embedding(averaged_embedding.tolist())

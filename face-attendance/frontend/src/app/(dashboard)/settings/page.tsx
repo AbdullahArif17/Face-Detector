@@ -85,8 +85,6 @@ export default function SettingsPage() {
   );
   const [showKey, setShowKey] = useState(false);
   const [schoolPhone, setSchoolPhone] = useState("");
-  const [attendanceStartTime, setAttendanceStartTime] = useState("09:00");
-  const [lateGraceMinutes, setLateGraceMinutes] = useState("15");
   const [whatsappToken, setWhatsappToken] = useState("");
   const [whatsappPhoneId, setWhatsappPhoneId] = useState("");
   const [showWhatsappToken, setShowWhatsappToken] = useState(false);
@@ -120,8 +118,6 @@ export default function SettingsPage() {
         if (!isCancelled) {
           setApiKey(keyResponse.api_key);
           setSchoolPhone(settingsResponse.school_phone ?? "");
-          setAttendanceStartTime(settingsResponse.attendance_start_time);
-          setLateGraceMinutes(settingsResponse.late_grace_minutes.toString());
           setWhatsappPhoneId(settingsResponse.whatsapp_phone_id ?? "");
           setSchoolSettings(settingsResponse);
           setSchoolClasses(classesResponse);
@@ -213,29 +209,15 @@ export default function SettingsPage() {
       return;
     }
 
-    const parsedGraceMinutes = Number.parseInt(lateGraceMinutes, 10);
-    if (
-      !Number.isFinite(parsedGraceMinutes) ||
-      parsedGraceMinutes < 0 ||
-      parsedGraceMinutes > 180
-    ) {
-      setToastMessage("Late grace period must be between 0 and 180 minutes");
-      return;
-    }
-
     setIsSavingSettings(true);
     setHasError(false);
     try {
       const response = await updateSchoolSettings(user.company_id, {
         school_phone: schoolPhone.trim() || null,
-        attendance_start_time: attendanceStartTime,
-        late_grace_minutes: parsedGraceMinutes,
         whatsapp_phone_id: whatsappPhoneId.trim() || null,
         whatsapp_token: whatsappToken.trim() || undefined,
       });
       setSchoolPhone(response.school_phone ?? "");
-      setAttendanceStartTime(response.attendance_start_time);
-      setLateGraceMinutes(response.late_grace_minutes.toString());
       setWhatsappPhoneId(response.whatsapp_phone_id ?? "");
       setSchoolSettings(response);
       setWhatsappToken("");
@@ -381,33 +363,6 @@ export default function SettingsPage() {
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="attendance-start-time">
-                  Class Attendance Start Time
-                </label>
-                <Input
-                  id="attendance-start-time"
-                  type="time"
-                  value={attendanceStartTime}
-                  onChange={(event) => setAttendanceStartTime(event.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="late-grace-minutes">
-                  Late Grace Period (minutes)
-                </label>
-                <Input
-                  id="late-grace-minutes"
-                  type="number"
-                  min={0}
-                  max={180}
-                  value={lateGraceMinutes}
-                  onChange={(event) => setLateGraceMinutes(event.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="grid gap-2">
                 <label className="text-sm font-medium" htmlFor="phone-number-id">
                   Phone Number ID
                 </label>
@@ -420,17 +375,15 @@ export default function SettingsPage() {
               </div>
               <div className="grid gap-2">
                 <label className="text-sm font-medium" htmlFor="absent-alert-time">
-                  Absent Alert Time (Pakistan)
+                  Attendance Mode
                 </label>
                 <Input
                   id="absent-alert-time"
-                  type="time"
-                  value="09:00"
+                  value="Real-time class sessions only"
                   disabled
                 />
                 <p className="text-xs text-muted-foreground">
-                  Scheduled by Vercel Cron at 9:00 AM PKT. Hobby plans may run
-                  later within the 9:00 AM hour.
+                  Students are marked only when this class session is ON in Attendance.
                 </p>
               </div>
             </div>

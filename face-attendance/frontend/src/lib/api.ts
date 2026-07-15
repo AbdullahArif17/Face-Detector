@@ -149,6 +149,15 @@ export interface AttendanceDashboardRecord {
   attendance_date: string;
 }
 
+export interface AttendanceManualUpdateInput {
+  attendance_id?: number | null;
+  student_id: number;
+  attendance_date: string;
+  status: "present" | "absent" | "excused";
+  check_in_time?: string | null;
+  check_out_time?: string | null;
+}
+
 export interface KioskAttendanceStudent {
   id: number;
   name: string;
@@ -650,6 +659,16 @@ export async function getAttendanceHistory(
         per_page: options.perPage ?? API_PAGE_SIZE,
       },
     },
+  );
+  return response.data;
+}
+
+export async function updateManualAttendance(
+  input: AttendanceManualUpdateInput,
+): Promise<AttendanceDashboardRecord> {
+  const response = await api.put<AttendanceDashboardRecord>(
+    "/attendance/manual",
+    input,
   );
   return response.data;
 }

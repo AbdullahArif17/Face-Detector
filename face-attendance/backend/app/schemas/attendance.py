@@ -25,6 +25,15 @@ class AttendanceMark(BaseModel):
     confidence_score: float | None = Field(default=None, ge=0, le=1)
 
 
+class AttendanceManualUpdate(BaseModel):
+    student_id: int = Field(gt=0)
+    attendance_id: int | None = Field(default=None, gt=0)
+    attendance_date: date
+    status: str = Field(max_length=50)
+    check_in_time: str | None = Field(default=None, pattern=r"^\d{2}:\d{2}$")
+    check_out_time: str | None = Field(default=None, pattern=r"^\d{2}:\d{2}$")
+
+
 class AttendanceRead(AttendanceBase):
     model_config = ConfigDict(from_attributes=True)
 

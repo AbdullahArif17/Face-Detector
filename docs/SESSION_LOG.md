@@ -364,6 +364,24 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Fixed: Added the current app to the WABA through the Graph API without removing the older subscription. Meta returned success, and the WABA now reports the current app as subscribed.
 - Pending: Send a fresh `STATUS` message from the allowlisted linked phone to the Meta business/test number, then confirm an inbound row and chatbot reply. Messages sent before the subscription fix will not be replayed.
 
+## 2026-07-15 - WhatsApp delivery diagnosis
+- Completed: Set all 24 active Demo School students' primary parent phone to the allowlisted WhatsApp test recipient and tested local plus deployed WhatsApp send paths.
+- Verified: Local approved `hello_world` and `school_absent_alert` template sends returned Meta message IDs; deployed `/whatsapp/test` also returned a Meta message ID. The WABA is approved, the current app is subscribed, and school templates are approved. A signed production webhook simulation processed a `STATUS` message.
+- Diagnosed: Existing cron attendance notifications failed with Meta error `Business Account locked`. The simulated chatbot reply failed with `Re-engagement message`, which is expected because a fake webhook does not open Meta's real 24-hour customer-service window.
+- Pending: Send a real WhatsApp `STATUS` message from the linked test phone to the Meta test/business number and verify a new inbound row, chatbot reply, and delivery callback in `/notifications`.
+
+## 2026-07-15 - Real-time session-only attendance
+- Completed: Removed the 9 AM/late-grace rule from kiosk auto-marking, disabled the absent cron from creating attendance rows, removed the Settings start-time/late-grace controls, and added crop-based AI detection retries for kiosk/mobile photos.
+- Changed: Kiosk scans now record `present` only during an active class session; if the class session is OFF, no attendance row is created. The cron endpoint remains available but returns a disabled/no-op result.
+- Verified: Backend tests pass 11/11, AI service files compile, frontend typecheck passes, and frontend lint passes.
+- Pending: Deploy the backend/frontend changes to Vercel and copy/deploy the AI service `main.py` crop-detection change to the HuggingFace Space before production testing.
+
+## 2026-07-15 - Editable attendance records
+- Completed: Added role-gated manual attendance editing for super admin, admin, HR, and branch manager users while keeping viewers read-only.
+- Changed: Added `/attendance/manual` upsert support for present, absent, and excused records; the Attendance page now shows an Edit action to allowed users and can edit synthetic absent rows by creating a real record for that student/date.
+- Verified: Backend tests pass 11/11, frontend typecheck passes, and frontend lint passes.
+- Pending: Deploy to Vercel and verify one admin edit plus one viewer read-only session in production.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title
