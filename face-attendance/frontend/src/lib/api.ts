@@ -1,7 +1,9 @@
-import axios from "axios";
+import axios, { type InternalAxiosRequestConfig } from "axios";
 
-export const AUTH_TOKEN_KEY = "face_attendance_token";
-export const AUTH_USER_KEY = "face_attendance_user";
+const LEGACY_AUTH_TOKEN_KEY = "face_attendance_token";
+const LEGACY_AUTH_USER_KEY = "face_attendance_user";
+const CSRF_COOKIE_NAME =
+  process.env.NEXT_PUBLIC_CSRF_COOKIE_NAME ?? "face_attendance_csrf";
 
 export interface User {
   id: number;
@@ -271,9 +273,6 @@ export interface SchoolSettings {
   company_id: number;
   school_phone: string | null;
   school_logo: string | null;
-  absent_alert_time: string;
-  attendance_start_time: string;
-  late_grace_minutes: number;
   whatsapp_token_configured: boolean;
   whatsapp_school_token_configured: boolean;
   whatsapp_default_token_configured: boolean;
@@ -292,9 +291,6 @@ export interface SchoolSettings {
 export interface SchoolSettingsInput {
   school_phone?: string | null;
   school_logo?: string | null;
-  absent_alert_time?: string | null;
-  attendance_start_time?: string | null;
-  late_grace_minutes?: number | null;
   whatsapp_token?: string | null;
   whatsapp_phone_id?: string | null;
 }
@@ -339,6 +335,7 @@ const FACE_REQUEST_TIMEOUT_MS = 125_000;
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000",
   timeout: 15_000,
+  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },
@@ -347,20 +344,40 @@ const api = axios.create({
 const publicApi = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000",
   timeout: 15_000,
+  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-api.interceptors.request.use((config) => {
-  if (typeof window !== "undefined") {
-    const token = window.localStorage.getItem(AUTH_TOKEN_KEY);
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+function readCookie(name: string): string | null {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  const prefix = `${encodeURIComponent(name)}=`;
+  const cookie = document.cookie
+    .split(";")
+    .map((item) => item.trim())
+    .find((item) => item.startsWith(prefix));
+  return cookie ? decodeURIComponent(cookie.slice(prefix.length)) : null;
+}
+
+function attachCsrfToken(
+  config: InternalAxiosRequestConfig,
+): InternalAxiosRequestConfig {
+  const method = config.method?.toUpperCase() ?? "GET";
+  if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
+    const csrfToken = readCookie(CSRF_COOKIE_NAME);
+    if (csrfToken) {
+      config.headers.set("X-CSRF-Token", csrfToken);
     }
   }
   return config;
-});
+}
+
+api.interceptors.request.use(attachCsrfToken);
+publicApi.interceptors.request.use(attachCsrfToken);
 
 api.interceptors.response.use(
   (response) => response,
@@ -370,9 +387,9 @@ api.interceptors.response.use(
       error.response?.status === 401 &&
       typeof window !== "undefined"
     ) {
-      window.localStorage.removeItem(AUTH_TOKEN_KEY);
-      window.localStorage.removeItem(AUTH_USER_KEY);
-      if (window.location.pathname !== "/login") {
+      window.localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
+      window.localStorage.removeItem(LEGACY_AUTH_USER_KEY);
+      if (!["/login", "/signup"].includes(window.location.pathname)) {
         window.location.assign("/login");
       }
     }
@@ -403,6 +420,10 @@ export async function signupRequest(
 export async function getCurrentUser(): Promise<User> {
   const response = await api.get<User>("/auth/me");
   return response.data;
+}
+
+export async function logoutRequest(): Promise<void> {
+  await api.post("/auth/logout");
 }
 
 interface PageOptions {
@@ -443,14 +464,25 @@ export async function getStudents(options: {
   section?: string;
   status?: string;
 } = {}): Promise<Student[]> {
-  const response = await api.get<Student[]>("/students", {
-    params: {
-      grade: options.grade || undefined,
-      section: options.section || undefined,
-      status: options.status || undefined,
-    },
-  });
-  return response.data;
+  const students: Student[] = [];
+  let page = 1;
+
+  while (true) {
+    const response = await api.get<Student[]>("/students", {
+      params: {
+        grade: options.grade || undefined,
+        section: options.section || undefined,
+        status: options.status || undefined,
+        page,
+        per_page: API_PAGE_SIZE,
+      },
+    });
+    students.push(...response.data);
+    if (response.data.length < API_PAGE_SIZE) {
+      return students;
+    }
+    page += 1;
+  }
 }
 
 export async function createStudent(input: StudentInput): Promise<Student> {

@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.images import normalize_base64_image
+from app.core.images import make_profile_thumbnail
 from app.dependencies import require_role
 from app.models.branch import Branch
 from app.models.face_embedding import FaceEmbedding
@@ -137,6 +137,8 @@ async def list_students(
     grade: str | None = None,
     section: str | None = None,
     status_filter: str | None = Query(default="active", alias="status"),
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=50, ge=1, le=100),
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(
         require_role("super_admin", "admin", "hr", "branch_manager", "viewer"),
@@ -154,9 +156,14 @@ async def list_students(
     if status_filter:
         query = query.where(Student.status == status_filter)
 
-    query = query.add_columns(FaceEmbedding.id).outerjoin(
-        FaceEmbedding,
-        FaceEmbedding.student_id == Student.id,
+    query = (
+        query.add_columns(FaceEmbedding.id)
+        .outerjoin(
+            FaceEmbedding,
+            FaceEmbedding.student_id == Student.id,
+        )
+        .offset((page - 1) * per_page)
+        .limit(per_page)
     )
     rows = (await session.execute(query)).all()
     return [
@@ -210,7 +217,7 @@ async def create_student(
         parent_phone=payload.parent_phone,
         parent_phone_2=payload.parent_phone_2,
         profile_image=(
-            normalize_base64_image(payload.profile_image)
+            make_profile_thumbnail(payload.profile_image)
             if payload.profile_image
             else None
         ),
@@ -244,7 +251,7 @@ async def update_student(
     update_data = payload.model_dump(exclude_unset=True)
 
     if update_data.get("profile_image"):
-        update_data["profile_image"] = normalize_base64_image(
+        update_data["profile_image"] = make_profile_thumbnail(
             str(update_data["profile_image"]),
         )
 

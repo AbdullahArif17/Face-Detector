@@ -6,7 +6,7 @@ from app.schemas.user import UserRead
 class LoginRequest(BaseModel):
     organization_name: str = Field(min_length=2, max_length=255)
     email: EmailStr
-    password: str
+    password: str = Field(min_length=1, max_length=128)
 
     @field_validator("organization_name")
     @classmethod
@@ -29,6 +29,13 @@ class SignupRequest(BaseModel):
         value = value.strip()
         if len(value) < 2:
             raise ValueError("must contain at least 2 non-space characters")
+        return value
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_size(cls, value: str) -> str:
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("must not exceed 72 UTF-8 bytes")
         return value
 
 

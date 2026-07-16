@@ -88,7 +88,7 @@ export function Sidebar() {
           variant="ghost"
           onClick={() => {
             setIsMobileOpen(false);
-            logout();
+            void logout();
           }}
         >
           <LogOut aria-hidden="true" className="size-4" />

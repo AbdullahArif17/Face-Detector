@@ -382,6 +382,17 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: Backend tests pass 11/11, frontend typecheck passes, and frontend lint passes.
 - Pending: Deploy to Vercel and verify one admin edit plus one viewer read-only session in production.
 
+## 2026-07-16 - Production release-candidate hardening
+- Completed: Replaced browser token persistence with Secure HttpOnly cookie authentication plus CSRF protection; added strict JWT claims, tenant/user revalidation, production startup validation, request IDs, structured request logs, no-store API responses, frontend CSP/HSTS, and safer proxy cookie/error/body handling.
+- Completed: Made attendance one real-time mark per student/class session, removed all absent cron code, added the partial unique database index, kept manual corrections role gated, and made WhatsApp failures unable to roll back a successful attendance mark.
+- Completed: Encrypted organization WhatsApp credentials at rest, added a legacy conversion command, stored only small student profile thumbnails, and made shared-number chatbot tenant resolution fail closed.
+- Completed: Calibrated ArcFace/RetinaFace defaults to threshold `0.42`, supported up to three same-person enrollment photos, split enrollment/live augmentation for CPU latency, rejected ambiguous/group images, pinned audited dependencies, and pre-bundled ArcFace/RetinaFace weights in the non-root Hugging Face image.
+- Completed: Added GitHub CI and Dependabot for backend, frontend, AI, Docker, and Actions dependencies. Updated release documentation and canonical project memory.
+- Verified: 18 backend tests, 6 AI tests, frontend strict typecheck/lint/production build, npm audit, pip audits, package checks, and secret/ignore scans pass.
+- Verified: The final Docker artifact reports model ready, enrolls a 512-dimensional vector, and matches the second real photo at `0.59`. A clean PostgreSQL 16 database upgrades through `c1d4e7f9a620` with no Alembic drift.
+- Verified: Real Neon login/auth-me/logout works with cookies and CSRF, and the same flow passes through the production-built Next.js proxy.
+- Pending: Push both repositories, confirm deployment environment values, deploy, migrate Neon from `a7e2d5c8f310` to `c1d4e7f9a620`, convert stored company credentials, then perform one live kiosk scan and one real inbound WhatsApp acceptance test.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

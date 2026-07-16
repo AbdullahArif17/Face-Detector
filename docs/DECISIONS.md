@@ -40,7 +40,7 @@
 - Status: Accepted
 - Context: The project already has a working Neon database and the user confirmed Neon is the intended managed PostgreSQL provider.
 - Decision: Keep Neon through SQLAlchemy asyncpg and Alembic while retaining the Phase 2 JWT login, `/auth/me`, and tenant-filtered protected routes.
-- Consequences: No database migration between providers is needed. Frontend tokens remain in localStorage per the Phase 2 requirement and should be moved to a stronger storage strategy before production.
+- Consequences: No database migration between providers is needed. Browser token storage was later replaced by the cookie/CSRF design in D-022; Bearer JWT compatibility remains for non-browser clients.
 
 ## D-007: Upgrade frontend to Next.js 16 and React 19
 - Date: 2026-06-25
@@ -54,7 +54,7 @@
 - Status: Accepted
 - Context: Phase 3 requires employee face enrollment from the dashboard and tenant-scoped enrollment status in the business API.
 - Decision: Keep the AI service stateless for embedding extraction/comparison and store enrolled vectors in the backend `face_embeddings` table as JSON for the MVP.
-- Consequences: The backend can report enrollment status and enforce tenant ownership. JSON biometric storage is not production-ready; encryption, tenant isolation, audit logging, retention, and deletion controls must be designed before real biometric deployment.
+- Consequences: The backend reports enrollment status and enforces tenant ownership. D-024 adds encryption for new embeddings, but consent, retention, audit, and deletion policy remain required before real biometric deployment.
 
 ## D-009: Use company API keys for unattended kiosk attendance
 - Date: 2026-06-28
@@ -93,7 +93,7 @@
 
 ## D-014: Require active class sessions for kiosk attendance
 - Date: 2026-07-03
-- Status: Accepted
+- Status: Superseded by D-023
 - Context: School attendance should be controlled class-wise so staff can intentionally open and close attendance collection windows.
 - Decision: Add `attendance_sessions` per organization/class, attach attendance rows to `session_id` when marked through the kiosk, and require an active class session before `/attendance/auto-mark` records check-in or check-out.
 - Consequences: Kiosk URLs are not enough by themselves; staff must start attendance for the class from `/attendance`. This prevents off-window scans, but production still needs richer timetable, shift, audit, and permission policy.
@@ -107,14 +107,14 @@
 
 ## D-016: Improve MVP face recognition with ArcFace and quality gates
 - Date: 2026-07-06
-- Status: Accepted
+- Status: Superseded by D-024
 - Context: The kiosk needs fewer false accepts and more reliable recognition than the initial Facenet-only MVP.
 - Decision: Use DeepFace ArcFace with RetinaFace, reject low-quality images before embedding extraction, average original and horizontally flipped embeddings, and require a minimum best-vs-runner-up similarity margin before accepting a match.
 - Consequences: Existing Facenet embeddings are incompatible and must be re-enrolled. Recognition is stricter and may reject blurry/dark/small-face images instead of guessing. First startup or first enrollment may be slower while ArcFace weights load/download.
 
 ## D-017: Deploy AI inference on HuggingFace Spaces and trigger absent alerts through Vercel Cron
 - Date: 2026-07-07
-- Status: Accepted
+- Status: Superseded by D-023
 - Context: Vercel's function bundle limits are not suitable for the DeepFace AI service, while the backend deployment needs serverless-safe absent alert scheduling.
 - Decision: Package `ai-service` as a HuggingFace Docker Space on port `7860`, keep the ArcFace/RetinaFace pipeline, make `AI_API_KEY` optional for test deployment, remove APScheduler, and expose `/api/cron/absent-alerts` for Vercel Cron.
 - Consequences: The AI service can deploy separately from Vercel and warm up its model on startup. Absent alerts now depend on Vercel Cron and `CRON_SECRET` environment configuration instead of an in-process scheduler. A public AI Space without `AI_API_KEY` is acceptable only for controlled testing.
@@ -135,7 +135,7 @@
 
 ## D-020: Harden biometric, attendance, and WhatsApp production paths
 - Date: 2026-07-12
-- Status: Accepted
+- Status: Superseded by D-023
 - Context: End-to-end testing found timezone errors, short frontend face timeouts, plaintext MVP embeddings, disposable Vercel background tasks, unsigned Meta webhook requests, no inbound chatbot, and race-prone class sessions.
 - Decision: Use `Asia/Karachi` day/time calculations, configurable school start/grace settings, a partial unique index for active class sessions, long per-face client timeouts, client-side image optimization, Fernet encryption for new embeddings, model-compatible recognition candidates, synchronous persisted WhatsApp outcomes, Graph API v25 configuration, signed/deduplicated webhook processing, and a deterministic parent `STATUS` chatbot.
 - Consequences: Production must set `BIOMETRIC_ENCRYPTION_KEY`, matching AI keys/model names, `META_APP_SECRET`, template names, and template languages. Legacy embeddings require conversion or re-enrollment. Static-photo kiosk fallback remains incompatible with optional anti-spoofing, so liveness must be validated for live-camera-only deployments.
@@ -146,6 +146,27 @@
 - Context: A third-party API could reduce model hosting work, but current free offers are temporary or do not support identity recognition, and sending student biometrics to a new processor changes privacy, consent, residency, retention, and billing obligations.
 - Decision: Keep the existing ArcFace/RetinaFace Hugging Face service as the default API-key-protected recognition provider. Do not send student images or vectors to a third-party recognition vendor until the school approves the processor and its legal/operational requirements. AWS Rekognition is the leading future opt-in candidate, not a permanently free dependency.
 - Consequences: The current service remains under project control and has no per-scan vendor charge, but its free CPU host can sleep and has limited throughput. A future provider adapter and migration must preserve tenant separation, re-enrollment strategy, auditability, consent, deletion, cost limits, and a self-hosted fallback.
+
+## D-022: Use HttpOnly cookie sessions with CSRF protection for browsers
+- Date: 2026-07-16
+- Status: Accepted
+- Context: Persisting Bearer JWTs in `localStorage` exposes long-lived authentication material to browser script injection and does not provide a clean same-origin session contract through the Next.js proxy.
+- Decision: Keep signed short-lived JWTs, but deliver browser sessions in a Secure, HttpOnly, SameSite cookie and require a matching readable CSRF cookie/header on state-changing cookie-authenticated requests. Retain Authorization Bearer support for non-browser API clients.
+- Consequences: The frontend no longer persists tokens or user objects. The proxy must preserve every Set-Cookie header, production must use HTTPS, cookie names must stay aligned, and refresh/revocation infrastructure remains a future scale/security improvement.
+
+## D-023: Make attendance session-only and idempotent
+- Date: 2026-07-16
+- Status: Accepted
+- Context: Clock-triggered absence rows, automatic check-out on a second scan, and mixed day/session semantics conflicted with the required class-controlled, real-time attendance workflow.
+- Decision: Staff explicitly start and stop attendance independently for each class. Kiosk recognition can create one present mark per student per active session. Repeat scans return the existing result. Remove the absent cron and all automatic time-based attendance creation.
+- Consequences: A partial unique database index enforces idempotency under concurrent scans. Absence/excuse data is a manual correction/reporting concern. Check-out and scheduled absence alerts are not active product behavior.
+
+## D-024: Harden the self-hosted biometric and credential boundary
+- Date: 2026-07-16
+- Status: Accepted
+- Context: Reliable kiosk recognition needs better enrollment samples and deterministic cold starts, while biometric vectors and organization API tokens cannot remain plaintext production data.
+- Decision: Use ArcFace with RetinaFace primary detection, calibrated cosine threshold `0.42`, runner-up margin `0.03`, up to three same-person enrollment photos, enrollment-only flip augmentation, hard group-photo rejection, and pre-bundled model weights. Encrypt new embeddings and organization WhatsApp credentials in the backend with separate/domain-derived Fernet keys, and store only small profile thumbnails.
+- Consequences: Existing Facenet faces must be re-enrolled. Legacy plaintext values need controlled conversion after deployment. Thresholds still require representative school validation, free CPU hosting has limited throughput, and liveness remains mandatory before unattended high-stakes use.
 
 ## Decision Template
 ```markdown

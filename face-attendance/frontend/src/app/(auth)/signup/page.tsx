@@ -36,7 +36,7 @@ export default function SignupPage() {
         email,
         password,
       });
-      login(response.access_token, response.user);
+      login(response.user);
     } catch (requestError) {
       setError(
         getApiErrorMessage(
@@ -55,6 +55,26 @@ export default function SignupPage() {
     !email ||
     password.length < 8 ||
     !confirmPassword;
+
+  if (process.env.NEXT_PUBLIC_ALLOW_SIGNUP !== "true") {
+    return (
+      <main className="flex min-h-dvh items-center justify-center px-4 py-12">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Organization signup is closed</CardTitle>
+            <p className="text-sm text-muted-foreground text-pretty">
+              Ask the platform administrator to create your organization.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <Button asChild className="w-full">
+              <Link href="/login">Return to sign in</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </main>
+    );
+  }
 
   return (
     <main className="flex min-h-dvh items-center justify-center px-4 py-12">

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.biometrics import BiometricConfigurationError, prepare_embedding_storage
 from app.core.database import get_db
-from app.core.images import normalize_base64_image
+from app.core.images import make_profile_thumbnail, normalize_base64_image
 from app.dependencies import require_role
 from app.models.face_embedding import FaceEmbedding
 from app.models.student import Student
@@ -146,7 +146,7 @@ async def enroll_face(
         existing_embedding.model_name = model_name
         existing_embedding.updated_at = datetime.now(timezone.utc)
 
-    student.profile_image = headshot_url
+    student.profile_image = make_profile_thumbnail(headshot_url)
     await session.commit()
     return FaceEnrollResponse(
         success=True,

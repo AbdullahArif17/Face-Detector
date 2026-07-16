@@ -4,16 +4,6 @@
     "main.py": {
       "maxDuration": 120,
       "excludeFiles": "{tests/**,**/__pycache__/**,**/*.pyc}"
-    },
-    "api/cron/*.py": {
-      "maxDuration": 300,
-      "excludeFiles": "{tests/**,**/__pycache__/**,**/*.pyc}"
     }
-  },
-  "crons": [
-    {
-      "path": "/api/cron/absent-alerts",
-      "schedule": "0 4 * * *"
-    }
-  ]
+  }
 }

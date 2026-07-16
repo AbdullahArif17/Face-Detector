@@ -1,7 +1,7 @@
 import csv
 from datetime import date, datetime, time, timedelta, timezone
 from io import StringIO
-from math import ceil
+import logging
 from typing import Any
 
 import httpx
@@ -47,18 +47,17 @@ from app.schemas.attendance import (
 )
 from app.services.whatsapp import (
     checkin_message_body,
-    checkout_message_body,
     get_whatsapp_credentials,
     log_whatsapp_message,
     send_checkin_message,
-    send_checkout_message,
     school_phone_or_default,
 )
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
+logger = logging.getLogger("face_attendance_attendance")
 
 AI_SERVICE_TIMEOUT_SECONDS = 90.0
-COOLDOWN_MINUTES = 5
+EXPORT_MAX_RECORDS = 50_000
 MANUAL_ATTENDANCE_STATUSES = {"present", "absent", "excused"}
 
 def ai_service_headers() -> dict[str, str]:
@@ -168,19 +167,21 @@ def build_dashboard_record(
     )
 
 
-async def get_today_attendance_for_student(
+async def get_session_attendance_for_student(
     session: AsyncSession,
+    *,
+    company_id: int,
+    attendance_session_id: int,
     student_id: int,
 ) -> Attendance | None:
-    start, end = today_bounds()
     return await session.scalar(
         select(Attendance)
         .where(
+            Attendance.company_id == company_id,
+            Attendance.session_id == attendance_session_id,
             Attendance.student_id == student_id,
-            Attendance.check_in >= start,
-            Attendance.check_in < end,
         )
-        .order_by(Attendance.check_in.desc()),
+        .order_by(Attendance.id.asc()),
     )
 
 
@@ -281,13 +282,12 @@ def has_whatsapp_config(school: Company) -> bool:
     return bool(access_token and phone_number_id)
 
 
-async def send_attendance_notification(
+async def send_checkin_notification(
     *,
     session: AsyncSession,
     attendance: Attendance,
     student: Student,
     school: Company,
-    message_type: str,
     event_time: datetime,
 ) -> None:
     access_token, phone_number_id = get_whatsapp_credentials(school)
@@ -298,36 +298,20 @@ async def send_attendance_notification(
 
     check_time = display_time(event_time)
     date_str = display_date(event_time)
-    if message_type == "check_out":
-        message_body = checkout_message_body(student, school, check_time, date_str)
-        result = await send_checkout_message(
-            phone_number_id,
-            access_token,
-            student.parent_phone,
-            student.parent_name,
-            student.student_name,
-            school.name,
-            school_phone_or_default(school),
-            check_time,
-            date_str,
-            student.grade,
-            student.section,
-        )
-    else:
-        message_body = checkin_message_body(student, school, check_time, date_str)
-        result = await send_checkin_message(
-            phone_number_id,
-            access_token,
-            student.parent_phone,
-            student.parent_name,
-            student.student_name,
-            school.name,
-            school_phone_or_default(school),
-            check_time,
-            date_str,
-            student.grade,
-            student.section,
-        )
+    message_body = checkin_message_body(student, school, check_time, date_str)
+    result = await send_checkin_message(
+        phone_number_id,
+        access_token,
+        student.parent_phone,
+        student.parent_name,
+        student.student_name,
+        school.name,
+        school_phone_or_default(school),
+        check_time,
+        date_str,
+        student.grade,
+        student.section,
+    )
 
     notification_status = "sent" if result["success"] else "failed"
     attendance.notification_sent = result["success"] is True
@@ -337,7 +321,7 @@ async def send_attendance_notification(
         school_id=school.id,
         student_id=student.id,
         parent_phone=student.parent_phone,
-        message_type=message_type,
+        message_type="check_in",
         message_body=message_body,
         status=notification_status,
         meta_message_id=result["message_id"] if isinstance(result["message_id"], str) else None,
@@ -688,7 +672,12 @@ async def auto_mark_attendance(
     confidence_score = recognition.get("confidence")
     confidence = float(confidence_score) if confidence_score is not None else None
     now = datetime.now(timezone.utc)
-    existing_attendance = await get_today_attendance_for_student(session, student.id)
+    existing_attendance = await get_session_attendance_for_student(
+        session,
+        company_id=company.id,
+        attendance_session_id=active_session.id,
+        student_id=student.id,
+    )
     response_student = AttendanceAutoStudent(
         id=student.id,
         name=student.student_name,
@@ -697,100 +686,89 @@ async def auto_mark_attendance(
     )
     should_notify = has_whatsapp_config(company)
 
-    if existing_attendance is None or existing_attendance.status == "absent":
-        attendance = existing_attendance or Attendance(
-            student_id=student.id,
-            company_id=company.id,
-            check_in=now,
+    if existing_attendance is not None:
+        return AttendanceAutoMarkResponse(
+            matched=True,
+            student=response_student,
+            employee=response_student,
+            action="already_done",
+            time=display_time(existing_attendance.check_in),
+            confidence_score=confidence,
+            notification_status=existing_attendance.notification_status,
+            message=f"{student.student_name} is already marked for this session.",
         )
-        attendance.check_in = now
-        attendance.check_out = None
-        attendance.session_id = active_session.id
-        attendance.status = "present"
-        attendance.confidence_score = confidence
-        attendance.notification_sent = False
-        attendance.notification_status = "pending" if should_notify else None
-        if existing_attendance is None:
-            session.add(attendance)
+
+    attendance = Attendance(
+        student_id=student.id,
+        company_id=company.id,
+        session_id=active_session.id,
+        check_in=now,
+        check_out=None,
+        status="present",
+        confidence_score=confidence,
+        notification_sent=False,
+        notification_status="pending" if should_notify else None,
+    )
+    session.add(attendance)
+    try:
         await session.commit()
-        await session.refresh(attendance)
-        if should_notify:
-            await send_attendance_notification(
+    except IntegrityError as exc:
+        await session.rollback()
+        existing_attendance = await get_session_attendance_for_student(
+            session,
+            company_id=company.id,
+            attendance_session_id=active_session.id,
+            student_id=student.id,
+        )
+        if existing_attendance is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Attendance could not be recorded",
+            ) from exc
+        return AttendanceAutoMarkResponse(
+            matched=True,
+            student=response_student,
+            employee=response_student,
+            action="already_done",
+            time=display_time(existing_attendance.check_in),
+            confidence_score=confidence,
+            notification_status=existing_attendance.notification_status,
+            message=f"{student.student_name} is already marked for this session.",
+        )
+
+    await session.refresh(attendance)
+    if should_notify:
+        attendance_id = attendance.id
+        try:
+            await send_checkin_notification(
                 session=session,
                 attendance=attendance,
                 student=student,
                 school=company,
-                message_type="check_in",
                 event_time=now,
             )
             await session.commit()
-        return AttendanceAutoMarkResponse(
-            matched=True,
-            student=response_student,
-            employee=response_student,
-            action="check_in",
-            time=display_time(now),
-            confidence_score=confidence,
-            notification_status=attendance.notification_status,
-            message=f"Welcome {student.student_name}! Check-in recorded.",
-        )
-
-    if existing_attendance.check_out is None:
-        elapsed = now - existing_attendance.check_in
-        if elapsed < timedelta(minutes=COOLDOWN_MINUTES):
-            wait_minutes = max(
-                1,
-                ceil((timedelta(minutes=COOLDOWN_MINUTES) - elapsed).total_seconds() / 60),
+        except Exception:
+            await session.rollback()
+            logger.exception(
+                "Check-in notification failed for attendance_id=%s",
+                attendance_id,
             )
-            return AttendanceAutoMarkResponse(
-                matched=True,
-                student=response_student,
-                employee=response_student,
-                action="too_soon",
-                time=display_time(now),
-                confidence_score=confidence,
-                notification_status=existing_attendance.notification_status,
-                message=f"Too soon, wait {wait_minutes} minute{'s' if wait_minutes != 1 else ''}",
-            )
-
-        existing_attendance.check_out = now
-        if existing_attendance.session_id is None:
-            existing_attendance.session_id = active_session.id
-        existing_attendance.notification_sent = False
-        existing_attendance.notification_status = "pending" if should_notify else None
-        if confidence is not None:
-            existing_attendance.confidence_score = confidence
-        await session.commit()
-        if should_notify:
-            await send_attendance_notification(
-                session=session,
-                attendance=existing_attendance,
-                student=student,
-                school=company,
-                message_type="check_out",
-                event_time=now,
-            )
-            await session.commit()
-        return AttendanceAutoMarkResponse(
-            matched=True,
-            student=response_student,
-            employee=response_student,
-            action="check_out",
-            time=display_time(now),
-            confidence_score=confidence,
-            notification_status=existing_attendance.notification_status,
-            message=f"Goodbye {student.student_name}! Check-out recorded.",
-        )
-
+            persisted_attendance = await session.get(Attendance, attendance_id)
+            if persisted_attendance is not None:
+                persisted_attendance.notification_sent = False
+                persisted_attendance.notification_status = "failed"
+                await session.commit()
+                attendance = persisted_attendance
     return AttendanceAutoMarkResponse(
         matched=True,
         student=response_student,
         employee=response_student,
-        action="already_done",
+        action="check_in",
         time=display_time(now),
         confidence_score=confidence,
-        notification_status=existing_attendance.notification_status,
-        message="Already completed for today",
+        notification_status=attendance.notification_status,
+        message=f"Welcome {student.student_name}! Attendance recorded.",
     )
 
 
@@ -910,11 +888,13 @@ async def get_today_attendance(
 
     students = list((await session.execute(students_query)).scalars().all())
     attendance_result = await session.execute(
-        select(Attendance).where(
+        select(Attendance)
+        .where(
             Attendance.company_id == current_user.company_id,
             Attendance.check_in >= start,
             Attendance.check_in < end,
-        ),
+        )
+        .order_by(Attendance.check_in.asc()),
     )
     attendance_by_student = {
         attendance.student_id: attendance
@@ -946,7 +926,7 @@ async def get_attendance_history(
     ),
 ) -> list[AttendanceDashboardRecord]:
     selected_class_id = resolve_class_query(class_id=class_id, branch_id=branch_id)
-    end_date = end_date or datetime.now(timezone.utc).date()
+    end_date = end_date or local_now().date()
     start_date = start_date or (end_date - timedelta(days=30))
     if start_date > end_date:
         raise HTTPException(
@@ -993,17 +973,42 @@ async def export_attendance_history(
     ),
 ) -> StreamingResponse:
     selected_class_id = resolve_class_query(class_id=class_id, branch_id=branch_id)
-    records = await get_attendance_history(
-        start_date=start_date,
-        end_date=end_date,
-        student_id=student_id,
-        class_id=selected_class_id,
-        branch_id=None,
-        page=1,
-        per_page=100,
-        session=session,
-        current_user=current_user,
+    end_date = end_date or local_now().date()
+    start_date = start_date or (end_date - timedelta(days=30))
+    if start_date > end_date:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="start_date cannot be after end_date",
+        )
+    start, end = date_bounds(start_date, end_date)
+    query = (
+        select(Attendance, Student)
+        .join(Student, Student.id == Attendance.student_id)
+        .where(
+            Attendance.company_id == current_user.company_id,
+            Attendance.check_in >= start,
+            Attendance.check_in < end,
+        )
+        .order_by(Attendance.check_in.desc())
+        .limit(EXPORT_MAX_RECORDS + 1)
     )
+    if student_id is not None:
+        query = query.where(Attendance.student_id == student_id)
+    if selected_class_id is not None:
+        query = query.where(Student.class_id == selected_class_id)
+
+    rows = (await session.execute(query)).all()
+    if len(rows) > EXPORT_MAX_RECORDS:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=(
+                f"Export exceeds {EXPORT_MAX_RECORDS} records; narrow the date or class filters"
+            ),
+        )
+    records = [
+        build_dashboard_record(student, attendance, to_local(attendance.check_in).date())
+        for attendance, student in rows
+    ]
 
     output = StringIO(newline="")
     writer = csv.writer(output)
@@ -1067,10 +1072,27 @@ async def mark_attendance(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Student not found",
         )
+    check_in = payload.check_in or datetime.now(timezone.utc)
+    attendance_date = to_local(check_in).date()
+    day_start, day_end = local_day_bounds(attendance_date)
+    existing_attendance_id = await session.scalar(
+        select(Attendance.id).where(
+            Attendance.company_id == current_user.company_id,
+            Attendance.student_id == student.id,
+            Attendance.check_in >= day_start,
+            Attendance.check_in < day_end,
+        ),
+    )
+    if existing_attendance_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Attendance already exists for this student on the selected date",
+        )
+
     attendance = Attendance(
         **payload.model_dump(exclude={"check_in", "company_id"}),
         company_id=current_user.company_id,
-        check_in=payload.check_in or datetime.now(timezone.utc),
+        check_in=check_in,
     )
     session.add(attendance)
     await session.commit()

@@ -30,7 +30,7 @@ export default function LoginPage() {
 
     try {
       const response = await loginRequest(organizationName, email, password);
-      login(response.access_token, response.user);
+      login(response.user);
     } catch (requestError) {
       setError(
         getApiErrorMessage(
@@ -120,12 +120,14 @@ export default function LoginPage() {
               {isSubmitting ? "Signing in..." : "Sign in"}
             </Button>
           </div>
-          <p className="text-center text-sm text-muted-foreground text-pretty">
-            New organization?{" "}
-            <Link className="font-medium text-primary hover:underline" href="/signup">
-              Create an account
-            </Link>
-          </p>
+          {process.env.NEXT_PUBLIC_ALLOW_SIGNUP === "true" ? (
+            <p className="text-center text-sm text-muted-foreground text-pretty">
+              New organization?{" "}
+              <Link className="font-medium text-primary hover:underline" href="/signup">
+                Create an account
+              </Link>
+            </p>
+          ) : null}
           <p className="text-center text-xs text-muted-foreground">
             <Link className="hover:underline" href="/privacy">Privacy</Link>
             {" · "}

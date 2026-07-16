@@ -38,6 +38,8 @@ const KIOSK_STATUS_INTERVAL_MS = 15_000;
 
 const videoConstraints = {
   facingMode: "user",
+  width: { ideal: 960 },
+  height: { ideal: 720 },
 };
 
 type CameraState = "starting" | "ready" | "unavailable";
@@ -149,7 +151,9 @@ function ResultCard({
   const classText = student ? `${student.grade}-${student.section}` : null;
   const isSuccessfulAction =
     result.matched &&
-    (result.action === "check_in" || result.action === "check_out");
+    (result.action === "check_in" ||
+      result.action === "check_out" ||
+      result.action === "already_done");
   const title =
     result.action === "check_in"
       ? `Welcome, ${studentName}`
@@ -556,8 +560,9 @@ export default function KioskPage() {
                   audio={false}
                   mirrored
                   playsInline
-                  screenshotFormat="image/jpeg"
-                  videoConstraints={videoConstraints}
+                   screenshotFormat="image/jpeg"
+                   screenshotQuality={0.8}
+                   videoConstraints={videoConstraints}
                   className="absolute inset-0 size-full object-cover"
                   onUserMedia={() => {
                     setCameraError(null);

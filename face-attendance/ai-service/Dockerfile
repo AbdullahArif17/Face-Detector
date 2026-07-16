@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 FROM python:3.10-slim
 
 WORKDIR /app
@@ -19,9 +20,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN useradd --create-home --shell /usr/sbin/nologin appuser
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    export PIP_CACHE_DIR=/root/.cache/pip \
+    && pip install --upgrade pip setuptools wheel \
+    && pip install -r requirements.txt \
     && pip uninstall -y opencv-python \
-    && pip install --no-cache-dir --force-reinstall --no-deps opencv-python-headless==4.13.0.92
+    && pip install --force-reinstall --no-deps opencv-python-headless==4.13.0.92
+
+# Bundle the default recognition and detector weights into the image so a
+# Space restart does not depend on a model download during the first scan.
+RUN python -c "import numpy as np; from deepface import DeepFace; DeepFace.build_model(model_name='ArcFace', task='facial_recognition'); DeepFace.extract_faces(img_path=np.zeros((224,224,3), dtype=np.uint8), detector_backend='retinaface', enforce_detection=False)" \
+    && chown -R appuser:appuser /home/appuser/.deepface
 
 COPY --chown=appuser:appuser . .
 

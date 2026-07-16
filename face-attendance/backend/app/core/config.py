@@ -15,11 +15,19 @@ class Settings:
     database_url: str
     secret_key: str
     algorithm: str
+    jwt_issuer: str
+    jwt_audience: str
     access_token_expire_minutes: int
+    auth_cookie_name: str
+    csrf_cookie_name: str
+    auth_cookie_secure: bool
+    allow_public_signup: bool
+    enable_api_docs: bool
     ai_service_url: str
     ai_api_key: str | None
     ai_model_name: str
     biometric_encryption_key: str | None
+    credential_encryption_key: str | None
     app_timezone: str
     frontend_origins: list[str]
     meta_whatsapp_token: str | None
@@ -35,7 +43,6 @@ class Settings:
     meta_test_template_name: str | None
     whatsapp_test_mode: bool
     whatsapp_test_recipient: str | None
-    cron_secret: str | None
     app_env: str
 
 
@@ -92,6 +99,8 @@ def parse_bool_env(name: str, default: bool = False) -> bool:
 def get_settings() -> Settings:
     database_url = os.getenv("DATABASE_URL")
     secret_key = os.getenv("SECRET_KEY")
+    app_env = os.getenv("APP_ENV", "development").strip().lower()
+    is_production = app_env == "production"
 
     if not database_url:
         raise RuntimeError("DATABASE_URL is not configured")
@@ -115,13 +124,36 @@ def get_settings() -> Settings:
         database_url=normalize_database_url(database_url),
         secret_key=secret_key,
         algorithm=os.getenv("ALGORITHM", "HS256"),
+        jwt_issuer=os.getenv("JWT_ISSUER", "face-attendance-api").strip(),
+        jwt_audience=os.getenv("JWT_AUDIENCE", "face-attendance-web").strip(),
         access_token_expire_minutes=int(
             os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"),
+        ),
+        auth_cookie_name=os.getenv(
+            "AUTH_COOKIE_NAME",
+            "face_attendance_session",
+        ).strip(),
+        csrf_cookie_name=os.getenv(
+            "CSRF_COOKIE_NAME",
+            "face_attendance_csrf",
+        ).strip(),
+        auth_cookie_secure=parse_bool_env(
+            "AUTH_COOKIE_SECURE",
+            default=is_production,
+        ),
+        allow_public_signup=parse_bool_env(
+            "ALLOW_PUBLIC_SIGNUP",
+            default=not is_production,
+        ),
+        enable_api_docs=parse_bool_env(
+            "ENABLE_API_DOCS",
+            default=not is_production,
         ),
         ai_service_url=os.getenv("AI_SERVICE_URL", "http://localhost:8001").rstrip("/"),
         ai_api_key=os.getenv("AI_API_KEY"),
         ai_model_name=os.getenv("AI_MODEL_NAME", "ArcFace").strip(),
         biometric_encryption_key=os.getenv("BIOMETRIC_ENCRYPTION_KEY"),
+        credential_encryption_key=os.getenv("CREDENTIAL_ENCRYPTION_KEY"),
         app_timezone=os.getenv("APP_TIMEZONE", "Asia/Karachi").strip(),
         frontend_origins=parse_csv_env(
             os.getenv(
@@ -142,8 +174,7 @@ def get_settings() -> Settings:
         meta_test_template_name=os.getenv("META_TEST_TEMPLATE_NAME"),
         whatsapp_test_mode=whatsapp_test_mode,
         whatsapp_test_recipient=whatsapp_test_recipient,
-        cron_secret=os.getenv("CRON_SECRET"),
-        app_env=os.getenv("APP_ENV", "development"),
+        app_env=app_env,
     )
 
 

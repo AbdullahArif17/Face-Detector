@@ -187,6 +187,11 @@ async def find_parent_students(
     return list((await session.execute(query)).scalars().all())
 
 
+def unambiguous_school_id(students: list[Student]) -> int | None:
+    school_ids = {student.school_id for student in students}
+    return school_ids.pop() if len(school_ids) == 1 else None
+
+
 async def build_attendance_reply(
     session: AsyncSession,
     students: list[Student],
@@ -267,7 +272,13 @@ async def process_inbound_message(
         school=school,
     )
     if school is None and students:
-        school = await session.get(Company, students[0].school_id)
+        school_id = unambiguous_school_id(students)
+        if school_id is not None:
+            school = await session.get(Company, school_id)
+        else:
+            # A shared fallback WhatsApp number cannot safely identify a tenant
+            # when the sender is registered in multiple organizations.
+            students = []
 
     inbound = WhatsappInboundMessage(
         meta_message_id=message["message_id"],

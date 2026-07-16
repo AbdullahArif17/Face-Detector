@@ -12,9 +12,8 @@ import {
 import { useRouter } from "next/navigation";
 
 import {
-  AUTH_TOKEN_KEY,
-  AUTH_USER_KEY,
   getCurrentUser,
+  logoutRequest,
   type User,
 } from "@/lib/api";
 
@@ -22,8 +21,8 @@ interface AuthContextValue {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (token: string, user: User) => void;
-  logout: () => void;
+  login: (user: User) => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -33,20 +32,21 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const logout = useCallback(() => {
-    window.localStorage.removeItem(AUTH_TOKEN_KEY);
-    window.localStorage.removeItem(AUTH_USER_KEY);
-    setUser(null);
-    router.replace("/login");
+  const logout = useCallback(async () => {
+    try {
+      await logoutRequest();
+    } finally {
+      window.localStorage.removeItem("face_attendance_token");
+      window.localStorage.removeItem("face_attendance_user");
+      setUser(null);
+      router.replace("/login");
+    }
   }, [router]);
 
   const login = useCallback(
-    (token: string, authenticatedUser: User) => {
-      window.localStorage.setItem(AUTH_TOKEN_KEY, token);
-      window.localStorage.setItem(
-        AUTH_USER_KEY,
-        JSON.stringify(authenticatedUser),
-      );
+    (authenticatedUser: User) => {
+      window.localStorage.removeItem("face_attendance_token");
+      window.localStorage.removeItem("face_attendance_user");
       setUser(authenticatedUser);
       router.replace("/dashboard");
     },
@@ -57,38 +57,14 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     let isCancelled = false;
 
     async function restoreSession(): Promise<void> {
-      await Promise.resolve();
-
-      const token = window.localStorage.getItem(AUTH_TOKEN_KEY);
-      const storedUser = window.localStorage.getItem(AUTH_USER_KEY);
-
-      if (!token || !storedUser) {
-        if (!isCancelled) {
-          setIsLoading(false);
-        }
-        return;
-      }
-
-      try {
-        if (!isCancelled) {
-          setUser(JSON.parse(storedUser) as User);
-        }
-      } catch {
-        window.localStorage.removeItem(AUTH_USER_KEY);
-      }
-
       try {
         const currentUser = await getCurrentUser();
-        window.localStorage.setItem(
-          AUTH_USER_KEY,
-          JSON.stringify(currentUser),
-        );
         if (!isCancelled) {
           setUser(currentUser);
         }
       } catch {
-        window.localStorage.removeItem(AUTH_TOKEN_KEY);
-        window.localStorage.removeItem(AUTH_USER_KEY);
+        window.localStorage.removeItem("face_attendance_token");
+        window.localStorage.removeItem("face_attendance_user");
         if (!isCancelled) {
           setUser(null);
         }

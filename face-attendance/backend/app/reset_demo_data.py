@@ -177,7 +177,6 @@ async def get_or_create_demo_school(session) -> Company:
             employee_limit=500,
             status="active",
             school_phone="923001111111",
-            absent_alert_time="09:00",
         )
         session.add(school)
         await session.flush()
@@ -187,7 +186,6 @@ async def get_or_create_demo_school(session) -> Company:
     school.employee_limit = 500
     school.status = "active"
     school.school_phone = school.school_phone or "923001111111"
-    school.absent_alert_time = school.absent_alert_time or "09:00"
     return school
 
 

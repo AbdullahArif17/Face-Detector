@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import asynccontextmanager
 import hmac
 import logging
 import math
@@ -29,6 +30,8 @@ from utils import base64_to_image, cosine_similarity  # noqa: E402
 
 
 logger = logging.getLogger("face_attendance_ai")
+logger.setLevel(logging.INFO)
+MULTIPLE_FACES_DETAIL = "Multiple faces were detected; exactly one face is required"
 
 
 def bounded_float_env(
@@ -58,20 +61,24 @@ def bounded_int_env(
 
 
 RECOGNITION_THRESHOLD = bounded_float_env(
-    "RECOGNITION_THRESHOLD", "0.58", minimum=0.0, maximum=1.0,
+    "RECOGNITION_THRESHOLD", "0.42", minimum=0.0, maximum=1.0,
 )
 RECOGNITION_MARGIN = bounded_float_env(
     "RECOGNITION_MARGIN", "0.03", minimum=0.0, maximum=1.0,
 )
 DEEPFACE_MODEL = os.getenv("DEEPFACE_MODEL", "ArcFace")
-DETECTOR_BACKEND = os.getenv("DETECTOR_BACKEND", "opencv")
+DETECTOR_BACKEND = os.getenv("DETECTOR_BACKEND", "retinaface")
 FALLBACK_DETECTOR_BACKENDS = [
     backend.strip()
-    for backend in os.getenv("FALLBACK_DETECTOR_BACKENDS", "ssd,mtcnn,retinaface").split(",")
+    for backend in os.getenv("FALLBACK_DETECTOR_BACKENDS", "opencv,ssd,mtcnn").split(",")
     if backend.strip()
 ]
-ENABLE_EMBEDDING_AUGMENTATION = (
-    os.getenv("ENABLE_EMBEDDING_AUGMENTATION", "true").strip().lower()
+ENABLE_ENROLLMENT_AUGMENTATION = (
+    os.getenv("ENABLE_ENROLLMENT_AUGMENTATION", "true").strip().lower()
+    in {"1", "true", "yes", "on"}
+)
+ENABLE_RECOGNITION_AUGMENTATION = (
+    os.getenv("ENABLE_RECOGNITION_AUGMENTATION", "false").strip().lower()
     in {"1", "true", "yes", "on"}
 )
 MIN_IMAGE_WIDTH = bounded_int_env("MIN_IMAGE_WIDTH", "120", minimum=64, maximum=4096)
@@ -115,10 +122,17 @@ INFERENCE_SEMAPHORE = asyncio.Semaphore(INFERENCE_CONCURRENCY)
 MODEL_READY = False
 MODEL_STARTUP_ERROR: str | None = None
 
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    await warmup_model()
+    yield
+
+
 app = FastAPI(
     title="Face Attendance AI Service",
     version="0.3.0",
     description="Face enrollment and recognition service for the MVP.",
+    lifespan=lifespan,
 )
 if AI_CORS_ORIGINS:
     app.add_middleware(
@@ -172,7 +186,7 @@ class EnrollRequest(BaseModel):
         if self.student_id is not None:
             return str(self.student_id)
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="employee_id or student_id is required",
         )
 
@@ -237,7 +251,7 @@ def normalize_embedding(raw_embedding: list[float]) -> np.ndarray:
     norm = np.linalg.norm(embedding)
     if norm == 0:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Generated face embedding is invalid",
         )
     return embedding / norm
@@ -247,7 +261,7 @@ def validate_image_quality(image: np.ndarray) -> None:
     height, width = image.shape[:2]
     if width < MIN_IMAGE_WIDTH or height < MIN_IMAGE_HEIGHT:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 "Image is too small for reliable face recognition; "
                 f"use at least {MIN_IMAGE_WIDTH}x{MIN_IMAGE_HEIGHT}px"
@@ -258,19 +272,19 @@ def validate_image_quality(image: np.ndarray) -> None:
     blur_score = float(cv2.Laplacian(gray, cv2.CV_64F).var())
     if blur_score < MIN_BLUR_SCORE:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Image is too blurry for reliable face recognition",
         )
 
     brightness = float(np.mean(gray))
     if brightness < MIN_BRIGHTNESS:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Image is too dark for reliable face recognition",
         )
     if brightness > MAX_BRIGHTNESS:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Image is too bright for reliable face recognition",
         )
 
@@ -291,12 +305,12 @@ def validate_face_quality(representation: dict, image: np.ndarray) -> None:
 
     if face_width < MIN_FACE_WIDTH or face_height < MIN_FACE_HEIGHT:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Face is too small in the image; move closer to the camera",
         )
     if face_area_ratio < MIN_FACE_AREA_RATIO:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Face occupies too little of the image for reliable recognition",
         )
 
@@ -370,7 +384,7 @@ def represent_single_face(
         except Exception as exc:
             if anti_spoofing and "spoof" in str(exc).casefold():
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail="Liveness check failed; use a live camera view",
                 ) from exc
             logger.info("Detector backend %s rejected image: %s", detector_backend, exc)
@@ -378,14 +392,14 @@ def represent_single_face(
 
         if len(representations) == 0:
             last_http_error = HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="No face was detected in the image",
             )
             continue
         if len(representations) > 1:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Multiple faces were detected; exactly one face is required",
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=MULTIPLE_FACES_DETAIL,
             )
 
         representation = representations[0]
@@ -398,7 +412,7 @@ def represent_single_face(
         raw_embedding = representation.get("embedding")
         if not isinstance(raw_embedding, list):
             last_http_error = HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Generated face embedding is invalid",
             )
             continue
@@ -407,7 +421,7 @@ def represent_single_face(
     if last_http_error is not None:
         raise last_http_error
     raise HTTPException(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         detail="No usable face was detected in the image",
     )
 
@@ -416,6 +430,7 @@ def extract_embedding(
     image_base64: str,
     *,
     anti_spoofing: bool = False,
+    augment: bool = False,
 ) -> list[float]:
     image = base64_to_image(image_base64, max_bytes=MAX_IMAGE_BYTES)
     validate_image_quality(image)
@@ -427,19 +442,23 @@ def extract_embedding(
             embeddings = [
                 represent_single_face(detection_image, anti_spoofing=anti_spoofing),
             ]
-            if ENABLE_EMBEDDING_AUGMENTATION:
+            if augment:
                 flipped_image = cv2.flip(detection_image, 1)
                 flipped_embedding = represent_single_face(flipped_image, anti_spoofing=False)
                 if flipped_embedding.shape == embeddings[0].shape:
                     embeddings.append(flipped_embedding)
             break
         except HTTPException as exc:
+            # Cropping may help with a distant or off-center face, but it must
+            # never turn a group photo into an accepted single-person scan.
+            if exc.detail == MULTIPLE_FACES_DETAIL:
+                raise
             last_error = exc
     else:
         if last_error is not None:
             raise last_error
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="No usable face was detected in the image",
         )
 
@@ -451,7 +470,7 @@ def extract_embedding(
 def aggregate_embeddings(embeddings: list[list[float]]) -> list[float]:
     if not embeddings:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="At least one usable enrollment photo is required",
         )
 
@@ -459,7 +478,7 @@ def aggregate_embeddings(embeddings: list[list[float]]) -> list[float]:
     expected_shape = vectors[0].shape
     if any(vector.shape != expected_shape for vector in vectors[1:]):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Enrollment photos produced incompatible face embeddings",
         )
 
@@ -471,7 +490,7 @@ def aggregate_embeddings(embeddings: list[list[float]]) -> list[float]:
         )
         if lowest_similarity < MIN_ENROLLMENT_SAMPLE_SIMILARITY:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=(
                     "Enrollment photos do not appear to show the same person. "
                     "Use clear photos of one student only."
@@ -483,7 +502,15 @@ def aggregate_embeddings(embeddings: list[list[float]]) -> list[float]:
 
 
 def extract_enrollment_embedding(images: list[str]) -> list[float]:
-    return aggregate_embeddings([extract_embedding(image) for image in images])
+    return aggregate_embeddings(
+        [
+            extract_embedding(
+                image,
+                augment=ENABLE_ENROLLMENT_AUGMENTATION,
+            )
+            for image in images
+        ],
+    )
 
 
 def find_best_match(
@@ -533,7 +560,6 @@ def initialize_models() -> None:
     raise RuntimeError("No configured face detector is available: " + " | ".join(errors))
 
 
-@app.on_event("startup")
 async def warmup_model() -> None:
     """Pre-download and validate the configured DeepFace runtime."""
     global MODEL_READY, MODEL_STARTUP_ERROR
@@ -582,6 +608,8 @@ async def health_check(
         "inference_concurrency": INFERENCE_CONCURRENCY,
         "max_enrollment_images": MAX_ENROLLMENT_IMAGES,
         "min_enrollment_sample_similarity": MIN_ENROLLMENT_SAMPLE_SIMILARITY,
+        "enrollment_augmentation": ENABLE_ENROLLMENT_AUGMENTATION,
+        "recognition_augmentation": ENABLE_RECOGNITION_AUGMENTATION,
         "anti_spoofing": ENABLE_ANTI_SPOOFING,
         "api_key_required": bool(AI_API_KEY),
     }
@@ -639,6 +667,7 @@ async def recognize(payload: RecognizeRequest) -> RecognitionResponse:
             extract_embedding,
             payload.image,
             anti_spoofing=ENABLE_ANTI_SPOOFING,
+            augment=ENABLE_RECOGNITION_AUGMENTATION,
         )
         match = await run_in_threadpool(
             find_best_match,

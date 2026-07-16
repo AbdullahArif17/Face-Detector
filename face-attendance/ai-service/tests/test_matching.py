@@ -3,6 +3,7 @@ import base64
 import numpy as np
 import pytest
 from fastapi import HTTPException
+import main
 
 from main import (
     EmbeddingCandidate,
@@ -57,3 +58,29 @@ def test_enrollment_rejects_different_people() -> None:
         aggregate_embeddings([[1.0, 0.0], [0.0, 1.0]])
 
     assert "same person" in str(error.value.detail)
+
+
+def test_crop_fallback_cannot_bypass_multiple_face_rejection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    image = np.zeros((400, 300, 3), dtype=np.uint8)
+    calls = 0
+
+    monkeypatch.setattr(main, "base64_to_image", lambda *_args, **_kwargs: image)
+    monkeypatch.setattr(main, "validate_image_quality", lambda _image: None)
+
+    def reject_multiple_faces(*_args: object, **_kwargs: object) -> np.ndarray:
+        nonlocal calls
+        calls += 1
+        raise HTTPException(
+            status_code=422,
+            detail=main.MULTIPLE_FACES_DETAIL,
+        )
+
+    monkeypatch.setattr(main, "represent_single_face", reject_multiple_faces)
+
+    with pytest.raises(HTTPException) as error:
+        main.extract_embedding("ignored")
+
+    assert error.value.detail == main.MULTIPLE_FACES_DETAIL
+    assert calls == 1

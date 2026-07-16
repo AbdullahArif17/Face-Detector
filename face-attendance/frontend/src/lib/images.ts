@@ -1,5 +1,5 @@
 export const MAX_SOURCE_IMAGE_BYTES = 12_000_000;
-export const MAX_PROCESSED_IMAGE_BYTES = 2_000_000;
+export const MAX_PROCESSED_IMAGE_BYTES = 700_000;
 
 function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -32,18 +32,18 @@ function canvasToJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob>
   });
 }
 
-export async function optimizeImageFile(
-  file: File,
-  maxDimension = 1280,
+async function optimizeImageBlob(
+  source: Blob,
+  maxDimension: number,
 ): Promise<string> {
-  if (!file.type.startsWith("image/")) {
+  if (!source.type.startsWith("image/")) {
     throw new Error("Upload a valid image file.");
   }
-  if (file.size > MAX_SOURCE_IMAGE_BYTES) {
+  if (source.size > MAX_SOURCE_IMAGE_BYTES) {
     throw new Error("Image is too large. Use an image under 12 MB.");
   }
 
-  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+  const bitmap = await createImageBitmap(source, { imageOrientation: "from-image" });
   try {
     const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
     const canvas = document.createElement("canvas");
@@ -63,8 +63,26 @@ export async function optimizeImageFile(
         return blobToDataUrl(blob);
       }
     }
-    throw new Error("Image could not be reduced below 2 MB.");
+    throw new Error("Image could not be reduced below 700 KB.");
   } finally {
     bitmap.close();
   }
+}
+
+export async function optimizeImageFile(
+  file: File,
+  maxDimension = 1024,
+): Promise<string> {
+  return optimizeImageBlob(file, maxDimension);
+}
+
+export async function optimizeImageDataUrl(
+  dataUrl: string,
+  maxDimension = 1024,
+): Promise<string> {
+  const response = await fetch(dataUrl);
+  if (!response.ok) {
+    throw new Error("Unable to process captured image.");
+  }
+  return optimizeImageBlob(await response.blob(), maxDimension);
 }

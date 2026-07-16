@@ -1,16 +1,20 @@
 from datetime import datetime, timezone
+import logging
 from typing import Any
 
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.credentials import decrypt_credential
+from app.core.credentials import CredentialConfigurationError
 from app.models.company import Company
 from app.models.student import Student
 from app.models.whatsapp_log import WhatsappLog
 
 WHATSAPP_API_URL = f"https://graph.facebook.com/{settings.meta_graph_api_version}"
 WHATSAPP_TIMEOUT_SECONDS = 20.0
+logger = logging.getLogger("face_attendance_whatsapp")
 
 
 def is_configured_secret(value: str | None) -> bool:
@@ -22,9 +26,17 @@ def is_configured_value(value: str | None) -> bool:
 
 
 def get_whatsapp_credentials(school: Company) -> tuple[str | None, str | None]:
+    try:
+        school_access_token = decrypt_credential(school.whatsapp_token)
+    except CredentialConfigurationError:
+        logger.exception(
+            "Unable to decrypt WhatsApp credentials for company_id=%s",
+            school.id,
+        )
+        return None, None
     access_token = (
-        school.whatsapp_token
-        if is_configured_secret(school.whatsapp_token)
+        school_access_token
+        if is_configured_secret(school_access_token)
         else settings.meta_whatsapp_token
     )
     phone_number_id = (

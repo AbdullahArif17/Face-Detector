@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.credentials import encrypt_credential
 from app.core.database import get_db
 from app.core.time import local_day_bounds
 from app.dependencies import get_company_by_api_key, normalize_role, require_role
@@ -74,9 +75,6 @@ def build_school_settings_response(company: Company) -> SchoolSettingsResponse:
         company_id=company.id,
         school_phone=company.school_phone,
         school_logo=company.school_logo,
-        absent_alert_time=company.absent_alert_time,
-        attendance_start_time=company.attendance_start_time,
-        late_grace_minutes=company.late_grace_minutes,
         whatsapp_token_configured=school_token_configured or default_token_configured,
         whatsapp_school_token_configured=school_token_configured,
         whatsapp_default_token_configured=default_token_configured,
@@ -240,12 +238,8 @@ async def update_school_settings(
     for field, value in update_data.items():
         if isinstance(value, str):
             value = value.strip() or None
-        if field == "absent_alert_time" and value is None:
-            value = "09:00"
-        if field == "attendance_start_time" and value is None:
-            value = "09:00"
-        if field == "late_grace_minutes" and value is None:
-            value = 15
+        if field == "whatsapp_token" and value is not None:
+            value = encrypt_credential(value)
         setattr(company, field, value)
 
     await session.commit()

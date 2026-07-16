@@ -128,6 +128,16 @@ then convert any existing plaintext MVP embeddings:
 python -m app.encrypt_face_embeddings
 ```
 
+Optionally generate a dedicated Fernet key for organization credentials and set
+it as `CREDENTIAL_ENCRYPTION_KEY`. If omitted, the backend derives a
+domain-separated credential key from `BIOMETRIC_ENCRYPTION_KEY`. Then encrypt
+any existing school-specific WhatsApp tokens in place:
+
+```powershell
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+python -m app.encrypt_company_credentials
+```
+
 Reset the development database to a clean Demo School tenant with one admin, 3 classes, 8 students, today's attendance rows, and no face embeddings:
 
 ```bash
@@ -156,23 +166,31 @@ Password: admin123
 
 Authentication:
 
-- `POST /auth/signup`
+- `POST /auth/signup` (disabled by default in production)
 - `POST /auth/login` with `organization_name`, `email`, and `password`
-- `GET /auth/me` with a Bearer token
+- `POST /auth/logout`
+- `GET /auth/me`
+
+The browser uses a secure HttpOnly session cookie plus a CSRF cookie through the
+same-origin Next.js backend proxy. Bearer tokens remain accepted for non-browser
+API clients, but the frontend no longer persists tokens in `localStorage`.
 
 User emails are scoped per organization. The same email address can exist in multiple organizations, but a single organization cannot have two users with the same email.
 
 Student, attendance dashboard, face enrollment, WhatsApp notification, user management, and company endpoints require a valid access token. Kiosk auto-marking uses a school/company `X-API-Key` header instead of JWT. Student and face write operations require `super_admin`, `admin`, or `hr`; user management requires `super_admin` or `admin`; company list/create requires `super_admin`.
 
-Phase 3 employee and face endpoints:
+Legacy employee endpoints (kept for migration compatibility):
 
 - `GET /employees`
 - `POST /employees`
 - `PUT /employees/{id}`
 - `DELETE /employees/{id}` soft-deletes by setting `status = "inactive"`
-- `POST /face/enroll/{employee_id}`
-- `GET /face/enrollment-status/{employee_id}`
-- `DELETE /face/unenroll/{employee_id}`
+
+The active product flow uses students. Student face endpoints are:
+
+- `POST /face/enroll/{student_id}`
+- `GET /face/enrollment-status/{student_id}`
+- `DELETE /face/unenroll/{student_id}`
 
 Phase 4 user, kiosk, and attendance endpoints:
 
@@ -195,7 +213,7 @@ Phase 4 user, kiosk, and attendance endpoints:
 - `POST /attendance/sessions/{session_id}/stop`
 - `GET /companies/{company_id}/classes`
 
-The frontend includes `/users`, `/settings` kiosk setup, an `/attendance` ON/OFF board for every class, and standalone `/kiosk?key=[API_KEY]&class_id=[CLASS_ID]`. Kiosk attendance only marks while that class has a session open for the current school day. Legacy `branch_id` URLs remain accepted.
+The frontend includes `/users`, `/settings` kiosk setup, an `/attendance` ON/OFF board for every class, and standalone `/kiosk?key=[API_KEY]&class_id=[CLASS_ID]`. Kiosk attendance only marks while that class has a session open for the current school day. A repeated scan is idempotent and cannot create a second mark or turn the first scan into a check-out. Legacy `branch_id` URLs remain accepted.
 
 Phase 5 student and WhatsApp endpoints:
 
@@ -241,9 +259,9 @@ Parents whose number matches an active student can send `STATUS` to receive the
 student's attendance for the current school day. Inbound webhook message IDs are
 deduplicated, and outbound delivery failures are visible on `/notifications`.
 
-Vercel Cron calls `/api/cron/absent-alerts` daily at `0 4 * * *` (9:00 AM PKT).
-On Vercel Hobby, daily cron execution can occur later within that hour; use a Pro
-plan or an external scheduler if exact-minute delivery is required.
+There is no clock-based attendance or absent cron. An administrator starts and
+stops each class session, and only real-time kiosk recognition during that active
+session creates attendance.
 
 ## AI Service
 
@@ -272,37 +290,47 @@ New production embeddings are encrypted before database storage when
 `BIOMETRIC_ENCRYPTION_KEY` is configured. Recognition only compares embeddings
 created by the configured `AI_MODEL_NAME` (default `ArcFace`).
 
-DeepFace downloads the configured model weights on first use to the current user's `.deepface/weights` directory.
+The production Docker image pre-bundles the default ArcFace and RetinaFace
+weights, so a Space restart does not depend on downloading models during the
+first attendance scan. A non-default model or detector may still download its
+own weights and requires re-enrollment plus threshold calibration.
 
 ## Production checklist
 
-- Apply `alembic upgrade head` before deploying backend code.
+- Confirm all deployment environment variables first. Deploy the compatible
+  backend/frontend release, apply `alembic upgrade head`, then run one smoke test.
 - Set `APP_TIMEZONE=Asia/Karachi`, `APP_ENV=production`, a strong `SECRET_KEY`,
-  `CRON_SECRET`, `AI_API_KEY`, and `BIOMETRIC_ENCRYPTION_KEY` in Vercel.
+  `AI_API_KEY`, and `BIOMETRIC_ENCRYPTION_KEY` in Vercel. A separate
+  `CREDENTIAL_ENCRYPTION_KEY` is recommended but optional.
+- Set `AUTH_COOKIE_SECURE=true`, `ALLOW_PUBLIC_SIGNUP=false`, and
+  `ENABLE_API_DOCS=false` unless those production features are intentionally enabled.
+- Keep `AUTH_COOKIE_NAME`/`CSRF_COOKIE_NAME` aligned with the frontend
+  `NEXT_PUBLIC_CSRF_COOKIE_NAME`.
 - Set the same `AI_API_KEY` as a Hugging Face Space secret and deploy the Docker Space.
-- Confirm Hugging Face `RECOGNITION_THRESHOLD=0.58` and
-  `RECOGNITION_MARGIN=0.03`; stale stricter overrides can reject otherwise valid
-  matches in classes with multiple enrolled students.
+- Confirm Hugging Face `DETECTOR_BACKEND=retinaface`,
+  `RECOGNITION_THRESHOLD=0.42`, `RECOGNITION_MARGIN=0.03`,
+  `ENABLE_ENROLLMENT_AUGMENTATION=true`, and
+  `ENABLE_RECOGNITION_AUGMENTATION=false`; stale stricter overrides can reject
+  otherwise valid matches.
 - Set `BACKEND_INTERNAL_URL` to the deployed backend in the frontend Vercel project.
+- Set `NEXT_PUBLIC_API_URL=/api/backend` and `NEXT_PUBLIC_ALLOW_SIGNUP=false` in
+  the frontend Vercel project.
 - Set `NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL` in the frontend Vercel project so the
   public privacy, terms, and data-deletion pages show the responsible contact.
 - Set `FRONTEND_ORIGINS` to exact HTTPS frontend domains; do not use `*`.
 - Confirm `/health`, `/ready`, Meta webhook verification, a signed webhook event,
   student face enrollment, and a live class-session kiosk scan after each deployment.
+- After the backend release is live, run `python -m app.encrypt_company_credentials`
+  once to convert any plaintext organization-specific WhatsApp tokens. New code
+  can read both legacy plaintext and encrypted values during this rollout.
 - For Meta test-number deployments, set `WHATSAPP_TEST_MODE=true` and
   `WHATSAPP_TEST_RECIPIENT=923...`. The backend then blocks every outbound recipient
   except that exact normalized number. Disable test mode before onboarding real parents.
 
 ## Remaining production follow-ups
 
-- Run the existing backend, AI-service, frontend typecheck, lint, build, and dependency
-  audit checks in CI on every pull request.
 - Use Neon's pooled connection URL for the application runtime and review direct-connection requirements before running production migrations.
-- Move per-school WhatsApp tokens out of database columns into a managed encrypted
-  secret store before onboarding independent customer organizations.
-- Move browser authentication from localStorage to secure HttpOnly cookies and add
-  refresh-token rotation before handling high-risk production accounts.
-- Add centralized structured logs and tracing, and replace in-process rate limits with
+- Add centralized tracing and replace in-process rate limits with
   a shared production store when the service scales beyond one instance.
 - Evaluate stronger passive liveness detection for camera-only deployments; the current
   optional anti-spoofing mode is disabled by default so uploaded enrollment photos remain supported.

@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { enrollStudentFace, type Student } from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/errors";
-import { optimizeImageFile } from "@/lib/images";
+import { optimizeImageDataUrl, optimizeImageFile } from "@/lib/images";
 
 const videoConstraints = {
   facingMode: "user",
@@ -42,20 +42,33 @@ export function StudentFaceEnrollModal({
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [isCameraActive, setIsCameraActive] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const isUpdating = student.has_face_enrolled;
 
-  function handleCapture(): void {
+  async function handleCapture(): Promise<void> {
     const screenshot = webcamRef.current?.getScreenshot();
     if (!screenshot) {
       setError("Unable to capture photo from webcam.");
       return;
     }
-    setSelectedImages((images) => [...images, screenshot].slice(-3));
-    setIsCameraActive(false);
-    setStatusMessage("Photo captured. Review it before saving.");
-    setError(null);
+    setIsProcessingImage(true);
+    try {
+      const image = await optimizeImageDataUrl(screenshot);
+      setSelectedImages((images) => [...images, image].slice(-3));
+      setIsCameraActive(false);
+      setStatusMessage("Photo captured. Review it before saving.");
+      setError(null);
+    } catch (imageError) {
+      setError(
+        imageError instanceof Error
+          ? imageError.message
+          : "Unable to process captured image.",
+      );
+    } finally {
+      setIsProcessingImage(false);
+    }
   }
 
   async function handleUpload(event: ChangeEvent<HTMLInputElement>): Promise<void> {
@@ -179,10 +192,14 @@ export function StudentFaceEnrollModal({
               type="button"
               variant="outline"
               className="w-full sm:w-auto"
-              disabled={!isCameraActive || selectedImages.length >= 3}
-              onClick={handleCapture}
+              disabled={
+                !isCameraActive ||
+                selectedImages.length >= 3 ||
+                isProcessingImage
+              }
+              onClick={() => void handleCapture()}
             >
-              Capture Photo
+              {isProcessingImage ? "Processing..." : "Capture Photo"}
             </Button>
             <Button
               type="button"

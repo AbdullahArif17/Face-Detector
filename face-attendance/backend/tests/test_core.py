@@ -5,10 +5,25 @@ from types import SimpleNamespace
 import pytest
 from cryptography.fernet import Fernet
 from fastapi import HTTPException
+from httpx import ASGITransport, AsyncClient
+from pydantic import ValidationError
+from starlette.responses import Response
 
 from app.core import biometrics
-from app.core.images import MAX_IMAGE_BYTES, normalize_base64_image
+from app.core import credentials
+from app.core.images import (
+    MAX_IMAGE_BYTES,
+    THUMBNAIL_MAX_SIDE,
+    make_profile_thumbnail,
+    normalize_base64_image,
+)
 from app.core.phones import normalize_pakistan_phone
+from app.core.security import (
+    create_access_token,
+    decode_access_token,
+    hash_password,
+    set_auth_cookies,
+)
 from app.core.time import local_day_bounds, to_local
 from app.routers.attendance import (
     csv_safe,
@@ -16,8 +31,9 @@ from app.routers.attendance import (
 )
 from app.schemas.whatsapp import WhatsappTestRequest
 from app.schemas.face import FaceEnrollRequest
-from app.services.absent_scheduler import send_absent_alerts
+from app.schemas.auth import SignupRequest
 from app.services import whatsapp
+import main as backend_main
 
 
 def test_local_day_bounds_use_pakistan_timezone() -> None:
@@ -37,6 +53,26 @@ def test_image_normalization_rejects_oversized_payload() -> None:
     assert error.value.status_code == 413
 
 
+def test_profile_thumbnail_is_small_jpeg() -> None:
+    from io import BytesIO
+
+    from PIL import Image
+
+    source = Image.new("RGB", (1200, 800), color=(80, 120, 160))
+    buffer = BytesIO()
+    source.save(buffer, format="PNG")
+    encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+
+    thumbnail_data_url = make_profile_thumbnail(
+        f"data:image/png;base64,{encoded}",
+    )
+    thumbnail_bytes = base64.b64decode(thumbnail_data_url.split(",", 1)[1])
+    with Image.open(BytesIO(thumbnail_bytes)) as thumbnail:
+        assert thumbnail.format == "JPEG"
+        assert max(thumbnail.size) <= THUMBNAIL_MAX_SIDE
+    assert len(thumbnail_bytes) < len(buffer.getvalue())
+
+
 def test_face_enrollment_accepts_multiple_samples() -> None:
     request = FaceEnrollRequest(images=["first", "second"])
 
@@ -46,6 +82,60 @@ def test_face_enrollment_accepts_multiple_samples() -> None:
 def test_csv_safe_blocks_spreadsheet_formula_prefixes() -> None:
     assert csv_safe("=HYPERLINK('https://example.com')").startswith("'")
     assert csv_safe("Student Name") == "Student Name"
+
+
+def test_access_tokens_include_required_security_claims() -> None:
+    token = create_access_token({"sub": "7", "company_id": 8, "role": "admin"})
+
+    payload = decode_access_token(token)
+
+    assert payload["sub"] == "7"
+    assert payload["company_id"] == 8
+    assert payload["typ"] == "access"
+    assert payload["iss"]
+    assert payload["aud"]
+    assert payload["jti"]
+
+
+def test_auth_cookies_use_httponly_for_session_only() -> None:
+    response = Response()
+
+    set_auth_cookies(response, "signed-token")
+
+    cookies = response.headers.getlist("set-cookie")
+    assert len(cookies) == 2
+    assert "HttpOnly" in cookies[0]
+    assert "HttpOnly" not in cookies[1]
+    assert "SameSite=lax" in cookies[0]
+
+
+@pytest.mark.asyncio
+async def test_cookie_authenticated_writes_require_csrf_and_are_not_cached() -> None:
+    transport = ASGITransport(app=backend_main.app)
+    async with AsyncClient(transport=transport, base_url="https://testserver") as client:
+        client.cookies.set(
+            backend_main.settings.auth_cookie_name,
+            "invalid-session-is-enough-to-trigger-csrf-middleware",
+        )
+        response = await client.post("/auth/logout")
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "CSRF validation failed"}
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["x-content-type-options"] == "nosniff"
+
+
+def test_bcrypt_password_limit_is_validated() -> None:
+    with pytest.raises(ValueError):
+        hash_password("a" * 73)
+
+    with pytest.raises(ValidationError):
+        SignupRequest(
+            company_name="Demo School",
+            name="Admin",
+            email="admin@example.com",
+            password="a" * 73,
+        )
 
 
 def test_pakistan_phone_normalization() -> None:
@@ -82,14 +172,6 @@ async def test_stale_attendance_session_is_expired_before_new_start() -> None:
     assert stale_session.stopped_at is not None
     assert stale_session.stopped_by_id == 3
     assert fake_session.flushed is True
-
-
-@pytest.mark.asyncio
-async def test_absent_cron_is_disabled_for_realtime_sessions() -> None:
-    result = await send_absent_alerts(SimpleNamespace())
-
-    assert result["disabled"] is True
-    assert result["processed"] == 0
 
 
 @pytest.mark.asyncio
@@ -143,3 +225,49 @@ def test_embedding_encryption_round_trip(monkeypatch: pytest.MonkeyPatch) -> Non
         ciphertext=ciphertext,
         legacy_vector=None,
     ) == pytest.approx(vector)
+
+
+def test_credential_encryption_round_trip(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        credentials,
+        "settings",
+        type(
+            "TestSettings",
+            (),
+            {
+                "credential_encryption_key": Fernet.generate_key().decode("utf-8"),
+                "app_env": "production",
+            },
+        )(),
+    )
+
+    encrypted = credentials.encrypt_credential("meta-secret-token")
+
+    assert encrypted is not None
+    assert encrypted.startswith(credentials.DEDICATED_KEY_PREFIX)
+    assert encrypted != "meta-secret-token"
+    assert credentials.decrypt_credential(encrypted) == "meta-secret-token"
+
+
+def test_credential_encryption_can_use_domain_derived_biometric_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        credentials,
+        "settings",
+        type(
+            "TestSettings",
+            (),
+            {
+                "credential_encryption_key": None,
+                "biometric_encryption_key": Fernet.generate_key().decode("utf-8"),
+                "app_env": "production",
+            },
+        )(),
+    )
+
+    encrypted = credentials.encrypt_credential("meta-secret-token")
+
+    assert encrypted is not None
+    assert encrypted.startswith(credentials.DERIVED_KEY_PREFIX)
+    assert credentials.decrypt_credential(encrypted) == "meta-secret-token"

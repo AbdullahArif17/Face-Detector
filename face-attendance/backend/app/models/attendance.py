@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -8,6 +8,15 @@ from app.core.database import Base
 
 class Attendance(Base):
     __tablename__ = "attendance"
+    __table_args__ = (
+        Index(
+            "uq_attendance_one_mark_per_session",
+            "session_id",
+            "student_id",
+            unique=True,
+            postgresql_where=text("session_id IS NOT NULL"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     student_id: Mapped[int] = mapped_column(

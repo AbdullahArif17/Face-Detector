@@ -1,17 +1,18 @@
 from typing import Annotated
 from collections.abc import Callable
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Cookie, Depends, Header, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.config import settings
 from app.core.security import decode_access_token
 from app.models.company import Company
 from app.models.user import User
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 ROLE_ALIASES = {
     "company_admin": "admin",
@@ -26,8 +27,12 @@ def normalize_role(role: str | None) -> str:
 
 
 async def get_current_user(
-    token: Annotated[str, Depends(oauth2_scheme)],
     session: Annotated[AsyncSession, Depends(get_db)],
+    bearer_token: Annotated[str | None, Depends(oauth2_scheme)] = None,
+    session_token: Annotated[
+        str | None,
+        Cookie(alias=settings.auth_cookie_name),
+    ] = None,
 ) -> User:
     credentials_error = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -36,7 +41,12 @@ async def get_current_user(
     )
 
     try:
+        token = bearer_token or session_token
+        if token is None:
+            raise ValueError("Missing access token")
         payload = decode_access_token(token)
+        if payload.get("typ") != "access":
+            raise ValueError("Invalid token type")
         user_id = int(payload.get("sub", ""))
         token_company_id = int(payload.get("company_id", ""))
     except (TypeError, ValueError):

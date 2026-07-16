@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 class UserCreate(BaseModel):
@@ -10,12 +10,26 @@ class UserCreate(BaseModel):
     role: str = Field(max_length=50)
     company_id: int | None = None
 
+    @field_validator("password")
+    @classmethod
+    def validate_password_size(cls, value: str) -> str:
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("must not exceed 72 UTF-8 bytes")
+        return value
+
 
 class UserUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     email: EmailStr | None = None
     role: str | None = Field(default=None, max_length=50)
     password: str | None = Field(default=None, min_length=8, max_length=128)
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_size(cls, value: str | None) -> str | None:
+        if value is not None and len(value.encode("utf-8")) > 72:
+            raise ValueError("must not exceed 72 UTF-8 bytes")
+        return value
 
 
 class UserResponse(BaseModel):

@@ -55,3 +55,27 @@ def test_extracts_inbound_text_message() -> None:
             "phone_number_id": "12345",
         },
     ]
+
+
+@pytest.mark.asyncio
+async def test_urdu_attendance_command_uses_status_reply(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_attendance_reply(_session: object, _students: object) -> str:
+        return "attendance reply"
+
+    monkeypatch.setattr(webhooks, "build_attendance_reply", fake_attendance_reply)
+
+    reply = await webhooks.build_chatbot_reply(
+        SimpleNamespace(),
+        message_body="حاضری",
+        students=[],
+    )
+
+    assert reply == "attendance reply"
+
+
+def test_shared_parent_number_does_not_cross_tenants() -> None:
+    students = [SimpleNamespace(school_id=1), SimpleNamespace(school_id=2)]
+
+    assert webhooks.unambiguous_school_id(students) is None  # type: ignore[arg-type]

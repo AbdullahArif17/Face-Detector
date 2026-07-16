@@ -140,7 +140,6 @@ async def seed() -> None:
                     employee_limit=500,
                     status="active",
                     school_phone="923001111111",
-                    absent_alert_time="09:00",
                 )
                 session.add(school)
                 await session.flush()
