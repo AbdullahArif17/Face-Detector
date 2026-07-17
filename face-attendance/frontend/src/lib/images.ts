@@ -1,5 +1,7 @@
-export const MAX_SOURCE_IMAGE_BYTES = 12_000_000;
+export const MAX_SOURCE_IMAGE_MB = 50;
+export const MAX_SOURCE_IMAGE_BYTES = MAX_SOURCE_IMAGE_MB * 1024 * 1024;
 export const MAX_PROCESSED_IMAGE_BYTES = 700_000;
+export const MAX_FACE_ENROLLMENT_IMAGES = 3;
 
 function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -40,7 +42,9 @@ async function optimizeImageBlob(
     throw new Error("Upload a valid image file.");
   }
   if (source.size > MAX_SOURCE_IMAGE_BYTES) {
-    throw new Error("Image is too large. Use an image under 12 MB.");
+    throw new Error(
+      `Image is too large. Use an image up to ${MAX_SOURCE_IMAGE_MB} MB.`,
+    );
   }
 
   const bitmap = await createImageBitmap(source, { imageOrientation: "from-image" });

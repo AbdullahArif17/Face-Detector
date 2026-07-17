@@ -284,6 +284,14 @@ This service already follows an API-key model: the backend calls the isolated in
 
 `POST /enroll` returns a DeepFace embedding vector to the backend. The backend stores that vector in the `face_embeddings` database table against a student. `POST /recognize` accepts a request image plus candidate vectors and returns the best cosine-similarity match above the configured threshold.
 
+Enrollment accepts up to three face samples. Selecting another batch appends to
+the pending samples instead of replacing them, and each sample can be removed
+before saving. Source files may be up to 50 MB, but the browser compresses them
+to small JPEG payloads before upload. Neon stores only the small profile
+thumbnail and encrypted aggregate embedding—not the original enrollment
+photos. Profile photos are independent from face enrollment and are replaced or
+removed only through an explicit user action.
+
 The current accuracy-focused AI configuration uses `DEEPFACE_MODEL=ArcFace`, `DETECTOR_BACKEND=retinaface`, image quality gates, original+horizontal-flip embedding averaging, and a best-vs-runner-up margin check. If the model is changed, existing student faces must be re-enrolled because embedding dimensions/semantics are model-specific.
 
 New production embeddings are encrypted before database storage when

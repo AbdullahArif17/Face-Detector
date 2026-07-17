@@ -29,6 +29,7 @@ from app.routers.attendance import (
     csv_safe,
     expire_stale_attendance_sessions,
 )
+from app.routers.face import should_update_profile_image, unenroll_face
 from app.schemas.whatsapp import WhatsappTestRequest
 from app.schemas.face import FaceEnrollRequest
 from app.schemas.auth import SignupRequest
@@ -77,6 +78,63 @@ def test_face_enrollment_accepts_multiple_samples() -> None:
     request = FaceEnrollRequest(images=["first", "second"])
 
     assert request.resolved_images() == ["first", "second"]
+
+
+def test_face_enrollment_preserves_profile_image_unless_requested() -> None:
+    assert not should_update_profile_image(
+        requested=None,
+        current_profile_image="existing-thumbnail",
+    )
+    assert should_update_profile_image(
+        requested=None,
+        current_profile_image=None,
+    )
+    assert not should_update_profile_image(
+        requested=False,
+        current_profile_image=None,
+    )
+    assert should_update_profile_image(
+        requested=True,
+        current_profile_image="existing-thumbnail",
+    )
+
+
+@pytest.mark.asyncio
+async def test_face_unenrollment_retains_profile_image() -> None:
+    student = SimpleNamespace(
+        id=7,
+        school_id=3,
+        profile_image="existing-thumbnail",
+    )
+    embedding = SimpleNamespace(id=11)
+
+    class FakeSession:
+        deleted: object | None = None
+        committed = False
+
+        async def get(self, _model: object, _record_id: int) -> SimpleNamespace:
+            return student
+
+        async def scalar(self, _query: object) -> SimpleNamespace:
+            return embedding
+
+        async def delete(self, record: object) -> None:
+            self.deleted = record
+
+        async def commit(self) -> None:
+            self.committed = True
+
+    session = FakeSession()
+    result = await unenroll_face(
+        7,
+        session=session,  # type: ignore[arg-type]
+        current_user=SimpleNamespace(company_id=3),  # type: ignore[arg-type]
+    )
+
+    assert session.deleted is embedding
+    assert session.committed
+    assert student.profile_image == "existing-thumbnail"
+    assert result.profile_image == "existing-thumbnail"
 
 
 def test_csv_safe_blocks_spreadsheet_formula_prefixes() -> None:

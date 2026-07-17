@@ -543,6 +543,11 @@ export interface FaceEnrollResponse {
   success: boolean;
   student_id: number;
   message: string;
+  profile_image: string | null;
+}
+
+export interface StudentFaceEnrollOptions {
+  updateProfileImage?: boolean;
 }
 
 export async function enrollEmployeeFace(
@@ -560,11 +565,15 @@ export async function enrollEmployeeFace(
 export async function enrollStudentFace(
   studentId: number,
   imageOrImages: string | string[],
+  options: StudentFaceEnrollOptions = {},
 ): Promise<FaceEnrollResponse> {
   const images = Array.isArray(imageOrImages) ? imageOrImages : [imageOrImages];
   const response = await api.post<FaceEnrollResponse>(
     `/face/enroll/${studentId}`,
-    { image: images[0], images },
+    {
+      images,
+      update_profile_image: options.updateProfileImage ?? false,
+    },
     { timeout: FACE_REQUEST_TIMEOUT_MS },
   );
   return response.data;

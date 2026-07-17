@@ -17,6 +17,13 @@ class FaceEnrollRequest(BaseModel):
         max_length=3,
         description="One to three photos of the same student",
     )
+    update_profile_image: bool | None = Field(
+        default=None,
+        description=(
+            "Whether the first face sample should replace the profile photo. "
+            "Legacy clients default to filling a missing profile photo only."
+        ),
+    )
 
     @model_validator(mode="after")
     def validate_images(self) -> "FaceEnrollRequest":
@@ -37,6 +44,7 @@ class FaceEnrollResponse(BaseModel):
     success: bool
     student_id: int
     message: str
+    profile_image: str | None = None
 
 
 class FaceEnrollmentStatusResponse(BaseModel):

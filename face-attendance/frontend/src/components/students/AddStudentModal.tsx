@@ -20,7 +20,11 @@ import {
   type StudentInput,
 } from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/errors";
-import { optimizeImageFile } from "@/lib/images";
+import {
+  MAX_FACE_ENROLLMENT_IMAGES,
+  MAX_SOURCE_IMAGE_MB,
+  optimizeImageFile,
+} from "@/lib/images";
 
 const grades = Array.from({ length: 12 }, (_, index) => `Class ${index + 1}`);
 const sections = ["A", "B", "C", "D"];
@@ -69,6 +73,8 @@ export function AddStudentModal({
   const [shouldEnrollFace, setShouldEnrollFace] = useState(false);
   const [draftSavedStudent, setDraftSavedStudent] = useState<Student | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [imageMessage, setImageMessage] = useState<string | null>(null);
+  const [isProcessingImages, setIsProcessingImages] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const saveTarget = draftSavedStudent ?? student;
   const isEditing = saveTarget !== null;
@@ -76,28 +82,73 @@ export function AddStudentModal({
   async function handleImageUpload(
     event: ChangeEvent<HTMLInputElement>,
   ): Promise<void> {
-    const files = Array.from(event.target.files ?? []).slice(0, 3);
+    const selectedFiles = Array.from(event.target.files ?? []);
     event.target.value = "";
 
-    if (files.length === 0) {
+    if (selectedFiles.length === 0) {
       return;
     }
+
+    const remainingSlots =
+      MAX_FACE_ENROLLMENT_IMAGES - enrollmentImages.length;
+    if (remainingSlots <= 0) {
+      setError(
+        `A face enrollment can use up to ${MAX_FACE_ENROLLMENT_IMAGES} photos. Remove a sample before adding another.`,
+      );
+      return;
+    }
+
+    const files = selectedFiles.slice(0, remainingSlots);
+    setIsProcessingImages(true);
     try {
       const optimizedImages: string[] = [];
       for (const file of files) {
         optimizedImages.push(await optimizeImageFile(file));
       }
-      setProfileImage(optimizedImages[0]);
-      setEnrollmentImages(optimizedImages);
+
+      const uniqueImages = optimizedImages.filter(
+        (image, index) =>
+          !enrollmentImages.includes(image) &&
+          optimizedImages.indexOf(image) === index,
+      );
+      if (uniqueImages.length === 0) {
+        setError("Those face photos are already selected.");
+        return;
+      }
+
+      setProfileImage((currentImage) => currentImage ?? uniqueImages[0]);
+      setEnrollmentImages((currentImages) => [
+        ...currentImages,
+        ...uniqueImages,
+      ]);
       setShouldEnrollFace(true);
       setError(null);
+      setImageMessage(
+        selectedFiles.length > files.length
+          ? `Added ${uniqueImages.length} photo${uniqueImages.length === 1 ? "" : "s"}. Face enrollment is limited to ${MAX_FACE_ENROLLMENT_IMAGES} samples, so the extra selection was not added.`
+          : `Added ${uniqueImages.length} face photo${uniqueImages.length === 1 ? "" : "s"}. Existing photos were kept.`,
+      );
     } catch (imageError) {
       setError(
         imageError instanceof Error
           ? imageError.message
           : "Unable to read image file.",
       );
+    } finally {
+      setIsProcessingImages(false);
     }
+  }
+
+  function removeEnrollmentImage(index: number): void {
+    const nextImages = enrollmentImages.filter(
+      (_image, imageIndex) => imageIndex !== index,
+    );
+    setEnrollmentImages(nextImages);
+    if (nextImages.length === 0) {
+      setShouldEnrollFace(false);
+    }
+    setImageMessage("Face sample removed. The profile photo was not changed.");
+    setError(null);
   }
 
   async function handleSave(): Promise<void> {
@@ -136,11 +187,12 @@ export function AddStudentModal({
         ? await updateStudent(saveTarget.id, payload)
         : await createStudent(payload);
 
-      if (profileImage && shouldEnrollFace) {
+      if (shouldEnrollFace && enrollmentImages.length > 0) {
         try {
           await enrollStudentFace(
             savedStudent.id,
-            enrollmentImages.length > 0 ? enrollmentImages : profileImage,
+            enrollmentImages,
+            { updateProfileImage: false },
           );
         } catch (enrollError) {
           setDraftSavedStudent(savedStudent);
@@ -154,8 +206,8 @@ export function AddStudentModal({
       }
 
       onSaved(
-        profileImage && shouldEnrollFace
-          ? { ...savedStudent, has_face_enrolled: true, profile_image: profileImage }
+        shouldEnrollFace && enrollmentImages.length > 0
+          ? { ...savedStudent, has_face_enrolled: true }
           : savedStudent,
         isEditing ? "updated" : "created",
       );
@@ -215,8 +267,9 @@ export function AddStudentModal({
               )}
               <div className="grid flex-1 gap-2">
                 <p className="text-xs text-muted-foreground">
-                  Upload a clear front-facing photo. It can be saved as the
-                  profile photo and enrolled for attendance recognition.
+                  Add up to {MAX_FACE_ENROLLMENT_IMAGES} clear face photos. New
+                  selections are appended; the current profile photo stays until
+                  you remove or explicitly replace it.
                 </p>
                 <input
                   ref={fileInputRef}
@@ -231,9 +284,17 @@ export function AddStudentModal({
                     type="button"
                     variant="outline"
                     className="w-full sm:w-auto"
+                    disabled={
+                      isProcessingImages ||
+                      enrollmentImages.length >= MAX_FACE_ENROLLMENT_IMAGES
+                    }
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    Choose Face Photos
+                    {isProcessingImages
+                      ? "Processing photos..."
+                      : enrollmentImages.length > 0
+                        ? "Add Face Photos"
+                        : "Choose Face Photos"}
                   </Button>
                   {profileImage ? (
                     <Button
@@ -242,29 +303,65 @@ export function AddStudentModal({
                       className="w-full text-red-600 hover:text-red-700 sm:w-auto"
                       onClick={() => {
                         setProfileImage(null);
-                        setEnrollmentImages([]);
-                        setShouldEnrollFace(false);
+                        setImageMessage(
+                          "Profile photo removed. Selected face samples were kept.",
+                        );
                       }}
                     >
-                      Remove
+                      Remove Profile Photo
                     </Button>
                   ) : null}
                 </div>
-                {profileImage ? (
+                <p className="text-xs text-muted-foreground">
+                  Each original may be up to {MAX_SOURCE_IMAGE_MB} MB. It is
+                  compressed on this device; the original file is not uploaded
+                  or stored in Neon.
+                </p>
+                {enrollmentImages.length > 0 ? (
                   <div className="space-y-2">
-                    {enrollmentImages.length > 1 ? (
-                      <div className="flex gap-2 overflow-x-auto pb-1">
-                        {enrollmentImages.map((image, index) => (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            alt={`Face sample ${index + 1}`}
-                            className="size-14 shrink-0 rounded-md border bg-background object-cover"
-                            key={`${image.slice(-24)}-${index}`}
-                            src={image}
-                          />
-                        ))}
-                      </div>
-                    ) : null}
+                    <div className="flex gap-3 overflow-x-auto pb-1">
+                      {enrollmentImages.map((image, index) => (
+                        <div
+                          className="w-24 shrink-0 space-y-1"
+                          key={`${image.slice(-24)}-${index}`}
+                        >
+                          <div className="relative">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              alt={`Face sample ${index + 1}`}
+                              className="size-24 rounded-md border bg-background object-cover"
+                              src={image}
+                            />
+                            <button
+                              type="button"
+                              aria-label={`Remove face sample ${index + 1}`}
+                              className="absolute right-1 top-1 flex size-7 items-center justify-center rounded-full bg-black/70 text-sm font-bold text-white hover:bg-black"
+                              onClick={() => removeEnrollmentImage(index)}
+                            >
+                              ×
+                            </button>
+                          </div>
+                          {profileImage === image ? (
+                            <p className="text-center text-[11px] font-medium text-blue-700">
+                              Profile photo
+                            </p>
+                          ) : (
+                            <button
+                              type="button"
+                              className="w-full text-center text-[11px] font-medium text-blue-700 hover:underline"
+                              onClick={() => {
+                                setProfileImage(image);
+                                setImageMessage(
+                                  `Face sample ${index + 1} will become the profile photo when you save.`,
+                                );
+                              }}
+                            >
+                              Use as profile
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                     <label className="flex items-start gap-2 text-xs text-muted-foreground">
                       <input
                         type="checkbox"
@@ -275,12 +372,17 @@ export function AddStudentModal({
                         }
                       />
                       <span>
-                        Enroll {enrollmentImages.length || 1} selected photo
-                        {(enrollmentImages.length || 1) === 1 ? "" : "s"} for
+                        Enroll {enrollmentImages.length} selected photo
+                        {enrollmentImages.length === 1 ? "" : "s"} for
                         attendance. Two or three angles give better results.
                       </span>
                     </label>
                   </div>
+                ) : null}
+                {imageMessage ? (
+                  <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                    {imageMessage}
+                  </p>
                 ) : null}
               </div>
             </div>
@@ -372,7 +474,7 @@ export function AddStudentModal({
             <Button
               type="button"
               className="w-full sm:w-auto"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isProcessingImages}
               onClick={() => void handleSave()}
             >
               {isSubmitting

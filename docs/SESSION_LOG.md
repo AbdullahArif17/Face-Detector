@@ -406,6 +406,12 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: Live Hugging Face health reports ArcFace ready, RetinaFace, threshold `0.42`, margin `0.03`, and API-key enforcement.
 - Pending: Confirm the Vercel biometric key exactly matches the migration key, then run a real class-session kiosk scan and repeat-scan idempotency test.
 
+## 2026-07-17 - Preserve student photos during multi-image enrollment
+- Fixed: Additional file selections now append without replacing existing pending face samples; each sample has an explicit remove control and the three-sample limit never silently drops the oldest image.
+- Changed: Existing profile photos remain unchanged during face updates and face unenrollment. Replacing/removing a profile photo is now an explicit, separate action.
+- Changed: Browser source-image allowance increased from 12 MB to 50 MB. Originals are compressed to bounded JPEG payloads before upload and are not stored in Neon; only the small profile thumbnail and encrypted aggregate embedding remain persisted.
+- Verified: Frontend strict typecheck, ESLint, and production build pass; backend tests pass 21/21, including profile-preservation and unenrollment coverage.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

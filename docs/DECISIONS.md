@@ -175,6 +175,13 @@
 - Decision: Build and test the AI service on Python 3.11 and pin Keras 3.15.0 alongside TensorFlow/tf-keras 2.21.0.
 - Consequences: The Hugging Face image must rebuild on Python 3.11. Future TensorFlow, Keras, and Python upgrades must be tested together with model loading, enrollment, recognition, and dependency auditing.
 
+## D-026: Keep source face photos ephemeral and profile photos independent
+- Date: 2026-07-17
+- Status: Accepted
+- Context: Repeated file selections replaced pending face samples, face re-enrollment overwrote the student profile photo, and modern phone photos can exceed the former 12 MB browser limit.
+- Decision: Append up to three enrollment samples with explicit per-sample removal; never silently discard an existing pending sample. Accept source files up to 50 MB and compress them in the browser before network transfer. Keep profile-photo replacement/removal explicit and independent from embedding enrollment or unenrollment. Continue storing only a small profile thumbnail plus the encrypted aggregate embedding in Neon.
+- Consequences: No database migration or large-image database storage is required, and Vercel receives only bounded processed payloads. Original enrollment photos cannot be restored later because they are intentionally not retained; a student must be re-enrolled to derive a new aggregate embedding.
+
 ## Decision Template
 ```markdown
 ## D-NNN: Decision title

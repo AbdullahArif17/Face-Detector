@@ -236,7 +236,10 @@ export default function StudentsPage() {
     }
   }
 
-  function handleFaceEnrolled(studentId: number, profileImage: string): void {
+  function handleFaceEnrolled(
+    studentId: number,
+    profileImage: string | null,
+  ): void {
     setStudents((currentStudents) =>
       currentStudents.map((student) =>
         student.id === studentId

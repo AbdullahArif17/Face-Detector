@@ -54,6 +54,16 @@ def extract_ai_error(payload: Any) -> str:
     return "AI service failed to enroll the face"
 
 
+def should_update_profile_image(
+    *,
+    requested: bool | None,
+    current_profile_image: str | None,
+) -> bool:
+    if requested is not None:
+        return requested
+    return current_profile_image is None
+
+
 @router.post("/enroll/{student_id}", response_model=FaceEnrollResponse)
 async def enroll_face(
     request: Request,
@@ -78,7 +88,6 @@ async def enroll_face(
             f"{settings.ai_service_url}/enroll",
             json={
                 "student_id": student_id,
-                "image": headshot_url,
                 "images": normalized_images,
             },
             headers=ai_service_headers(),
@@ -146,7 +155,11 @@ async def enroll_face(
         existing_embedding.model_name = model_name
         existing_embedding.updated_at = datetime.now(timezone.utc)
 
-    student.profile_image = make_profile_thumbnail(headshot_url)
+    if should_update_profile_image(
+        requested=payload.update_profile_image,
+        current_profile_image=student.profile_image,
+    ):
+        student.profile_image = make_profile_thumbnail(headshot_url)
     await session.commit()
     return FaceEnrollResponse(
         success=True,
@@ -156,6 +169,7 @@ async def enroll_face(
             if len(normalized_images) == 1
             else f"Face enrolled from {len(normalized_images)} photos"
         ),
+        profile_image=student.profile_image,
     )
 
 
@@ -201,13 +215,12 @@ async def unenroll_face(
         await session.delete(embedding)
 
     student = await session.get(Student, student_id)
-    if student is not None:
-        student.profile_image = None
 
     await session.commit()
 
     return FaceEnrollResponse(
         success=True,
         student_id=student_id,
-        message="Face unenrolled successfully",
+        message="Face unenrolled successfully; profile photo retained",
+        profile_image=student.profile_image if student is not None else None,
     )
