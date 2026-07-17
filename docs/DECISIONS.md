@@ -164,6 +164,7 @@
 ## D-024: Harden the self-hosted biometric and credential boundary
 - Date: 2026-07-16
 - Status: Accepted
+- Supersession: The organization-specific WhatsApp credential portion is superseded by D-028; the biometric and encrypted-storage choices remain accepted.
 - Context: Reliable kiosk recognition needs better enrollment samples and deterministic cold starts, while biometric vectors and organization API tokens cannot remain plaintext production data.
 - Decision: Use ArcFace with RetinaFace primary detection, calibrated cosine threshold `0.42`, runner-up margin `0.03`, up to three same-person enrollment photos, enrollment-only flip augmentation, hard group-photo rejection, and pre-bundled model weights. Encrypt new embeddings and organization WhatsApp credentials in the backend with separate/domain-derived Fernet keys, and store only small profile thumbnails.
 - Consequences: Existing Facenet faces must be re-enrolled. Legacy plaintext values need controlled conversion after deployment. Thresholds still require representative school validation, free CPU hosting has limited throughput, and liveness remains mandatory before unattended high-stakes use.
@@ -188,6 +189,13 @@
 - Context: Allowing an organization administrator or a global-looking role to select or submit a different `company_id` creates an insecure direct-object-reference path and makes frontend controls part of the security boundary.
 - Decision: Derive organization scope from the current authenticated user's `company_id` for all organization data and user-management operations. Do not expose an organization selector when creating portal users. Reject explicit tenant mismatches and unknown request fields, apply tenant filters before authorization checks, and return 404 for cross-tenant resource identifiers. A `super_admin` role grants elevated permissions inside its organization but does not bypass tenant isolation.
 - Consequences: A compromised or modified client cannot create, list, or mutate users in another organization. Cross-organization support operations require a future explicit platform-admin control plane with separate authentication, authorization, and audit logging rather than a tenant-role bypass.
+
+## D-028: Manage one WhatsApp account at the platform boundary
+- Date: 2026-07-17
+- Status: Accepted
+- Context: Every organization currently uses the same Meta WhatsApp account, so per-organization token and phone-number-ID controls add confusing duplicate configuration and let tenant administrators influence platform credentials.
+- Decision: Read WhatsApp access tokens and phone number IDs only from backend environment variables. Remove credential fields from organization settings and creation schemas, reject unknown credential override fields, and ignore legacy company credential columns during delivery. Resolve inbound messages to a tenant only through an unambiguous parent/student relationship.
+- Consequences: Organization admins can manage school contact details and test delivery but cannot view or replace platform secrets. A sender linked to students in multiple organizations receives no tenant-specific chatbot data. Supporting separate WhatsApp accounts later requires an explicit audited platform feature rather than reusing tenant-editable settings.
 
 ## Decision Template
 ```markdown

@@ -151,18 +151,6 @@ def status_error_message(status_item: dict[str, Any]) -> str | None:
     return None
 
 
-async def resolve_chatbot_school(
-    session: AsyncSession,
-    phone_number_id: str,
-) -> Company | None:
-    return await session.scalar(
-        select(Company).where(
-            Company.whatsapp_phone_id == phone_number_id,
-            Company.status == "active",
-        ),
-    )
-
-
 async def find_parent_students(
     session: AsyncSession,
     *,
@@ -265,7 +253,10 @@ async def process_inbound_message(
     if existing_id is not None:
         return False
 
-    school = await resolve_chatbot_school(session, message["phone_number_id"])
+    # A shared platform number cannot identify a tenant. Resolve the tenant only
+    # from an unambiguous parent/student relationship and fail closed when the
+    # same sender belongs to more than one organization.
+    school: Company | None = None
     students = await find_parent_students(
         session,
         sender_phone=message["sender"],

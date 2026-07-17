@@ -108,7 +108,7 @@ Set a strong application secret:
 python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
-Paste that value into `SECRET_KEY`, set `AI_API_KEY`, confirm `AI_SERVICE_URL=http://localhost:8001`, optionally set `META_WHATSAPP_TOKEN` and `META_PHONE_NUMBER_ID` as global WhatsApp fallbacks, then run:
+Paste that value into `SECRET_KEY`, set `AI_API_KEY`, confirm `AI_SERVICE_URL=http://localhost:8001`, and set `META_WHATSAPP_TOKEN` plus `META_PHONE_NUMBER_ID` when enabling the shared WhatsApp service. These are platform secrets and cannot be configured by organization admins. Then run:
 
 ```bash
 alembic upgrade head
@@ -128,15 +128,10 @@ then convert any existing plaintext MVP embeddings:
 python -m app.encrypt_face_embeddings
 ```
 
-Optionally generate a dedicated Fernet key for organization credentials and set
-it as `CREDENTIAL_ENCRYPTION_KEY`. If omitted, the backend derives a
-domain-separated credential key from `BIOMETRIC_ENCRYPTION_KEY`. Then encrypt
-any existing school-specific WhatsApp tokens in place:
-
-```powershell
-python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-python -m app.encrypt_company_credentials
-```
+`CREDENTIAL_ENCRYPTION_KEY` and `python -m app.encrypt_company_credentials` are
+retained only for legacy deployments. Current delivery ignores organization-level
+WhatsApp credential columns and reads the shared account exclusively from backend
+environment variables.
 
 Reset the development database to a clean Demo School tenant with one admin, 3 classes, 8 students, today's attendance rows, and no face embeddings:
 
@@ -144,7 +139,7 @@ Reset the development database to a clean Demo School tenant with one admin, 3 c
 python -m app.reset_demo_data
 ```
 
-This reset is intentionally destructive for local/dev data. It preserves the Demo School company row, API key, and WhatsApp settings, then recreates the demo admin and school data. Re-enroll real student faces after reset because ArcFace embeddings must be generated from real photos.
+This reset is intentionally destructive for local/dev data. It preserves the Demo School company row, API key, and organization profile settings, then recreates the demo admin and school data. Re-enroll real student faces after reset because ArcFace embeddings must be generated from real photos.
 
 Add extra synthetic students and seven school days of attendance history without deleting or replacing existing Demo School data:
 
@@ -328,9 +323,8 @@ own weights and requires re-enrollment plus threshold calibration.
 - Set `FRONTEND_ORIGINS` to exact HTTPS frontend domains; do not use `*`.
 - Confirm `/health`, `/ready`, Meta webhook verification, a signed webhook event,
   student face enrollment, and a live class-session kiosk scan after each deployment.
-- After the backend release is live, run `python -m app.encrypt_company_credentials`
-  once to convert any plaintext organization-specific WhatsApp tokens. New code
-  can read both legacy plaintext and encrypted values during this rollout.
+- Configure `META_WHATSAPP_TOKEN` and `META_PHONE_NUMBER_ID` only in the backend
+  deployment. Organization admins cannot view or override these shared credentials.
 - For Meta test-number deployments, set `WHATSAPP_TEST_MODE=true` and
   `WHATSAPP_TEST_RECIPIENT=923...`. The backend then blocks every outbound recipient
   except that exact normalized number. Disable test mode before onboarding real parents.

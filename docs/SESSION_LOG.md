@@ -418,6 +418,12 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: Backend tests pass 26/26, frontend strict TypeScript and ESLint pass, the optimized Next.js production build succeeds, and patch whitespace validation passes.
 - Pending: Redeploy the backend and frontend together, then verify an admin can create a user only in their current organization and cannot view or mutate a known user ID from another organization.
 
+## 2026-07-17 - Centralize the shared WhatsApp account
+- Changed: Removed organization-level WhatsApp token and Phone Number ID controls and simplified Settings to shared service health, school contact details, attendance mode, and test delivery.
+- Security: Delivery now reads credentials only from backend environment variables; organization settings reject credential override fields. Shared-number inbound chatbot messages resolve a tenant only from an unambiguous parent/student relationship and otherwise fail closed.
+- Verified: Backend tests pass 28/28, frontend strict TypeScript and ESLint pass, and the optimized Next.js production build succeeds.
+- Pending: Redeploy backend and frontend together. No database migration is required; legacy company credential columns remain ignored for compatibility.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

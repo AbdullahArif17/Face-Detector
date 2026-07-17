@@ -86,9 +86,6 @@ export default function SettingsPage() {
   );
   const [showKey, setShowKey] = useState(false);
   const [schoolPhone, setSchoolPhone] = useState("");
-  const [whatsappToken, setWhatsappToken] = useState("");
-  const [whatsappPhoneId, setWhatsappPhoneId] = useState("");
-  const [showWhatsappToken, setShowWhatsappToken] = useState(false);
   const [testPhone, setTestPhone] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
@@ -120,7 +117,6 @@ export default function SettingsPage() {
         if (!isCancelled) {
           setApiKey(keyResponse.api_key);
           setSchoolPhone(settingsResponse.school_phone ?? "");
-          setWhatsappPhoneId(settingsResponse.whatsapp_phone_id ?? "");
           setSchoolSettings(settingsResponse);
           setSchoolClasses(classesResponse);
           setClassId((currentClassId) =>
@@ -211,14 +207,10 @@ export default function SettingsPage() {
     try {
       const response = await updateSchoolSettings(user.company_id, {
         school_phone: schoolPhone.trim() || null,
-        whatsapp_phone_id: whatsappPhoneId.trim() || null,
-        whatsapp_token: whatsappToken.trim() || undefined,
       });
       setSchoolPhone(response.school_phone ?? "");
-      setWhatsappPhoneId(response.whatsapp_phone_id ?? "");
       setSchoolSettings(response);
-      setWhatsappToken("");
-      setToastMessage("School WhatsApp settings saved");
+      setToastMessage("Organization settings saved");
     } catch {
       setHasError(true);
     } finally {
@@ -278,15 +270,15 @@ export default function SettingsPage() {
 
       <div className="rounded-lg border bg-card p-4 sm:p-6">
         <div>
-          <h2 className="text-xl font-semibold">WhatsApp Configuration</h2>
+          <h2 className="text-xl font-semibold">WhatsApp Service</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Configure Meta WhatsApp Business API credentials and absence alert timing.
+            Shared delivery status and organization contact details.
           </p>
         </div>
 
         {!hasKioskAccess ? (
           <p className="mt-6 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            Only admins can manage WhatsApp configuration.
+            Only admins can manage organization settings.
           </p>
         ) : (
           <div className="mt-6 grid gap-5">
@@ -306,10 +298,8 @@ export default function SettingsPage() {
                   )}
                 >
                   {schoolSettings.whatsapp_token_configured
-                    ? schoolSettings.whatsapp_uses_default_credentials
-                      ? "WhatsApp is ready using the default backend token and phone number ID. Admins can leave the school-specific fields blank."
-                      : "WhatsApp is ready using this school's configured credentials."
-                    : "WhatsApp is not configured. Add school credentials here or configure default backend credentials."}
+                    ? "The shared WhatsApp service is ready. Credentials are managed centrally and used by every organization."
+                    : "The shared WhatsApp service is not configured. A server administrator must configure the backend credentials."}
                 </p>
                 <div className="grid gap-2 rounded-md border bg-muted/20 p-3 text-sm sm:grid-cols-2">
                   <span>
@@ -332,61 +322,17 @@ export default function SettingsPage() {
             ) : null}
 
             <div className="grid gap-2">
-              <label className="text-sm font-medium" htmlFor="whatsapp-token">
-                WhatsApp Access Token
+              <label className="text-sm font-medium" htmlFor="attendance-mode">
+                Attendance Mode
               </label>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Input
-                  id="whatsapp-token"
-                  type={showWhatsappToken ? "text" : "password"}
-                  value={whatsappToken}
-                  onChange={(event) => setWhatsappToken(event.target.value)}
-                  placeholder="Paste a new token to replace the stored token"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="gap-2 sm:w-auto"
-                  onClick={() => setShowWhatsappToken((current) => !current)}
-                >
-                  {showWhatsappToken ? (
-                    <EyeOff aria-hidden="true" className="size-4" />
-                  ) : (
-                    <Eye aria-hidden="true" className="size-4" />
-                  )}
-                  {showWhatsappToken ? "Hide" : "Show"}
-                </Button>
-              </div>
+              <Input
+                id="attendance-mode"
+                value="Real-time class sessions only"
+                disabled
+              />
               <p className="text-xs text-muted-foreground">
-                Leave blank to keep the existing token.
+                Students are marked only when their class session is ON in Attendance.
               </p>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="phone-number-id">
-                  Phone Number ID
-                </label>
-                <Input
-                  id="phone-number-id"
-                  value={whatsappPhoneId}
-                  onChange={(event) => setWhatsappPhoneId(event.target.value)}
-                  placeholder="Meta phone number ID"
-                />
-              </div>
-              <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="absent-alert-time">
-                  Attendance Mode
-                </label>
-                <Input
-                  id="absent-alert-time"
-                  value="Real-time class sessions only"
-                  disabled
-                />
-                <p className="text-xs text-muted-foreground">
-                  Students are marked only when this class session is ON in Attendance.
-                </p>
-              </div>
             </div>
 
             <div className="grid gap-2">
@@ -432,7 +378,7 @@ export default function SettingsPage() {
                 disabled={isSavingSettings}
                 onClick={() => void handleSaveSettings()}
               >
-                {isSavingSettings ? "Saving..." : "Save WhatsApp Settings"}
+                {isSavingSettings ? "Saving..." : "Save Organization Settings"}
               </Button>
             </div>
           </div>

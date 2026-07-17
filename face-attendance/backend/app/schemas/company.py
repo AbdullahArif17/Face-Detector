@@ -4,13 +4,14 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class CompanyBase(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str = Field(min_length=1, max_length=255)
     package: str = Field(default="starter", max_length=100)
     employee_limit: int = Field(default=10, ge=1)
     status: str = Field(default="active", max_length=50)
     school_phone: str | None = Field(default=None, max_length=50)
     school_logo: str | None = Field(default=None, max_length=500)
-    whatsapp_phone_id: str | None = Field(default=None, max_length=100)
 
 
 class CompanyCreate(CompanyBase):
@@ -51,11 +52,6 @@ class SchoolSettingsResponse(BaseModel):
     school_phone: str | None
     school_logo: str | None
     whatsapp_token_configured: bool
-    whatsapp_school_token_configured: bool = False
-    whatsapp_default_token_configured: bool = False
-    whatsapp_uses_default_credentials: bool = False
-    whatsapp_phone_id: str | None
-    whatsapp_effective_phone_id: str | None = None
     whatsapp_webhook_secure: bool = False
     whatsapp_chatbot_ready: bool = False
     whatsapp_checkin_template_configured: bool = False
@@ -66,7 +62,7 @@ class SchoolSettingsResponse(BaseModel):
 
 
 class SchoolSettingsUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     school_phone: str | None = Field(default=None, max_length=50)
     school_logo: str | None = Field(default=None, max_length=500)
-    whatsapp_token: str | None = Field(default=None, max_length=1000)
-    whatsapp_phone_id: str | None = Field(default=None, max_length=100)

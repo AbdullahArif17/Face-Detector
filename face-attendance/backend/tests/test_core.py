@@ -35,6 +35,7 @@ from app.routers.users import ensure_can_manage_user, resolve_user_company_id
 from app.schemas.whatsapp import WhatsappTestRequest
 from app.schemas.face import FaceEnrollRequest
 from app.schemas.auth import SignupRequest
+from app.schemas.company import SchoolSettingsUpdate
 from app.schemas.user import UserCreate
 from app.services import whatsapp
 import main as backend_main
@@ -261,6 +262,38 @@ def test_organization_admin_cannot_manage_super_admin() -> None:
         )
 
     assert error.value.status_code == 403
+
+
+def test_school_settings_reject_organization_whatsapp_credentials() -> None:
+    with pytest.raises(ValidationError):
+        SchoolSettingsUpdate.model_validate(
+            {
+                "school_phone": "923001111111",
+                "whatsapp_token": "organization-token",
+            },
+        )
+
+
+def test_whatsapp_credentials_always_use_backend_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        whatsapp,
+        "settings",
+        SimpleNamespace(
+            meta_whatsapp_token="shared-token",
+            meta_phone_number_id="shared-phone-id",
+        ),
+    )
+    organization = SimpleNamespace(
+        whatsapp_token="organization-token",
+        whatsapp_phone_id="organization-phone-id",
+    )
+
+    assert whatsapp.get_whatsapp_credentials(organization) == (  # type: ignore[arg-type]
+        "shared-token",
+        "shared-phone-id",
+    )
 
 
 def test_pakistan_phone_normalization() -> None:

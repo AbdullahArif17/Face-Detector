@@ -273,11 +273,6 @@ export interface SchoolSettings {
   school_phone: string | null;
   school_logo: string | null;
   whatsapp_token_configured: boolean;
-  whatsapp_school_token_configured: boolean;
-  whatsapp_default_token_configured: boolean;
-  whatsapp_uses_default_credentials: boolean;
-  whatsapp_phone_id: string | null;
-  whatsapp_effective_phone_id: string | null;
   whatsapp_webhook_secure: boolean;
   whatsapp_chatbot_ready: boolean;
   whatsapp_checkin_template_configured: boolean;
@@ -290,8 +285,6 @@ export interface SchoolSettings {
 export interface SchoolSettingsInput {
   school_phone?: string | null;
   school_logo?: string | null;
-  whatsapp_token?: string | null;
-  whatsapp_phone_id?: string | null;
 }
 
 export interface WhatsappLog {

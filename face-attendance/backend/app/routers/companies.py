@@ -5,7 +5,6 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.credentials import encrypt_credential
 from app.core.database import get_db
 from app.core.time import local_day_bounds
 from app.dependencies import get_company_by_api_key, require_role
@@ -41,28 +40,9 @@ def ensure_company_access(current_user: User, company_id: int) -> None:
 
 
 def build_school_settings_response(company: Company) -> SchoolSettingsResponse:
-    school_token_configured = is_configured_secret(company.whatsapp_token)
     default_token_configured = is_configured_secret(settings.meta_whatsapp_token)
-    school_phone_id_configured = is_configured_value(company.whatsapp_phone_id)
     default_phone_id_configured = is_configured_value(settings.meta_phone_number_id)
-    effective_phone_id = (
-        company.whatsapp_phone_id
-        if school_phone_id_configured
-        else settings.meta_phone_number_id
-        if default_phone_id_configured
-        else None
-    )
-    uses_default_credentials = (
-        not school_token_configured
-        and default_token_configured
-    ) or (
-        not school_phone_id_configured
-        and default_phone_id_configured
-    )
-    credentials_ready = (
-        (school_token_configured or default_token_configured)
-        and (school_phone_id_configured or default_phone_id_configured)
-    )
+    credentials_ready = default_token_configured and default_phone_id_configured
     webhook_secure = is_configured_secret(settings.meta_app_secret)
     test_recipient_masked = (
         f"{settings.whatsapp_test_recipient[:3]}***{settings.whatsapp_test_recipient[-4:]}"
@@ -73,12 +53,7 @@ def build_school_settings_response(company: Company) -> SchoolSettingsResponse:
         company_id=company.id,
         school_phone=company.school_phone,
         school_logo=company.school_logo,
-        whatsapp_token_configured=school_token_configured or default_token_configured,
-        whatsapp_school_token_configured=school_token_configured,
-        whatsapp_default_token_configured=default_token_configured,
-        whatsapp_uses_default_credentials=uses_default_credentials,
-        whatsapp_phone_id=company.whatsapp_phone_id,
-        whatsapp_effective_phone_id=effective_phone_id,
+        whatsapp_token_configured=credentials_ready,
         whatsapp_webhook_secure=webhook_secure,
         whatsapp_chatbot_ready=credentials_ready and webhook_secure,
         whatsapp_checkin_template_configured=is_configured_value(
@@ -240,8 +215,6 @@ async def update_school_settings(
     for field, value in update_data.items():
         if isinstance(value, str):
             value = value.strip() or None
-        if field == "whatsapp_token" and value is not None:
-            value = encrypt_credential(value)
         setattr(company, field, value)
 
     await session.commit()
