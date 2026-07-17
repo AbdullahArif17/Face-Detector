@@ -27,7 +27,7 @@ The browser calls the same-origin Next.js route `/api/backend/*`; that route pro
 - Organization admins manage admin/HR/branch-manager/viewer accounts. Deactivation is reversible; permanent deletion is separate and preserves historical foreign-key integrity.
 - Attendance is class/session based. Staff explicitly turn a class session ON/OFF. A kiosk scan can create one `present` mark per student per active session; repeat scans are idempotent and never check a student out.
 - There is no time-triggered attendance, 9 AM rule, absent cron, or automatic absent-row creation. Manual attendance corrections support present, absent, and excused for admin/HR/branch-manager roles; viewers are read-only.
-- Latest Alembic head is `c1d4e7f9a620_one_attendance_mark_per_session`. It adds a partial unique index on `(session_id, student_id)` after removing historical duplicates. The current Neon database was last observed at `a7e2d5c8f310`; apply the new migration during release.
+- Latest Alembic head is `c1d4e7f9a620_one_attendance_mark_per_session`. It adds a partial unique index on `(session_id, student_id)` after removing historical duplicates. The Neon database was verified at this head on 2026-07-17.
 - New face embeddings are encrypted at rest with `BIOMETRIC_ENCRYPTION_KEY`. Recognition excludes embeddings created by another model. Run `python -m app.encrypt_face_embeddings` only after confirming the deployment key matches existing encrypted data.
 - Organization-specific WhatsApp tokens are encrypted at rest with `CREDENTIAL_ENCRYPTION_KEY`, or a domain-separated key derived from `BIOMETRIC_ENCRYPTION_KEY`. Deploy compatible backend code before running `python -m app.encrypt_company_credentials`.
 - WhatsApp webhook POSTs require Meta HMAC signatures in production. Inbound IDs are deduplicated. Parent lookup fails closed when a shared fallback number is ambiguous across tenants.
@@ -44,7 +44,7 @@ The browser calls the same-origin Next.js route `/api/backend/*`; that route pro
 - Frontend: strict TypeScript, ESLint, optimized Next.js production build, and npm audit pass with zero findings.
 - AI: 6 unit tests pass; production requirements have no known vulnerabilities.
 - The Python 3.11 Linux dependency graph resolves with Keras 3.15.0 and passes `pip-audit`; this replaces the vulnerable Python-3.10-compatible Keras line found by the first CI run.
-- Final AI Docker image builds successfully with Python 3.10 and exact pinned packages. Health reported ArcFace/RetinaFace ready with API-key enforcement.
+- Final AI Docker image builds successfully with Python 3.11 and exact pinned packages. Health reported ArcFace/RetinaFace ready with API-key enforcement.
 - Real-photo container smoke: enrollment returned a 512-dimensional ArcFace vector; a second photo of the same person matched at `0.59` with threshold `0.42`.
 - Clean PostgreSQL 16 smoke: every migration applied through `c1d4e7f9a620`, and `alembic check` reported no schema drift.
 - Real Neon auth smoke: demo login set session/CSRF cookies, `/auth/me` returned 200, CSRF logout returned 204, and cookies cleared.
@@ -54,16 +54,14 @@ The browser calls the same-origin Next.js route `/api/backend/*`; that route pro
 ## Live Rollout Status (2026-07-17)
 
 - Main commit `7288424` is pushed; GitHub CI passes, Vercel serves the hardened frontend/backend, backend `/ready` reports database/AI/encryption ready, and production cookie login/auth-me/logout passes.
-- Hugging Face commit `d20eb84` is running on CPU Basic with the Python 3.11/Keras security fix. Space dashboard overrides still force `DETECTOR_BACKEND=opencv` and `RECOGNITION_THRESHOLD=0.58`; manually change them to `retinaface` and `0.42`, then restart the Space.
-- Neon is still at Alembic revision `a7e2d5c8f310`. Apply `alembic upgrade head` and confirm `c1d4e7f9a620` before class-session acceptance testing.
+- Hugging Face commit `d20eb84` is running on CPU Basic with the Python 3.11/Keras security fix. Live health reports ArcFace ready, RetinaFace, threshold `0.42`, margin `0.03`, and API-key enforcement.
+- Neon is at Alembic head `c1d4e7f9a620`. The credential conversion found no plaintext company credentials; the one ArcFace embedding was encrypted and its legacy JSON value is null.
 
 ## Release Order
 
-1. Change the stale Hugging Face detector/threshold overrides, restart the Space, and confirm `/health` reports RetinaFace, threshold `0.42`, model ready, and API-key protection.
-2. Create a Neon backup branch, run `python -m alembic upgrade head`, and confirm `python -m alembic current` reports `c1d4e7f9a620`.
-3. Run `python -m app.encrypt_company_credentials`. Run `python -m app.encrypt_face_embeddings` only after production key verification.
-4. Re-enroll any Facenet or plaintext demo faces under ArcFace, start one class session, and perform one real kiosk scan plus a repeat-scan idempotency check.
-5. When WhatsApp work resumes, send one real inbound `STATUS` message and verify inbound, reply, and delivery/read callback rows.
+1. Confirm Vercel uses the same `BIOMETRIC_ENCRYPTION_KEY` that encrypted the Neon record; preserve that key in a secure backup.
+2. Start one class session and perform one real kiosk scan plus a repeat-scan idempotency check. Re-enroll with two or three clear photos if recognition quality is weak.
+3. When WhatsApp work resumes, send one real inbound `STATUS` message and verify inbound, reply, and delivery/read callback rows.
 
 ## External Acceptance / Production Limits
 

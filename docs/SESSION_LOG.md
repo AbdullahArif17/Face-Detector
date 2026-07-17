@@ -400,6 +400,12 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Deployed: Pushed Hugging Face `d20eb84` and main `7288424`; GitHub CI passes, both Vercel services serve the hardened release, backend readiness is green, and production cookie auth passes.
 - Pending: Change stale Hugging Face overrides from OpenCV/`0.58` to RetinaFace/`0.42`, migrate Neon from `a7e2d5c8f310` to `c1d4e7f9a620`, convert legacy credentials, and complete one real class-session camera scan.
 
+## 2026-07-17 - Complete production migration and encryption rollout
+- Verified: Neon reports Alembic head `c1d4e7f9a620`; no plaintext company credentials required conversion.
+- Verified: The single stored ArcFace embedding is encrypted, and its legacy JSON column contains only null rather than a vector.
+- Verified: Live Hugging Face health reports ArcFace ready, RetinaFace, threshold `0.42`, margin `0.03`, and API-key enforcement.
+- Pending: Confirm the Vercel biometric key exactly matches the migration key, then run a real class-session kiosk scan and repeat-scan idempotency test.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title
