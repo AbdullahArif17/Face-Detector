@@ -195,7 +195,7 @@
 - Status: Accepted
 - Context: Every organization currently uses the same Meta WhatsApp account, so per-organization token and phone-number-ID controls add confusing duplicate configuration and let tenant administrators influence platform credentials.
 - Decision: Read WhatsApp access tokens and phone number IDs only from backend environment variables. Remove credential fields from organization settings and creation schemas, reject unknown credential override fields, and ignore legacy company credential columns during delivery. Resolve inbound messages to a tenant only through an unambiguous parent/student relationship.
-- Consequences: Organization admins can manage school contact details and test delivery but cannot view or replace platform secrets. A sender linked to students in multiple organizations receives no tenant-specific chatbot data. Supporting separate WhatsApp accounts later requires an explicit audited platform feature rather than reusing tenant-editable settings.
+- Consequences: Organization Settings exposes no WhatsApp credentials, diagnostics, school-phone field, or test-recipient controls; parent recipients come from each student record. A sender linked to students in multiple organizations receives no tenant-specific chatbot data. Supporting separate WhatsApp accounts later requires an explicit audited platform feature rather than reusing tenant-editable settings.
 
 ## Decision Template
 ```markdown

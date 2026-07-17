@@ -1,32 +1,49 @@
 "use client";
 
-import { Copy, Eye, EyeOff, RefreshCw } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { Copy, ExternalLink, RefreshCw, ShieldCheck } from "lucide-react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ApiError } from "@/components/api-error";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
-import { canManageKiosk } from "@/lib/permissions";
-import { cn } from "@/lib/utils";
 import {
   getCompanyApiKey,
   getSchoolClasses,
-  getSchoolSettings,
   regenerateCompanyApiKey,
-  sendWhatsappTest,
-  type SchoolSettings,
   type SchoolClass,
-  updateSchoolSettings,
 } from "@/lib/api";
+import { canManageKiosk } from "@/lib/permissions";
 
-function maskApiKey(apiKey: string): string {
-  if (apiKey.length <= 8) {
-    return "••••••••";
-  }
-  return `${apiKey.slice(0, 3)}${"•".repeat(12)}${apiKey.slice(-3)}`;
-}
+const KIOSK_STEPS = [
+  {
+    title: "Enroll student faces",
+    description:
+      "Open Students and enroll two or three clear, front-facing photos for each student.",
+  },
+  {
+    title: "Choose the class",
+    description:
+      "Select a class below. The generated kiosk link is restricted to that class.",
+  },
+  {
+    title: "Start attendance",
+    description:
+      "Open Attendance and start a session for the same class before scanning anyone.",
+  },
+  {
+    title: "Open the kiosk",
+    description:
+      "Open the link on an HTTPS camera device, allow camera access, and scan students one at a time.",
+  },
+  {
+    title: "Stop the session",
+    description:
+      "Stop the class session when attendance is complete. Scans outside an active session are not recorded.",
+  },
+] as const;
 
 function getKioskBaseUrl(): string {
   const configuredBaseUrl = process.env.NEXT_PUBLIC_KIOSK_BASE_URL?.trim();
@@ -81,64 +98,45 @@ export default function SettingsPage() {
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [classId, setClassId] = useState("");
   const [schoolClasses, setSchoolClasses] = useState<SchoolClass[]>([]);
-  const [schoolSettings, setSchoolSettings] = useState<SchoolSettings | null>(
-    null,
-  );
-  const [showKey, setShowKey] = useState(false);
-  const [schoolPhone, setSchoolPhone] = useState("");
-  const [testPhone, setTestPhone] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isSavingSettings, setIsSavingSettings] = useState(false);
-  const [isTestingWhatsapp, setIsTestingWhatsapp] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isRegenerateDialogOpen, setIsRegenerateDialogOpen] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const hasKioskAccess = canManageKiosk(user);
 
-  useEffect(() => {
+  const loadKioskSettings = useCallback(async (): Promise<void> => {
     if (!user || !hasKioskAccess) {
       return;
     }
 
-    let isCancelled = false;
-
-    void Promise.resolve().then(async () => {
-      if (!isCancelled) {
-        setIsLoading(true);
-      }
-
-      try {
-        const [keyResponse, settingsResponse, classesResponse] = await Promise.all([
-          getCompanyApiKey(user.company_id),
-          getSchoolSettings(user.company_id),
-          getSchoolClasses(user.company_id),
-        ]);
-        if (!isCancelled) {
-          setApiKey(keyResponse.api_key);
-          setSchoolPhone(settingsResponse.school_phone ?? "");
-          setSchoolSettings(settingsResponse);
-          setSchoolClasses(classesResponse);
-          setClassId((currentClassId) =>
-            currentClassId || (classesResponse[0]?.id.toString() ?? ""),
-          );
-          setHasError(false);
-        }
-      } catch {
-        if (!isCancelled) {
-          setHasError(true);
-        }
-      } finally {
-        if (!isCancelled) {
-          setIsLoading(false);
-        }
-      }
-    });
-
-    return () => {
-      isCancelled = true;
-    };
+    setIsLoading(true);
+    try {
+      const [keyResponse, classesResponse] = await Promise.all([
+        getCompanyApiKey(user.company_id),
+        getSchoolClasses(user.company_id),
+      ]);
+      setApiKey(keyResponse.api_key);
+      setSchoolClasses(classesResponse);
+      setClassId((currentClassId) => {
+        const currentStillExists = classesResponse.some(
+          (schoolClass) => schoolClass.id.toString() === currentClassId,
+        );
+        return currentStillExists
+          ? currentClassId
+          : (classesResponse[0]?.id.toString() ?? "");
+      });
+      setHasError(false);
+    } catch {
+      setHasError(true);
+    } finally {
+      setIsLoading(false);
+    }
   }, [hasKioskAccess, user]);
+
+  useEffect(() => {
+    void Promise.resolve().then(loadKioskSettings);
+  }, [loadKioskSettings]);
 
   useEffect(() => {
     if (!toastMessage) {
@@ -187,61 +185,12 @@ export default function SettingsPage() {
     try {
       const response = await regenerateCompanyApiKey(user.company_id);
       setApiKey(response.api_key);
-      setShowKey(false);
-      setToastMessage("Kiosk API key regenerated");
+      setToastMessage("Kiosk access key regenerated");
       setIsRegenerateDialogOpen(false);
     } catch {
       setHasError(true);
     } finally {
       setIsRegenerating(false);
-    }
-  }
-
-  async function handleSaveSettings(): Promise<void> {
-    if (!user || isSavingSettings) {
-      return;
-    }
-
-    setIsSavingSettings(true);
-    setHasError(false);
-    try {
-      const response = await updateSchoolSettings(user.company_id, {
-        school_phone: schoolPhone.trim() || null,
-      });
-      setSchoolPhone(response.school_phone ?? "");
-      setSchoolSettings(response);
-      setToastMessage("Organization settings saved");
-    } catch {
-      setHasError(true);
-    } finally {
-      setIsSavingSettings(false);
-    }
-  }
-
-  async function handleTestWhatsapp(): Promise<void> {
-    if (isTestingWhatsapp || !testPhone.trim()) {
-      return;
-    }
-    setIsTestingWhatsapp(true);
-    setHasError(false);
-    try {
-      const result = await sendWhatsappTest(
-        testPhone.trim(),
-        "Face Attendance test message from school settings.",
-      );
-      setToastMessage(
-        result.success
-          ? "Test WhatsApp message sent"
-          : `Test failed: ${result.error ?? "Unknown error"}`,
-      );
-    } catch (error) {
-      const detail =
-        (error as { response?: { data?: { detail?: string } } }).response?.data
-          ?.detail ?? "Unable to send test WhatsApp message.";
-      setToastMessage(`Test failed: ${detail}`);
-      setHasError(true);
-    } finally {
-      setIsTestingWhatsapp(false);
     }
   }
 
@@ -252,11 +201,16 @@ export default function SettingsPage() {
           Settings
         </h1>
         <p className="mt-2 text-muted-foreground text-pretty">
-          Organization settings and kiosk setup.
+          Create and operate secure, class-specific attendance kiosks.
         </p>
       </div>
 
-      {hasError ? <ApiError /> : null}
+      {hasError ? (
+        <ApiError
+          onRetry={() => void loadKioskSettings()}
+          isRetrying={isLoading}
+        />
+      ) : null}
 
       {toastMessage ? (
         <p
@@ -269,128 +223,11 @@ export default function SettingsPage() {
       ) : null}
 
       <div className="rounded-lg border bg-card p-4 sm:p-6">
-        <div>
-          <h2 className="text-xl font-semibold">WhatsApp Service</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Shared delivery status and organization contact details.
-          </p>
-        </div>
-
-        {!hasKioskAccess ? (
-          <p className="mt-6 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            Only admins can manage organization settings.
-          </p>
-        ) : (
-          <div className="mt-6 grid gap-5">
-            {schoolSettings ? (
-              <div className="grid gap-2">
-                {schoolSettings.whatsapp_test_mode ? (
-                  <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
-                    WhatsApp test mode is active. Messages can only be sent to {schoolSettings.whatsapp_test_recipient_masked ?? "the configured test recipient"}; all other recipients are blocked before contacting Meta.
-                  </p>
-                ) : null}
-                <p
-                  className={cn(
-                    "rounded-md border px-3 py-2 text-sm",
-                    schoolSettings.whatsapp_token_configured
-                      ? "border-green-200 bg-green-50 text-green-800"
-                      : "border-amber-200 bg-amber-50 text-amber-800",
-                  )}
-                >
-                  {schoolSettings.whatsapp_token_configured
-                    ? "The shared WhatsApp service is ready. Credentials are managed centrally and used by every organization."
-                    : "The shared WhatsApp service is not configured. A server administrator must configure the backend credentials."}
-                </p>
-                <div className="grid gap-2 rounded-md border bg-muted/20 p-3 text-sm sm:grid-cols-2">
-                  <span>
-                    Secure webhook: {schoolSettings.whatsapp_webhook_secure ? "Ready" : "Missing META_APP_SECRET"}
-                  </span>
-                  <span>
-                    Parent chatbot: {schoolSettings.whatsapp_chatbot_ready ? "Ready" : "Not ready"}
-                  </span>
-                  <span>
-                    Check-in template: {schoolSettings.whatsapp_checkin_template_configured ? "Configured" : "Missing"}
-                  </span>
-                  <span>
-                    Check-out template: {schoolSettings.whatsapp_checkout_template_configured ? "Configured" : "Missing"}
-                  </span>
-                  <span>
-                    Absent template: {schoolSettings.whatsapp_absent_template_configured ? "Configured" : "Missing"}
-                  </span>
-                </div>
-              </div>
-            ) : null}
-
-            <div className="grid gap-2">
-              <label className="text-sm font-medium" htmlFor="attendance-mode">
-                Attendance Mode
-              </label>
-              <Input
-                id="attendance-mode"
-                value="Real-time class sessions only"
-                disabled
-              />
-              <p className="text-xs text-muted-foreground">
-                Students are marked only when their class session is ON in Attendance.
-              </p>
-            </div>
-
-            <div className="grid gap-2">
-              <label className="text-sm font-medium" htmlFor="school-phone">
-                School Phone Number
-              </label>
-              <Input
-                id="school-phone"
-                inputMode="numeric"
-                value={schoolPhone}
-                onChange={(event) => setSchoolPhone(event.target.value)}
-                placeholder="923001111111"
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <label className="text-sm font-medium" htmlFor="test-phone">
-                Test WhatsApp Number
-              </label>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Input
-                  id="test-phone"
-                  inputMode="numeric"
-                  value={testPhone}
-                  onChange={(event) => setTestPhone(event.target.value)}
-                  placeholder="923001234567"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="gap-2 sm:w-auto"
-                  disabled={isTestingWhatsapp || !testPhone.trim()}
-                  onClick={() => void handleTestWhatsapp()}
-                >
-                  {isTestingWhatsapp ? "Testing..." : "Test WhatsApp"}
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                disabled={isSavingSettings}
-                onClick={() => void handleSaveSettings()}
-              >
-                {isSavingSettings ? "Saving..." : "Save Organization Settings"}
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="rounded-lg border bg-card p-4 sm:p-6">
-        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
-            <h2 className="text-xl font-semibold">Kiosk Setup</h2>
+            <h2 className="text-xl font-semibold">Attendance Kiosk</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Use this key to run a class attendance kiosk without JWT login.
+              Generate one secure kiosk link for each class attendance device.
             </p>
           </div>
           <Button
@@ -401,60 +238,56 @@ export default function SettingsPage() {
             onClick={() => setIsRegenerateDialogOpen(true)}
           >
             <RefreshCw aria-hidden="true" className="size-4" />
-            {isRegenerating ? "Regenerating..." : "Regenerate Key"}
+            {isRegenerating ? "Regenerating..." : "Regenerate Access"}
           </Button>
         </div>
 
         {!hasKioskAccess ? (
           <p className="mt-6 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            Only admins can view kiosk setup.
+            Only admins can view and manage kiosk links.
           </p>
         ) : (
           <div className="mt-6 grid gap-5">
-            <div className="grid gap-2">
-              <label className="text-sm font-medium" htmlFor="api-key">
-                Company API Key
-              </label>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Input
-                  id="api-key"
-                  readOnly
-                  value={
-                    isLoading
-                      ? "Loading..."
-                      : apiKey
-                        ? showKey
-                          ? apiKey
-                          : maskApiKey(apiKey)
-                        : "No key available"
-                  }
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="gap-2 sm:w-auto"
-                  disabled={!apiKey}
-                  onClick={() => setShowKey((current) => !current)}
-                >
-                  {showKey ? (
-                    <EyeOff aria-hidden="true" className="size-4" />
-                  ) : (
-                    <Eye aria-hidden="true" className="size-4" />
-                  )}
-                  {showKey ? "Hide Key" : "Show Key"}
+            <div className="rounded-lg border bg-muted/20 p-4 sm:p-5">
+              <h3 className="font-semibold">How to use the attendance kiosk</h3>
+              <ol className="mt-4 grid gap-3 lg:grid-cols-2">
+                {KIOSK_STEPS.map((step, index) => (
+                  <li
+                    key={step.title}
+                    className="flex gap-3 rounded-md bg-background p-3"
+                  >
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                      {index + 1}
+                    </span>
+                    <div>
+                      <p className="text-sm font-medium">{step.title}</p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        {step.description}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                <Button asChild variant="outline" className="w-full sm:w-auto">
+                  <Link href="/students">Manage student faces</Link>
+                </Button>
+                <Button asChild variant="outline" className="w-full sm:w-auto">
+                  <Link href="/attendance">Open Attendance</Link>
                 </Button>
               </div>
             </div>
 
             <div className="grid gap-2">
               <label className="text-sm font-medium" htmlFor="kiosk-class">
-                Class ID
+                Select class
               </label>
               <select
                 id="kiosk-class"
                 value={classId}
                 onChange={(event) => setClassId(event.target.value)}
-                className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                disabled={isLoading || schoolClasses.length === 0}
+                className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <option value="">Select class</option>
                 {schoolClasses.map((schoolClass) => (
@@ -463,28 +296,70 @@ export default function SettingsPage() {
                   </option>
                 ))}
               </select>
+              <p className="text-xs text-muted-foreground">
+                {schoolClasses.length === 0 && !isLoading
+                  ? "No classes with active students were found. Add students before creating a kiosk link."
+                  : "Each class gets a different kiosk URL and attendance session."}
+              </p>
             </div>
 
             <div className="grid gap-2">
               <label className="text-sm font-medium" htmlFor="kiosk-url">
                 Kiosk URL
               </label>
-              <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="flex flex-col gap-2 lg:flex-row">
                 <Input
                   id="kiosk-url"
                   readOnly
-                  value={kioskUrl}
+                  value={
+                    isLoading
+                      ? "Loading kiosk access..."
+                      : kioskUrl || "Select a class to generate its kiosk URL"
+                  }
                   onFocus={(event) => event.target.select()}
                 />
                 <Button
                   type="button"
-                  className="gap-2 sm:w-auto"
+                  className="gap-2 lg:w-auto"
                   disabled={!kioskUrl}
                   onClick={() => void handleCopyKioskUrl()}
                 >
                   <Copy aria-hidden="true" className="size-4" />
-                  Copy Kiosk URL
+                  Copy URL
                 </Button>
+                {kioskUrl ? (
+                  <Button asChild variant="outline" className="gap-2 lg:w-auto">
+                    <a href={kioskUrl} target="_blank" rel="noreferrer">
+                      <ExternalLink aria-hidden="true" className="size-4" />
+                      Open Kiosk
+                    </a>
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled
+                    className="gap-2 lg:w-auto"
+                  >
+                    <ExternalLink aria-hidden="true" className="size-4" />
+                    Open Kiosk
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+              <ShieldCheck
+                aria-hidden="true"
+                className="mt-0.5 size-5 shrink-0"
+              />
+              <div>
+                <p className="font-medium">Keep kiosk links private</p>
+                <p className="mt-1 leading-5">
+                  A kiosk URL contains your organization&apos;s access key. Do not
+                  post it publicly. Regenerate access immediately if a link is
+                  exposed or a kiosk device is lost.
+                </p>
               </div>
             </div>
           </div>
@@ -493,9 +368,9 @@ export default function SettingsPage() {
 
       <ConfirmDialog
         open={isRegenerateDialogOpen}
-        title="Regenerate kiosk key?"
-        description="Every existing kiosk link will stop working immediately. You will need to copy and redistribute the new link for each class."
-        confirmLabel="Regenerate key"
+        title="Regenerate kiosk access?"
+        description="Every existing kiosk link will stop working immediately. You will need to copy and redistribute a new link for each class."
+        confirmLabel="Regenerate access"
         busyLabel="Regenerating..."
         destructive
         isConfirming={isRegenerating}

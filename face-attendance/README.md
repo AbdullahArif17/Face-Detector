@@ -68,6 +68,16 @@ cloudflared tunnel --url http://localhost:3000
 
 Open the generated `https://...trycloudflare.com` URL on the phone. If you open Settings through that HTTPS URL, copied kiosk links will also use that HTTPS origin.
 
+Kiosk workflow in the dashboard:
+
+1. Enroll two or three clear face photos for each student under **Students**.
+2. Open **Settings**, select a class, and copy its class-specific kiosk URL.
+3. Open **Attendance** and start a session for that same class.
+4. Open the kiosk URL on an HTTPS camera device and scan one student at a time.
+5. Stop the class session when finished. Scans outside an active session are not recorded.
+
+Treat every kiosk URL as a credential because it contains the organization API key. Do not publish it; regenerate kiosk access from Settings if a link or device is exposed.
+
 Self-signed LAN HTTPS can work only if the phone trusts the generated certificate/root CA. If the phone still marks the page as not trusted, live camera access can remain blocked.
 
 Useful checks:

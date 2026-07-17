@@ -424,6 +424,12 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: Backend tests pass 28/28, frontend strict TypeScript and ESLint pass, and the optimized Next.js production build succeeds.
 - Pending: Redeploy backend and frontend together. No database migration is required; legacy company credential columns remain ignored for compatibility.
 
+## 2026-07-17 - Make Settings a kiosk operations guide
+- Changed: Removed the complete WhatsApp status/test/contact panel and raw kiosk API-key display from organization Settings.
+- UX: Added a five-step kiosk guide, direct links to student face enrollment and attendance sessions, class-specific URL generation, copy/open actions, empty-class guidance, HTTPS camera instructions, and a private-link security warning.
+- Clarified: Parent WhatsApp recipients remain on individual student records; no school phone is required on this page. Attendance is recorded only while the selected class session is active.
+- Verified: Frontend strict TypeScript, ESLint, and the optimized Next.js production build pass.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

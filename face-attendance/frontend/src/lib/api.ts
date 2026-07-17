@@ -282,11 +282,6 @@ export interface SchoolSettings {
   whatsapp_test_recipient_masked: string | null;
 }
 
-export interface SchoolSettingsInput {
-  school_phone?: string | null;
-  school_logo?: string | null;
-}
-
 export interface WhatsappLog {
   id: number;
   school_id: number;
@@ -307,12 +302,6 @@ export interface WhatsappStats {
   failed_today: number;
   total_this_month: number;
   success_rate: number;
-}
-
-export interface WhatsappTestResponse {
-  success: boolean;
-  message_id: string | null;
-  error: string | null;
 }
 
 export interface WhatsappRetryResponse {
@@ -823,17 +812,6 @@ export async function getSchoolSettings(
   return response.data;
 }
 
-export async function updateSchoolSettings(
-  companyId: number,
-  input: SchoolSettingsInput,
-): Promise<SchoolSettings> {
-  const response = await api.put<SchoolSettings>(
-    `/companies/${companyId}/settings`,
-    input,
-  );
-  return response.data;
-}
-
 export async function getWhatsappLogs(options: {
   date?: string;
   status?: string;
@@ -853,17 +831,6 @@ export async function getWhatsappLogs(options: {
 
 export async function getWhatsappStats(): Promise<WhatsappStats> {
   const response = await api.get<WhatsappStats>("/whatsapp/stats");
-  return response.data;
-}
-
-export async function sendWhatsappTest(
-  phone: string,
-  message: string,
-): Promise<WhatsappTestResponse> {
-  const response = await api.post<WhatsappTestResponse>("/whatsapp/test", {
-    phone,
-    message,
-  });
   return response.data;
 }
 
