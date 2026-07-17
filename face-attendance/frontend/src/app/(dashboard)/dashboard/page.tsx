@@ -2,7 +2,7 @@
 
 import { Clock3, MessageCircle, ShieldCheck, UserCheck, Users, UserX } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ApiError } from "@/components/api-error";
 import { StudentAvatar } from "@/components/students/StudentAvatar";
@@ -31,49 +31,34 @@ export default function DashboardPage() {
   const [hasError, setHasError] = useState(false);
   const hasAdminAccess = canManageKiosk(user);
 
-  useEffect(() => {
-    let isCancelled = false;
+  const loadDashboard = useCallback(async (): Promise<void> => {
+    setIsLoading(true);
+    try {
+      const settingsRequest =
+        user && hasAdminAccess
+          ? getSchoolSettings(user.company_id).catch(() => null)
+          : Promise.resolve(null);
+      const [studentRecords, attendanceRecords, settingsResponse] =
+        await Promise.all([
+          getStudents({ status: "active" }),
+          getAttendanceToday(),
+          settingsRequest,
+        ]);
 
-    void Promise.resolve()
-      .then(async () => {
-        if (!isCancelled) {
-          setIsLoading(true);
-        }
-        const settingsRequest =
-          user && hasAdminAccess
-            ? getSchoolSettings(user.company_id).catch(() => null)
-            : Promise.resolve(null);
-        const [studentRecords, attendanceRecords, settingsResponse] =
-          await Promise.all([
-            getStudents({ status: "active" }),
-            getAttendanceToday(),
-            settingsRequest,
-          ]);
-
-        if (isCancelled) {
-          return;
-        }
-
-        setStudents(studentRecords);
-        setTodayRecords(attendanceRecords);
-        setSchoolSettings(settingsResponse);
-        setHasError(false);
-      })
-      .catch(() => {
-        if (!isCancelled) {
-          setHasError(true);
-        }
-      })
-      .finally(() => {
-        if (!isCancelled) {
-          setIsLoading(false);
-        }
-      });
-
-    return () => {
-      isCancelled = true;
-    };
+      setStudents(studentRecords);
+      setTodayRecords(attendanceRecords);
+      setSchoolSettings(settingsResponse);
+      setHasError(false);
+    } catch {
+      setHasError(true);
+    } finally {
+      setIsLoading(false);
+    }
   }, [hasAdminAccess, user]);
+
+  useEffect(() => {
+    void Promise.resolve().then(loadDashboard);
+  }, [loadDashboard]);
 
   const attendanceSummary = useMemo(
     () => ({
@@ -162,7 +147,12 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {hasError ? <ApiError /> : null}
+      {hasError ? (
+        <ApiError
+          onRetry={() => void loadDashboard()}
+          isRetrying={isLoading}
+        />
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:gap-4 xl:grid-cols-4">
         {stats.map((stat) => {

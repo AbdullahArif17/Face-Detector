@@ -4,6 +4,7 @@ import { Copy, Eye, EyeOff, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { ApiError } from "@/components/api-error";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
@@ -93,6 +94,7 @@ export default function SettingsPage() {
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [isTestingWhatsapp, setIsTestingWhatsapp] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [isRegenerateDialogOpen, setIsRegenerateDialogOpen] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const hasKioskAccess = canManageKiosk(user);
@@ -183,12 +185,6 @@ export default function SettingsPage() {
     if (!user || isRegenerating) {
       return;
     }
-    const confirmed = window.confirm(
-      "Regenerate the kiosk API key? Existing kiosk URLs will stop working.",
-    );
-    if (!confirmed) {
-      return;
-    }
 
     setIsRegenerating(true);
     setHasError(false);
@@ -197,6 +193,7 @@ export default function SettingsPage() {
       setApiKey(response.api_key);
       setShowKey(false);
       setToastMessage("Kiosk API key regenerated");
+      setIsRegenerateDialogOpen(false);
     } catch {
       setHasError(true);
     } finally {
@@ -270,7 +267,11 @@ export default function SettingsPage() {
       {hasError ? <ApiError /> : null}
 
       {toastMessage ? (
-        <p className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm font-medium text-green-700">
+        <p
+          className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm font-medium text-green-700"
+          role="status"
+          aria-live="polite"
+        >
           {toastMessage}
         </p>
       ) : null}
@@ -451,7 +452,7 @@ export default function SettingsPage() {
             variant="outline"
             className="w-full gap-2 md:w-auto"
             disabled={!hasKioskAccess || isRegenerating}
-            onClick={() => void handleRegenerateKey()}
+            onClick={() => setIsRegenerateDialogOpen(true)}
           >
             <RefreshCw aria-hidden="true" className="size-4" />
             {isRegenerating ? "Regenerating..." : "Regenerate Key"}
@@ -543,6 +544,18 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={isRegenerateDialogOpen}
+        title="Regenerate kiosk key?"
+        description="Every existing kiosk link will stop working immediately. You will need to copy and redistribute the new link for each class."
+        confirmLabel="Regenerate key"
+        busyLabel="Regenerating..."
+        destructive
+        isConfirming={isRegenerating}
+        onOpenChange={setIsRegenerateDialogOpen}
+        onConfirm={() => void handleRegenerateKey()}
+      />
     </section>
   );
 }

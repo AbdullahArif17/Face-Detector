@@ -81,12 +81,10 @@ async def require_same_company(
     target_company_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> User:
-    if normalize_role(current_user.role) == "super_admin":
-        return current_user
     if current_user.company_id != target_company_id:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You cannot access another company's data",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found",
         )
     return current_user
 

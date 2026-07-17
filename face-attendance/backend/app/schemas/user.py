@@ -4,11 +4,13 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 class UserCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str = Field(min_length=1, max_length=255)
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     role: str = Field(max_length=50)
-    company_id: int | None = None
+    company_id: int | None = Field(default=None, gt=0)
 
     @field_validator("password")
     @classmethod
@@ -19,6 +21,8 @@ class UserCreate(BaseModel):
 
 
 class UserUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str | None = Field(default=None, min_length=1, max_length=255)
     email: EmailStr | None = None
     role: str | None = Field(default=None, max_length=50)

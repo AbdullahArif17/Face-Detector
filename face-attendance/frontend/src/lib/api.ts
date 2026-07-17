@@ -228,7 +228,6 @@ export interface CreateUserInput {
   email: string;
   password: string;
   role: string;
-  company_id?: number;
 }
 
 export interface UpdateUserInput {
@@ -331,9 +330,10 @@ export interface WhatsappRetryResponse {
 
 const API_PAGE_SIZE = 100;
 const FACE_REQUEST_TIMEOUT_MS = 125_000;
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api/backend";
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000",
+  baseURL: API_BASE_URL,
   timeout: 15_000,
   withCredentials: true,
   headers: {
@@ -342,7 +342,7 @@ const api = axios.create({
 });
 
 const publicApi = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000",
+  baseURL: API_BASE_URL,
   timeout: 15_000,
   withCredentials: true,
   headers: {

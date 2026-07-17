@@ -6,33 +6,63 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.security import hash_password
 from app.dependencies import normalize_role, require_role
-from app.models.company import Company
 from app.models.user import User
 from app.schemas.user import UserCreate, UserResponse, UserUpdate
 
 router = APIRouter(prefix="/users", tags=["users"])
 
 CREATABLE_ROLES = {"admin", "hr", "branch_manager", "viewer"}
-SUPER_ADMIN_ASSIGNABLE_ROLES = {"admin", "hr", "branch_manager", "viewer"}
 
 
 def ensure_can_manage_user(current_user: User, target_user: User) -> None:
-    if normalize_role(current_user.role) == "super_admin":
-        return
     if target_user.company_id != current_user.company_id:
         raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    if (
+        normalize_role(current_user.role) != "super_admin"
+        and normalize_role(target_user.role) == "super_admin"
+    ):
+        raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You cannot modify users outside your company",
+            detail="You cannot manage a super administrator",
         )
 
 
-async def ensure_company_exists(session: AsyncSession, company_id: int) -> None:
-    company = await session.get(Company, company_id)
-    if company is None:
+def resolve_user_company_id(
+    current_user: User,
+    requested_company_id: int | None,
+) -> int:
+    if (
+        requested_company_id is not None
+        and requested_company_id != current_user.company_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Users can only be created in your current organization",
+        )
+    return current_user.company_id
+
+
+async def get_managed_user(
+    session: AsyncSession,
+    current_user: User,
+    user_id: int,
+) -> User:
+    user = await session.scalar(
+        select(User).where(
+            User.id == user_id,
+            User.company_id == current_user.company_id,
+        ),
+    )
+    if user is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Company not found",
+            detail="User not found",
         )
+    ensure_can_manage_user(current_user, user)
+    return user
 
 
 async def ensure_unique_email(
@@ -74,9 +104,11 @@ async def list_users(
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("super_admin", "admin")),
 ) -> list[User]:
-    query = select(User).order_by(User.id)
-    if normalize_role(current_user.role) != "super_admin":
-        query = query.where(User.company_id == current_user.company_id)
+    query = (
+        select(User)
+        .where(User.company_id == current_user.company_id)
+        .order_by(User.id)
+    )
     result = await session.execute(query)
     return list(result.scalars().all())
 
@@ -88,28 +120,12 @@ async def create_user(
     current_user: User = Depends(require_role("super_admin", "admin")),
 ) -> User:
     role = normalize_role(payload.role)
-    current_role = normalize_role(current_user.role)
-    if current_role == "super_admin":
-        if role not in SUPER_ADMIN_ASSIGNABLE_ROLES:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="This role cannot be assigned",
-            )
-        if payload.company_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="company_id is required for super administrators",
-            )
-        company_id = payload.company_id
-    else:
-        if role not in CREATABLE_ROLES:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Admins can only create admin, HR, branch manager, or viewer users",
-            )
-        company_id = current_user.company_id
-
-    await ensure_company_exists(session, company_id)
+    if role not in CREATABLE_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You can only create admin, HR, branch manager, or viewer users",
+        )
+    company_id = resolve_user_company_id(current_user, payload.company_id)
     email = str(payload.email).lower()
     existing_user = await find_user_by_email(session, email, company_id)
     if existing_user is not None:
@@ -163,13 +179,7 @@ async def permanently_delete_user(
             detail="You cannot permanently remove yourself",
         )
 
-    user = await session.get(User, user_id)
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-    ensure_can_manage_user(current_user, user)
+    user = await get_managed_user(session, current_user, user_id)
 
     await session.delete(user)
     try:
@@ -194,13 +204,7 @@ async def update_user(
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("super_admin", "admin")),
 ) -> User:
-    user = await session.get(User, user_id)
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-    ensure_can_manage_user(current_user, user)
+    user = await get_managed_user(session, current_user, user_id)
 
     update_data = payload.model_dump(exclude_unset=True)
     if "role" in update_data and update_data["role"] is not None:
@@ -209,13 +213,8 @@ async def update_user(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="You cannot change your own role",
             )
-        allowed_roles = (
-            SUPER_ADMIN_ASSIGNABLE_ROLES
-            if normalize_role(current_user.role) == "super_admin"
-            else CREATABLE_ROLES
-        )
         update_data["role"] = normalize_role(update_data["role"])
-        if update_data["role"] not in allowed_roles:
+        if update_data["role"] not in CREATABLE_ROLES:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="This role cannot be assigned",
@@ -266,13 +265,7 @@ async def delete_user(
             detail="You cannot deactivate yourself",
         )
 
-    user = await session.get(User, user_id)
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-    ensure_can_manage_user(current_user, user)
+    user = await get_managed_user(session, current_user, user_id)
 
     user.is_active = False
     await session.commit()
@@ -285,13 +278,7 @@ async def activate_user(
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("super_admin", "admin")),
 ) -> User:
-    user = await session.get(User, user_id)
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-    ensure_can_manage_user(current_user, user)
+    user = await get_managed_user(session, current_user, user_id)
 
     user.is_active = True
     await session.commit()

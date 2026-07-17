@@ -13,6 +13,7 @@ import {
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 
 import { ApiError } from "@/components/api-error";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { AddStudentModal } from "@/components/students/AddStudentModal";
 import { StudentAvatar } from "@/components/students/StudentAvatar";
 import { StudentFaceEnrollModal } from "@/components/students/StudentFaceEnrollModal";
@@ -33,6 +34,7 @@ import {
   type Student,
   type WhatsappLog,
 } from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 
 const grades = Array.from({ length: 12 }, (_, index) => `Class ${index + 1}`);
@@ -129,6 +131,71 @@ function LogsModal({
   );
 }
 
+function StudentActions({
+  student,
+  isDeactivating,
+  className,
+  onEdit,
+  onEnroll,
+  onViewLogs,
+  onDeactivate,
+}: Readonly<{
+  student: Student;
+  isDeactivating: boolean;
+  className?: string;
+  onEdit: () => void;
+  onEnroll: () => void;
+  onViewLogs: () => void;
+  onDeactivate: () => void;
+}>) {
+  return (
+    <div className={cn("flex flex-wrap gap-2", className)}>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="gap-1"
+        disabled={isDeactivating}
+        onClick={onEdit}
+      >
+        <Edit aria-hidden="true" className="size-3" />
+        Edit
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={isDeactivating}
+        onClick={onEnroll}
+      >
+        {student.has_face_enrolled ? "Update Face" : "Enroll Face"}
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="gap-1"
+        disabled={isDeactivating}
+        onClick={onViewLogs}
+      >
+        <MessageSquareText aria-hidden="true" className="size-3" />
+        View Logs
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        className="gap-1 text-red-600 hover:text-red-700"
+        disabled={isDeactivating}
+        onClick={onDeactivate}
+      >
+        <Trash2 aria-hidden="true" className="size-3" />
+        {isDeactivating ? "Deactivating..." : "Deactivate"}
+      </Button>
+    </div>
+  );
+}
+
 export default function StudentsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [students, setStudents] = useState<Student[]>([]);
@@ -138,11 +205,17 @@ export default function StudentsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [enrollingStudent, setEnrollingStudent] = useState<Student | null>(null);
   const [logsStudent, setLogsStudent] = useState<Student | null>(null);
   const [logs, setLogs] = useState<WhatsappLog[]>([]);
+  const [pendingDeactivateStudent, setPendingDeactivateStudent] =
+    useState<Student | null>(null);
+  const [deactivatingStudentId, setDeactivatingStudentId] = useState<
+    number | null
+  >(null);
 
   const loadStudents = useCallback(async (): Promise<void> => {
     setIsLoading(true);
@@ -181,6 +254,9 @@ export default function StudentsPage() {
       student.student_code.toLowerCase().includes(normalizedSearch)
     );
   });
+  const hasActiveFilters = Boolean(
+    searchTerm.trim() || gradeFilter || sectionFilter,
+  );
 
   function handleSavedStudent(student: Student, mode: "created" | "updated"): void {
     setStudents((currentStudents) => {
@@ -195,18 +271,31 @@ export default function StudentsPage() {
       );
     });
     setEditingStudent(null);
+    setActionError(null);
     setToastMessage(mode === "created" ? "Student added" : "Student updated");
   }
 
-  async function handleDeleteStudent(student: Student): Promise<void> {
+  async function handleDeactivateStudent(): Promise<void> {
+    const student = pendingDeactivateStudent;
+    if (!student || deactivatingStudentId !== null) {
+      return;
+    }
+
+    setDeactivatingStudentId(student.id);
+    setActionError(null);
     try {
       await deleteStudent(student.id);
       setStudents((currentStudents) =>
         currentStudents.filter((record) => record.id !== student.id),
       );
-      setToastMessage("Student removed");
-    } catch {
-      setHasError(true);
+      setToastMessage("Student deactivated. Attendance history was preserved.");
+      setPendingDeactivateStudent(null);
+    } catch (deleteError) {
+      setActionError(
+        getApiErrorMessage(deleteError, "Unable to deactivate this student."),
+      );
+    } finally {
+      setDeactivatingStudentId(null);
     }
   }
 
@@ -335,14 +424,108 @@ export default function StudentsPage() {
       </div>
 
       {toastMessage ? (
-        <p className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm font-medium text-green-700">
+        <p
+          className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm font-medium text-green-700"
+          role="status"
+          aria-live="polite"
+        >
           {toastMessage}
         </p>
       ) : null}
 
-      {hasError ? <ApiError /> : null}
+      {hasError ? (
+        <ApiError
+          onRetry={() => void loadStudents()}
+          isRetrying={isLoading}
+        />
+      ) : null}
 
-      <div className="overflow-x-auto rounded-lg border bg-card">
+      {actionError ? (
+        <p
+          className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700"
+          role="alert"
+        >
+          {actionError}
+        </p>
+      ) : null}
+
+      <div className="grid gap-3 md:hidden">
+        {isLoading ? (
+          <div className="rounded-lg border bg-card p-5 text-sm text-muted-foreground">
+            Loading students...
+          </div>
+        ) : null}
+        {!isLoading && visibleStudents.length === 0 ? (
+          <div className="rounded-lg border bg-card p-5 text-center">
+            <p className="font-medium">
+              {hasActiveFilters ? "No matching students" : "No students yet"}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {hasActiveFilters
+                ? "Try a different name, class, or section."
+                : "Add the first student to begin attendance setup."}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-4"
+              onClick={() => {
+                if (hasActiveFilters) {
+                  setSearchTerm("");
+                  setGradeFilter("");
+                  setSectionFilter("");
+                } else {
+                  setIsAddModalOpen(true);
+                }
+              }}
+            >
+              {hasActiveFilters ? "Clear filters" : "Add Student"}
+            </Button>
+          </div>
+        ) : null}
+        {visibleStudents.map((student) => (
+          <article className="rounded-lg border bg-card p-4" key={student.id}>
+            <div className="flex items-start gap-3">
+              <StudentAvatar student={student} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-semibold">{student.student_name}</p>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {student.student_code} · {student.grade}-{student.section}
+                </p>
+              </div>
+              <FaceBadge hasFaceEnrolled={student.has_face_enrolled} />
+            </div>
+            <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+              <div>
+                <dt className="text-xs text-muted-foreground">Parent</dt>
+                <dd className="mt-0.5 truncate font-medium">
+                  {student.parent_name}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">WhatsApp</dt>
+                <dd className="mt-0.5 tabular-nums">
+                  {maskPhone(student.parent_phone)}
+                </dd>
+              </div>
+            </dl>
+            <StudentActions
+              student={student}
+              className="mt-4 grid grid-cols-2"
+              isDeactivating={deactivatingStudentId === student.id}
+              onEdit={() => setEditingStudent(student)}
+              onEnroll={() => setEnrollingStudent(student)}
+              onViewLogs={() => void handleViewLogs(student)}
+              onDeactivate={() => {
+                setActionError(null);
+                setPendingDeactivateStudent(student);
+              }}
+            />
+          </article>
+        ))}
+      </div>
+
+      <div className="hidden overflow-x-auto rounded-lg border bg-card md:block">
         <table className="min-w-[1050px] w-full text-left text-sm">
           <thead className="border-b bg-muted/50 text-muted-foreground">
             <tr>
@@ -389,46 +572,17 @@ export default function StudentsPage() {
                   <FaceBadge hasFaceEnrolled={student.has_face_enrolled} />
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="gap-1"
-                      onClick={() => setEditingStudent(student)}
-                    >
-                      <Edit aria-hidden="true" className="size-3" />
-                      Edit
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setEnrollingStudent(student)}
-                    >
-                      {student.has_face_enrolled ? "Update Face" : "Enroll Face"}
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="gap-1"
-                      onClick={() => void handleViewLogs(student)}
-                    >
-                      <MessageSquareText aria-hidden="true" className="size-3" />
-                      View Logs
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className="gap-1 text-red-600 hover:text-red-700"
-                      onClick={() => void handleDeleteStudent(student)}
-                    >
-                      <Trash2 aria-hidden="true" className="size-3" />
-                      Delete
-                    </Button>
-                  </div>
+                  <StudentActions
+                    student={student}
+                    isDeactivating={deactivatingStudentId === student.id}
+                    onEdit={() => setEditingStudent(student)}
+                    onEnroll={() => setEnrollingStudent(student)}
+                    onViewLogs={() => void handleViewLogs(student)}
+                    onDeactivate={() => {
+                      setActionError(null);
+                      setPendingDeactivateStudent(student);
+                    }}
+                  />
                 </td>
               </tr>
             ))}
@@ -474,6 +628,26 @@ export default function StudentsPage() {
             setLogs([]);
           }
         }}
+      />
+
+      <ConfirmDialog
+        open={pendingDeactivateStudent !== null}
+        title="Deactivate student?"
+        description={
+          pendingDeactivateStudent
+            ? `${pendingDeactivateStudent.student_name} will no longer appear in active student lists or new attendance sessions. Their attendance history will be preserved.`
+            : "This student will be removed from active lists."
+        }
+        confirmLabel="Deactivate student"
+        busyLabel="Deactivating..."
+        destructive
+        isConfirming={deactivatingStudentId !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setPendingDeactivateStudent(null);
+          }
+        }}
+        onConfirm={() => void handleDeactivateStudent()}
       />
     </section>
   );

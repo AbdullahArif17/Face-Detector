@@ -38,6 +38,14 @@ The browser calls the same-origin Next.js route `/api/backend/*`; that route pro
 - Frontend/backend responses include security headers; frontend has a production CSP and HSTS. API responses are non-cacheable. Production startup rejects unsafe origins, secrets, database transport, cookie settings, AI URLs, and invalid encryption keys.
 - CI covers backend migrations/tests/audits, frontend typecheck/lint/build/audit, and lightweight AI tests/audits. Dependabot monitors npm, pip, Docker, and GitHub Actions.
 
+## Tenant Security and Client UX (2026-07-17)
+
+- Portal user creation is locked to the authenticated organization. The frontend does not offer or submit an organization selector, and the backend rejects any attempted `company_id` override.
+- User listing, activation, deactivation, role changes, permanent deletion, company settings, API keys, and class access are always constrained by the authenticated `company_id`, including for `super_admin` accounts. Cross-organization identifiers return `404` to limit tenant enumeration.
+- Organization admins cannot manage a `super_admin`, cannot alter their own role/status, and cannot delete themselves. User input schemas reject unknown privilege-bearing fields.
+- Dashboard workflows now use accessible confirmation dialogs, retryable API errors, safer destructive-action labels, responsive mobile cards, clearer empty states, camera/upload guidance, and non-localhost production API defaults.
+- Verification: 26 backend tests pass, frontend strict TypeScript and ESLint pass, the optimized Next.js production build succeeds, and `git diff --check` reports no patch errors.
+
 ## Validation Evidence (2026-07-16)
 
 - Backend: 18 tests pass under pytest 9.1.1; compile and dependency checks pass; production and development requirements have no known vulnerabilities.

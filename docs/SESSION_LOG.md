@@ -412,6 +412,12 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Changed: Browser source-image allowance increased from 12 MB to 50 MB. Originals are compressed to bounded JPEG payloads before upload and are not stored in Neon; only the small profile thumbnail and encrypted aggregate embedding remain persisted.
 - Verified: Frontend strict typecheck, ESLint, and production build pass; backend tests pass 21/21, including profile-preservation and unenrollment coverage.
 
+## 2026-07-17 - Enforce organization-locked user management and improve client UX
+- Security: Locked user creation and every user-management mutation to the authenticated organization, removed the organization picker, rejected tenant overrides/unknown fields, removed the super-admin tenant bypass, returned 404 for cross-tenant identifiers, and prevented organization admins from managing super-admin users.
+- UX: Added reusable accessible confirmation and API-error components, retry actions, mobile cards, contextual empty states, accurate deactivate/permanent-delete language, safer kiosk-key regeneration, improved camera fallback guidance, and same-origin production API defaults.
+- Verified: Backend tests pass 26/26, frontend strict TypeScript and ESLint pass, the optimized Next.js production build succeeds, and patch whitespace validation passes.
+- Pending: Redeploy the backend and frontend together, then verify an admin can create a user only in their current organization and cannot view or mutate a known user ID from another organization.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

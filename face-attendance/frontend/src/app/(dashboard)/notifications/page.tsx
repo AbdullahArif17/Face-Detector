@@ -77,6 +77,7 @@ export default function NotificationsPage() {
   const [typeFilter, setTypeFilter] = useState("");
   const [selectedLog, setSelectedLog] = useState<WhatsappLog | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRetrying, setIsRetrying] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -124,6 +125,10 @@ export default function NotificationsPage() {
   );
 
   async function handleRetryFailed(): Promise<void> {
+    if (isRetrying) {
+      return;
+    }
+    setIsRetrying(true);
     try {
       const result = await retryFailedWhatsapp();
       setToastMessage(
@@ -132,6 +137,8 @@ export default function NotificationsPage() {
       await loadData();
     } catch {
       setHasError(true);
+    } finally {
+      setIsRetrying(false);
     }
   }
 
@@ -150,10 +157,11 @@ export default function NotificationsPage() {
           type="button"
           variant="outline"
           className="w-full gap-2 sm:w-auto"
+          disabled={isRetrying}
           onClick={() => void handleRetryFailed()}
         >
           <RefreshCcw aria-hidden="true" className="size-4" />
-          Retry Failed Today
+          {isRetrying ? "Retrying..." : "Retry Failed Today"}
         </Button>
       </div>
 
@@ -217,13 +225,69 @@ export default function NotificationsPage() {
       </div>
 
       {toastMessage ? (
-        <p className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm font-medium text-green-700">
+        <p
+          className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm font-medium text-green-700"
+          role="status"
+          aria-live="polite"
+        >
           {toastMessage}
         </p>
       ) : null}
-      {hasError ? <ApiError /> : null}
+      {hasError ? (
+        <ApiError onRetry={() => void loadData()} isRetrying={isLoading} />
+      ) : null}
 
-      <div className="overflow-x-auto rounded-lg border bg-card">
+      <div className="grid gap-3 md:hidden">
+        {isLoading ? (
+          <div className="rounded-lg border bg-card p-5 text-sm text-muted-foreground">
+            Loading notification logs...
+          </div>
+        ) : null}
+        {!isLoading && logs.length === 0 ? (
+          <div className="rounded-lg border bg-card p-5 text-center">
+            <p className="font-medium">No WhatsApp activity</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              No messages match the selected date and filters.
+            </p>
+          </div>
+        ) : null}
+        {logs.map((log) => (
+          <article className="rounded-lg border bg-card p-4" key={`${log.id}-mobile`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate font-semibold">
+                  {log.student_name ?? `Student #${log.student_id}`}
+                </p>
+                <p className="mt-0.5 text-sm tabular-nums text-muted-foreground">
+                  {maskPhone(log.parent_phone)}
+                </p>
+              </div>
+              <StatusBadge status={log.status} />
+            </div>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+              <TypeBadge type={log.message_type} />
+              <time className="text-xs text-muted-foreground">
+                {new Date(log.created_at).toLocaleString()}
+              </time>
+            </div>
+            <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">
+              {log.message_body}
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="mt-4 w-full gap-1"
+              onClick={() => setSelectedLog(log)}
+            >
+              <Eye aria-hidden="true" className="size-3" />
+              {log.status === "failed" ? "View message and error" : "View full message"}
+            </Button>
+          </article>
+        ))}
+      </div>
+
+      <div className="hidden overflow-x-auto rounded-lg border bg-card md:block">
         <table className="min-w-[980px] w-full text-left text-sm">
           <thead className="border-b bg-muted/50 text-muted-foreground">
             <tr>
@@ -284,16 +348,6 @@ export default function NotificationsPage() {
                       <Eye aria-hidden="true" className="size-3" />
                       View Full Message
                     </Button>
-                    {log.status === "failed" ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => void handleRetryFailed()}
-                      >
-                        Retry
-                      </Button>
-                    ) : null}
                   </div>
                 </td>
               </tr>
@@ -310,11 +364,14 @@ export default function NotificationsPage() {
               Parent phone: {selectedLog ? maskPhone(selectedLog.parent_phone) : ""}
             </DialogDescription>
           </DialogHeader>
-          <pre className="whitespace-pre-wrap rounded-lg border bg-muted p-4 text-sm">
+          <pre className="max-h-[50dvh] overflow-auto whitespace-pre-wrap break-words rounded-lg border bg-muted p-4 text-sm">
             {selectedLog?.message_body}
           </pre>
           {selectedLog?.error_message ? (
-            <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <p
+              className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+              role="alert"
+            >
               Meta error: {selectedLog.error_message}
             </p>
           ) : null}

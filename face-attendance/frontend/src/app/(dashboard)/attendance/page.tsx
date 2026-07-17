@@ -4,6 +4,7 @@ import { Download, Pencil, Power, PowerOff, RefreshCcw, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ApiError } from "@/components/api-error";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
@@ -106,7 +107,67 @@ function AttendanceTable({
   const columnCount = canEdit ? 7 : 6;
 
   return (
-    <div className="overflow-x-auto rounded-lg border bg-card">
+    <>
+      <div className="grid gap-3 md:hidden">
+        {isLoading ? (
+          <div className="rounded-lg border bg-card p-5 text-sm text-muted-foreground">
+            Loading attendance...
+          </div>
+        ) : null}
+        {!isLoading && records.length === 0 ? (
+          <div className="rounded-lg border bg-card p-5 text-center">
+            <p className="font-medium">No attendance records</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Records will appear here after a class session receives a scan or a
+              staff member adds attendance.
+            </p>
+          </div>
+        ) : null}
+        {records.map((record) => (
+          <article
+            className="rounded-lg border bg-card p-4"
+            key={`${record.student_id}-${record.attendance_date}-${record.attendance_id ?? "absent"}-mobile`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate font-semibold">{record.student_name}</p>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {record.grade}-{record.section}
+                </p>
+              </div>
+              <StatusBadge status={record.status} />
+            </div>
+            <dl className="mt-4 grid grid-cols-3 gap-3 text-sm">
+              <div>
+                <dt className="text-xs text-muted-foreground">Check-in</dt>
+                <dd className="mt-1 tabular-nums">{formatTime(record.check_in)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Check-out</dt>
+                <dd className="mt-1 tabular-nums">{formatTime(record.check_out)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Hours</dt>
+                <dd className="mt-1 tabular-nums">{record.working_hours}</dd>
+              </div>
+            </dl>
+            {canEdit ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-4 w-full gap-2"
+                onClick={() => onEdit(record)}
+              >
+                <Pencil aria-hidden="true" className="size-4" />
+                Edit attendance
+              </Button>
+            ) : null}
+          </article>
+        ))}
+      </div>
+
+      <div className="hidden overflow-x-auto rounded-lg border bg-card md:block">
       <table className="min-w-[860px] w-full text-left text-sm">
         <thead className="border-b bg-muted/50 text-muted-foreground">
           <tr>
@@ -177,7 +238,8 @@ function AttendanceTable({
           ))}
         </tbody>
       </table>
-    </div>
+      </div>
+    </>
   );
 }
 
@@ -208,6 +270,8 @@ export default function AttendancePage() {
   const [sessionMessage, setSessionMessage] = useState("");
   const [sessionMessageIsError, setSessionMessageIsError] = useState(false);
   const [editState, setEditState] = useState<AttendanceEditState | null>(null);
+  const [pendingStopClass, setPendingStopClass] =
+    useState<AttendanceClassSessionStatus | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const loadToday = useCallback(async (): Promise<void> => {
@@ -395,6 +459,7 @@ export default function AttendancePage() {
       );
     } finally {
       setUpdatingClassId(null);
+      setPendingStopClass(null);
     }
   }
 
@@ -594,9 +659,9 @@ export default function AttendancePage() {
                     }
                     className="gap-2"
                     onClick={() =>
-                      void (isActive
-                        ? handleStopSession(classStatus)
-                        : handleStartSession(classStatus.class_id))
+                      isActive
+                        ? setPendingStopClass(classStatus)
+                        : void handleStartSession(classStatus.class_id)
                     }
                   >
                     {isActive ? (
@@ -638,7 +703,18 @@ export default function AttendancePage() {
         </select>
       </div>
 
-      {hasError ? <ApiError /> : null}
+      {hasError ? (
+        <ApiError
+          onRetry={() =>
+            void (activeTab === "today"
+              ? handleRefresh()
+              : Promise.all([loadHistory(), loadClassSessionStatuses()]))
+          }
+          isRetrying={
+            isTodayLoading || isHistoryLoading || isSessionLoading
+          }
+        />
+      ) : null}
 
       {activeTab === "today" ? (
         <div className="space-y-4">
@@ -741,11 +817,18 @@ export default function AttendancePage() {
       )}
 
       {editState ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-lg border bg-background p-5 shadow-lg">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-attendance-title"
+        >
+          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-lg border bg-background p-5 shadow-lg">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold">Edit attendance</h2>
+                <h2 className="text-lg font-semibold" id="edit-attendance-title">
+                  Edit attendance
+                </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {editState.record.student_name} · {editState.record.grade}-
                   {editState.record.section}
@@ -755,6 +838,7 @@ export default function AttendancePage() {
                 type="button"
                 variant="ghost"
                 size="icon"
+                aria-label="Close attendance editor"
                 onClick={() => setEditState(null)}
               >
                 <X aria-hidden="true" className="size-4" />
@@ -831,7 +915,10 @@ export default function AttendancePage() {
               ) : null}
 
               {editState.error ? (
-                <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <p
+                  className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+                  role="alert"
+                >
                   {editState.error}
                 </p>
               ) : null}
@@ -856,6 +943,33 @@ export default function AttendancePage() {
           </div>
         </div>
       ) : null}
+
+      <ConfirmDialog
+        open={pendingStopClass !== null}
+        title="Stop this attendance session?"
+        description={
+          pendingStopClass
+            ? `New kiosk scans for ${pendingStopClass.class_name} will be blocked immediately. Attendance already recorded in this session will be preserved.`
+            : "New kiosk scans will be blocked for this class."
+        }
+        confirmLabel="Stop session"
+        busyLabel="Stopping..."
+        destructive
+        isConfirming={
+          pendingStopClass !== null &&
+          updatingClassId === pendingStopClass.class_id
+        }
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setPendingStopClass(null);
+          }
+        }}
+        onConfirm={() => {
+          if (pendingStopClass) {
+            void handleStopSession(pendingStopClass);
+          }
+        }}
+      />
     </section>
   );
 }

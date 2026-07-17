@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { ShieldCheck } from "lucide-react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -13,14 +14,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
-import {
-  createUser,
-  getCompanies,
-  type Company,
-  type PortalUser,
-} from "@/lib/api";
+import { createUser, type PortalUser } from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/errors";
-import { isSuperAdminRole } from "@/lib/permissions";
 
 interface AddUserModalProps {
   open: boolean;
@@ -52,44 +47,8 @@ export function AddUserModal({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<(typeof userRoles)[number]["value"]>("hr");
-  const [companyId, setCompanyId] = useState(
-    currentUser?.company_id ? String(currentUser.company_id) : "",
-  );
-  const [companies, setCompanies] = useState<Company[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const isSuperAdmin = isSuperAdminRole(currentUser?.role);
-
-  useEffect(() => {
-    if (!open || !isSuperAdmin) {
-      return;
-    }
-
-    let isCancelled = false;
-
-    void Promise.resolve().then(async () => {
-      try {
-        const records = await getCompanies();
-        if (isCancelled) {
-          return;
-        }
-        setCompanies(records);
-        if (records.length > 0) {
-          setCompanyId((currentCompanyId) =>
-            currentCompanyId || String(records[0].id),
-          );
-        }
-      } catch (companiesError) {
-        if (!isCancelled) {
-          setError(getErrorMessage(companiesError));
-        }
-      }
-    });
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [isSuperAdmin, open]);
 
   async function handleSubmit(): Promise<void> {
     if (isSubmitting) {
@@ -99,14 +58,9 @@ export function AddUserModal({
       setError("Name, email, and a password of at least 8 characters are required.");
       return;
     }
-
-    let parsedCompanyId: number | undefined;
-    if (isSuperAdmin) {
-      parsedCompanyId = Number.parseInt(companyId.trim(), 10);
-      if (!Number.isInteger(parsedCompanyId) || parsedCompanyId <= 0) {
-        setError("Super admins must provide a valid numeric company ID.");
-        return;
-      }
+    if (!currentUser) {
+      setError("Your session could not be verified. Sign in again and retry.");
+      return;
     }
 
     setIsSubmitting(true);
@@ -117,7 +71,6 @@ export function AddUserModal({
         email: email.trim(),
         password,
         role,
-        ...(parsedCompanyId ? { company_id: parsedCompanyId } : {}),
       });
       onCreated(createdUser);
       onOpenChange(false);
@@ -134,7 +87,7 @@ export function AddUserModal({
         <DialogHeader>
           <DialogTitle>Add user</DialogTitle>
           <DialogDescription>
-            Create a portal user for this organization.
+            Create a portal user in the organization you are currently signed into.
           </DialogDescription>
         </DialogHeader>
 
@@ -143,6 +96,7 @@ export function AddUserModal({
             <Label htmlFor="user-name">Full Name</Label>
             <Input
               id="user-name"
+              autoComplete="name"
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="Jane Doe"
@@ -153,6 +107,7 @@ export function AddUserModal({
             <Input
               id="user-email"
               type="email"
+              autoComplete="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               placeholder="jane@example.com"
@@ -163,10 +118,15 @@ export function AddUserModal({
             <Input
               id="user-password"
               type="password"
+              autoComplete="new-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               placeholder="At least 8 characters"
             />
+            <p className="text-xs text-muted-foreground">
+              Use at least 8 characters, avoid reused credentials, and share the
+              password through a secure channel.
+            </p>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="user-role">Role</Label>
@@ -185,36 +145,22 @@ export function AddUserModal({
               ))}
             </select>
           </div>
-          {isSuperAdmin ? (
-            <div className="grid gap-2">
-              <Label htmlFor="user-company">Organization</Label>
-              {companies.length > 0 ? (
-                <select
-                  id="user-company"
-                  value={companyId}
-                  onChange={(event) => setCompanyId(event.target.value)}
-                  className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {companies.map((company) => (
-                    <option key={company.id} value={company.id}>
-                      {company.name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <Input
-                  id="user-company"
-                  inputMode="numeric"
-                  value={companyId}
-                  onChange={(event) => setCompanyId(event.target.value)}
-                  placeholder="Company ID"
-                />
-              )}
+          <div className="flex items-start gap-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+            <ShieldCheck aria-hidden="true" className="mt-0.5 size-5 shrink-0" />
+            <div>
+              <p className="font-medium">Organization locked</p>
+              <p className="mt-1 text-pretty text-blue-700">
+                This account can only be created in your current organization.
+                Organization access cannot be selected or overridden here.
+              </p>
             </div>
-          ) : null}
+          </div>
 
           {error ? (
-            <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <p
+              className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+              role="alert"
+            >
               {error}
             </p>
           ) : null}

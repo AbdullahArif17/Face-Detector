@@ -8,7 +8,7 @@ from app.core.config import settings
 from app.core.credentials import encrypt_credential
 from app.core.database import get_db
 from app.core.time import local_day_bounds
-from app.dependencies import get_company_by_api_key, normalize_role, require_role
+from app.dependencies import get_company_by_api_key, require_role
 from app.models.attendance_session import AttendanceSession
 from app.models.branch import Branch
 from app.models.company import Company
@@ -33,12 +33,10 @@ def generate_company_api_key() -> str:
 
 
 def ensure_company_access(current_user: User, company_id: int) -> None:
-    if normalize_role(current_user.role) == "super_admin":
-        return
     if current_user.company_id != company_id:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You cannot access another company's API key",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found",
         )
 
 
@@ -102,7 +100,11 @@ async def list_companies(
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("super_admin")),
 ) -> list[Company]:
-    result = await session.execute(select(Company).order_by(Company.id))
+    result = await session.execute(
+        select(Company)
+        .where(Company.id == current_user.company_id)
+        .order_by(Company.id),
+    )
     return list(result.scalars().all())
 
 

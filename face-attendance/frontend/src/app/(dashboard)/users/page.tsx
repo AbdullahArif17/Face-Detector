@@ -1,9 +1,10 @@
 "use client";
 
 import { Edit, Search, Trash2, UserCheck, UserPlus, UserX } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ApiError } from "@/components/api-error";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { AddUserModal } from "@/components/users/AddUserModal";
 import { EditUserModal } from "@/components/users/EditUserModal";
 import { Button } from "@/components/ui/button";
@@ -14,10 +15,8 @@ import { cn } from "@/lib/utils";
 import {
   activateUser,
   deactivateUser,
-  getCompanies,
   getUsers,
   permanentlyDeleteUser,
-  type Company,
   type PortalUser,
 } from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/errors";
@@ -68,12 +67,83 @@ function StatusBadge({ isActive }: Readonly<{ isActive: boolean }>) {
   );
 }
 
+function UserActions({
+  user,
+  isOwnUser,
+  isProtected,
+  isBusy,
+  className,
+  onEdit,
+  onDeactivate,
+  onActivate,
+  onRemove,
+}: Readonly<{
+  user: PortalUser;
+  isOwnUser: boolean;
+  isProtected: boolean;
+  isBusy: boolean;
+  className?: string;
+  onEdit: () => void;
+  onDeactivate: () => void;
+  onActivate: () => void;
+  onRemove: () => void;
+}>) {
+  return (
+    <div className={cn("flex flex-wrap gap-2", className)}>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="gap-1"
+        disabled={isOwnUser || isProtected || isBusy}
+        onClick={onEdit}
+      >
+        <Edit aria-hidden="true" className="size-3" />
+        Edit User
+      </Button>
+      {user.is_active ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="gap-1 text-red-600 hover:text-red-700"
+          disabled={isOwnUser || isProtected || isBusy}
+          onClick={onDeactivate}
+        >
+          <UserX aria-hidden="true" className="size-3" />
+          {isBusy ? "Updating..." : "Deactivate"}
+        </Button>
+      ) : (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="gap-1 text-green-700 hover:text-green-800"
+          disabled={isProtected || isBusy}
+          onClick={onActivate}
+        >
+          <UserCheck aria-hidden="true" className="size-3" />
+          {isBusy ? "Updating..." : "Activate"}
+        </Button>
+      )}
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        className="gap-1 text-red-700 hover:text-red-800"
+        disabled={isOwnUser || isProtected || isBusy}
+        onClick={onRemove}
+      >
+        <Trash2 aria-hidden="true" className="size-3" />
+        Remove permanently
+      </Button>
+    </div>
+  );
+}
+
 export default function UsersPage() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<PortalUser[]>([]);
-  const [companyNamesById, setCompanyNamesById] = useState<Record<number, string>>(
-    {},
-  );
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [hasError, setHasError] = useState(false);
@@ -81,55 +151,35 @@ export default function UsersPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<PortalUser | null>(null);
+  const [pendingPermanentDelete, setPendingPermanentDelete] =
+    useState<PortalUser | null>(null);
   const [statusChangingUserId, setStatusChangingUserId] = useState<number | null>(
     null,
   );
   const hasUserManagementAccess = canManageUsers(currentUser);
   const isSuperAdmin = isSuperAdminRole(currentUser?.role);
-  const tableColumnCount = isSuperAdmin ? 7 : 6;
+  const tableColumnCount = 6;
 
-  useEffect(() => {
+  const loadUsers = useCallback(async (): Promise<void> => {
     if (!hasUserManagementAccess) {
       return;
     }
 
-    let isCancelled = false;
+    setIsLoading(true);
+    try {
+      const records = await getUsers();
+      setUsers(records);
+      setHasError(false);
+    } catch {
+      setHasError(true);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [hasUserManagementAccess]);
 
-    void Promise.resolve().then(async () => {
-      if (!isCancelled) {
-        setIsLoading(true);
-      }
-
-      try {
-        const records = await getUsers();
-        let companies: Company[] = [];
-        if (isSuperAdmin) {
-          companies = await getCompanies();
-        }
-        if (!isCancelled) {
-          setUsers(records);
-          setCompanyNamesById(
-            Object.fromEntries(
-              companies.map((company) => [company.id, company.name]),
-            ),
-          );
-          setHasError(false);
-        }
-      } catch {
-        if (!isCancelled) {
-          setHasError(true);
-        }
-      } finally {
-        if (!isCancelled) {
-          setIsLoading(false);
-        }
-      }
-    });
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [hasUserManagementAccess, isSuperAdmin]);
+  useEffect(() => {
+    void Promise.resolve().then(loadUsers);
+  }, [loadUsers]);
 
   useEffect(() => {
     if (!toastMessage) {
@@ -145,14 +195,12 @@ export default function UsersPage() {
       return users;
     }
     return users.filter((user) => {
-      const companyName = companyNamesById[user.company_id]?.toLowerCase() ?? "";
       return (
         user.name.toLowerCase().includes(normalizedSearch) ||
-        user.email.toLowerCase().includes(normalizedSearch) ||
-        companyName.includes(normalizedSearch)
+        user.email.toLowerCase().includes(normalizedSearch)
       );
     });
-  }, [companyNamesById, searchTerm, users]);
+  }, [searchTerm, users]);
 
   function handleCreated(user: PortalUser): void {
     setUsers((currentUsers) => {
@@ -233,15 +281,9 @@ export default function UsersPage() {
     }
   }
 
-  async function handlePermanentDelete(user: PortalUser): Promise<void> {
-    if (statusChangingUserId !== null || currentUser?.id === user.id) {
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Permanently remove ${user.name}? This deletes the portal user account and cannot be undone.`,
-    );
-    if (!confirmed) {
+  async function handlePermanentDelete(): Promise<void> {
+    const user = pendingPermanentDelete;
+    if (!user || statusChangingUserId !== null || currentUser?.id === user.id) {
       return;
     }
 
@@ -254,6 +296,7 @@ export default function UsersPage() {
         currentUsers.filter((currentUserRecord) => currentUserRecord.id !== user.id),
       );
       setToastMessage("User permanently removed");
+      setPendingPermanentDelete(null);
     } catch (deleteError) {
       setActionError(
         getApiErrorMessage(
@@ -263,6 +306,7 @@ export default function UsersPage() {
       );
     } finally {
       setStatusChangingUserId(null);
+      setPendingPermanentDelete(null);
     }
   }
 
@@ -313,33 +357,120 @@ export default function UsersPage() {
       </div>
 
       {toastMessage ? (
-        <p className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm font-medium text-green-700">
+        <p
+          className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm font-medium text-green-700"
+          role="status"
+          aria-live="polite"
+        >
           {toastMessage}
         </p>
       ) : null}
 
-      {hasError ? <ApiError /> : null}
+      {hasError ? (
+        <ApiError onRetry={() => void loadUsers()} isRetrying={isLoading} />
+      ) : null}
 
       {actionError ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
+        <p
+          className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700"
+          role="alert"
+        >
           {actionError}
         </p>
       ) : null}
 
-      <div className="overflow-x-auto rounded-lg border bg-card">
+      <div className="grid gap-3 md:hidden">
+        {isLoading ? (
+          <div className="rounded-lg border bg-card p-5 text-sm text-muted-foreground">
+            Loading users...
+          </div>
+        ) : null}
+        {!isLoading && filteredUsers.length === 0 ? (
+          <div className="rounded-lg border bg-card p-5 text-center">
+            <p className="font-medium">
+              {searchTerm.trim() ? "No matching users" : "No portal users yet"}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {searchTerm.trim()
+                ? "Try searching by a different name or email."
+                : "Add a user to share access to this organization."}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-4"
+              onClick={() => {
+                if (searchTerm.trim()) {
+                  setSearchTerm("");
+                } else {
+                  setIsAddModalOpen(true);
+                }
+              }}
+            >
+              {searchTerm.trim() ? "Clear search" : "Add User"}
+            </Button>
+          </div>
+        ) : null}
+        {filteredUsers.map((user) => {
+          const isOwnUser = currentUser?.id === user.id;
+          const isProtected = !isSuperAdmin && isSuperAdminRole(user.role);
+          return (
+            <article className="rounded-lg border bg-card p-4" key={user.id}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">{user.name}</p>
+                  <p className="mt-0.5 truncate text-sm text-muted-foreground">
+                    {user.email}
+                  </p>
+                </div>
+                <StatusBadge isActive={user.is_active} />
+              </div>
+              <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <dt className="text-xs text-muted-foreground">Role</dt>
+                  <dd className="mt-1"><RoleBadge role={user.role} /></dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Created</dt>
+                  <dd className="mt-1 tabular-nums">
+                    {dateFormatter.format(new Date(user.created_at))}
+                  </dd>
+                </div>
+              </dl>
+              <UserActions
+                user={user}
+                isOwnUser={isOwnUser}
+                isProtected={isProtected}
+                isBusy={statusChangingUserId === user.id}
+                className="mt-4 grid grid-cols-2"
+                onEdit={() => setEditingUser(user)}
+                onDeactivate={() => void handleDeactivate(user)}
+                onActivate={() => void handleActivate(user)}
+                onRemove={() => {
+                  setActionError(null);
+                  setPendingPermanentDelete(user);
+                }}
+              />
+              {isOwnUser || isProtected ? (
+                <p className="mt-3 text-xs text-muted-foreground">
+                  {isOwnUser
+                    ? "You cannot change or remove the account you are signed in with."
+                    : "Only a super administrator can manage this account."}
+                </p>
+              ) : null}
+            </article>
+          );
+        })}
+      </div>
+
+      <div className="hidden overflow-x-auto rounded-lg border bg-card md:block">
         <table
-          className={cn(
-            "w-full text-left text-sm",
-            isSuperAdmin ? "min-w-[1120px]" : "min-w-[980px]",
-          )}
+          className="min-w-[980px] w-full text-left text-sm"
         >
           <thead className="border-b bg-muted/50 text-muted-foreground">
             <tr>
               <th className="px-4 py-3 font-medium">Name</th>
               <th className="px-4 py-3 font-medium">Email</th>
-              {isSuperAdmin ? (
-                <th className="px-4 py-3 font-medium">Organization</th>
-              ) : null}
               <th className="px-4 py-3 font-medium">Role</th>
               <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3 font-medium">Created At</th>
@@ -371,18 +502,13 @@ export default function UsersPage() {
 
             {filteredUsers.map((user) => {
               const isOwnUser = currentUser?.id === user.id;
+              const isProtected = !isSuperAdmin && isSuperAdminRole(user.role);
               return (
                 <tr className="border-b last:border-0" key={user.id}>
                   <td className="px-4 py-3 font-medium">{user.name}</td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {user.email}
                   </td>
-                  {isSuperAdmin ? (
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {companyNamesById[user.company_id] ??
-                        `Company ${user.company_id}`}
-                    </td>
-                  ) : null}
                   <td className="px-4 py-3">
                     <RoleBadge role={user.role} />
                   </td>
@@ -393,57 +519,19 @@ export default function UsersPage() {
                     {dateFormatter.format(new Date(user.created_at))}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="gap-1"
-                        disabled={isOwnUser}
-                        onClick={() => setEditingUser(user)}
-                      >
-                        <Edit aria-hidden="true" className="size-3" />
-                        Edit User
-                      </Button>
-                      {user.is_active ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="gap-1 text-red-600 hover:text-red-700"
-                          disabled={
-                            isOwnUser || statusChangingUserId === user.id
-                          }
-                          onClick={() => void handleDeactivate(user)}
-                        >
-                          <UserX aria-hidden="true" className="size-3" />
-                          Deactivate
-                        </Button>
-                      ) : (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="gap-1 text-green-700 hover:text-green-800"
-                          disabled={statusChangingUserId === user.id}
-                          onClick={() => void handleActivate(user)}
-                        >
-                          <UserCheck aria-hidden="true" className="size-3" />
-                          Activate
-                        </Button>
-                      )}
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="gap-1 text-red-700 hover:text-red-800"
-                        disabled={isOwnUser || statusChangingUserId === user.id}
-                        onClick={() => void handlePermanentDelete(user)}
-                      >
-                        <Trash2 aria-hidden="true" className="size-3" />
-                        Remove
-                      </Button>
-                    </div>
+                    <UserActions
+                      user={user}
+                      isOwnUser={isOwnUser}
+                      isProtected={isProtected}
+                      isBusy={statusChangingUserId === user.id}
+                      onEdit={() => setEditingUser(user)}
+                      onDeactivate={() => void handleDeactivate(user)}
+                      onActivate={() => void handleActivate(user)}
+                      onRemove={() => {
+                        setActionError(null);
+                        setPendingPermanentDelete(user);
+                      }}
+                    />
                   </td>
                 </tr>
               );
@@ -472,6 +560,29 @@ export default function UsersPage() {
           onUpdated={handleUpdated}
         />
       ) : null}
+
+      <ConfirmDialog
+        open={pendingPermanentDelete !== null}
+        title="Permanently remove this user?"
+        description={
+          pendingPermanentDelete
+            ? `${pendingPermanentDelete.name}'s portal account will be deleted and cannot be restored. If you only want to block access, cancel and deactivate the user instead.`
+            : "This portal account will be permanently deleted."
+        }
+        confirmLabel="Remove permanently"
+        busyLabel="Removing..."
+        destructive
+        isConfirming={
+          pendingPermanentDelete !== null &&
+          statusChangingUserId === pendingPermanentDelete.id
+        }
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setPendingPermanentDelete(null);
+          }
+        }}
+        onConfirm={() => void handlePermanentDelete()}
+      />
     </section>
   );
 }

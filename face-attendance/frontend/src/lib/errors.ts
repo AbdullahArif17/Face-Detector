@@ -66,7 +66,7 @@ export function formatApiDetail(detail: ApiDetail, fallback: string): string {
 export function getApiErrorMessage(
   error: unknown,
   fallback: string,
-  networkFallback = "Cannot reach the backend API. Check that the backend is running.",
+  networkFallback = "Cannot reach the service. Check your connection and try again.",
 ): string {
   if (!axios.isAxiosError(error)) {
     return fallback;

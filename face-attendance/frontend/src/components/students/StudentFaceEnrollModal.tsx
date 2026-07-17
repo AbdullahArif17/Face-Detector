@@ -50,10 +50,12 @@ export function StudentFaceEnrollModal({
     student.profile_image === null,
   );
   const [isCameraActive, setIsCameraActive] = useState(true);
+  const [isCameraReady, setIsCameraReady] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const isUpdating = student.has_face_enrolled;
   const previewImage = selectedImages[previewIndex] ?? selectedImages[0];
 
@@ -79,6 +81,8 @@ export function StudentFaceEnrollModal({
       setSelectedImages((images) => [...images, image]);
       setPreviewIndex(selectedImages.length);
       setIsCameraActive(false);
+      setIsCameraReady(false);
+      setCameraError(null);
       setStatusMessage("Photo captured. Existing samples were kept.");
       setError(null);
     } catch (imageError) {
@@ -128,6 +132,8 @@ export function StudentFaceEnrollModal({
       setSelectedImages((images) => [...images, ...uniqueImages]);
       setPreviewIndex(selectedImages.length);
       setIsCameraActive(false);
+      setIsCameraReady(false);
+      setCameraError(null);
       setStatusMessage(
         selectedFiles.length > files.length
           ? `Added ${uniqueImages.length} photo${uniqueImages.length === 1 ? "" : "s"}. The extra selection was not added because enrollment is limited to ${MAX_FACE_ENROLLMENT_IMAGES} samples.`
@@ -224,6 +230,17 @@ export function StudentFaceEnrollModal({
                 screenshotFormat="image/jpeg"
                 videoConstraints={videoConstraints}
                 className="aspect-video w-full object-cover"
+                onUserMedia={() => {
+                  setIsCameraReady(true);
+                  setCameraError(null);
+                }}
+                onUserMediaError={() => {
+                  setIsCameraActive(false);
+                  setIsCameraReady(false);
+                  setCameraError(
+                    "Camera access is unavailable. Allow camera permission in your browser, make sure this page uses HTTPS, or add photos from this device instead.",
+                  );
+                }}
               />
             ) : previewImage ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -238,6 +255,16 @@ export function StudentFaceEnrollModal({
               </div>
             )}
           </div>
+
+          {cameraError ? (
+            <div
+              className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+              role="alert"
+            >
+              <p className="font-medium">Camera could not start</p>
+              <p className="mt-1 text-pretty">{cameraError}</p>
+            </div>
+          ) : null}
 
           {selectedImages.length > 0 ? (
             <div className="space-y-3 rounded-lg border p-3">
@@ -254,6 +281,7 @@ export function StudentFaceEnrollModal({
                       onClick={() => {
                         setPreviewIndex(index);
                         setIsCameraActive(false);
+                        setIsCameraReady(false);
                       }}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -299,13 +327,20 @@ export function StudentFaceEnrollModal({
           ) : null}
 
           {statusMessage ? (
-            <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+            <p
+              className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700"
+              role="status"
+              aria-live="polite"
+            >
               {statusMessage}
             </p>
           ) : null}
 
           {error ? (
-            <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <p
+              className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+              role="alert"
+            >
               {error}
             </p>
           ) : null}
@@ -326,6 +361,8 @@ export function StudentFaceEnrollModal({
               disabled={isProcessingImage || isSubmitting}
               onClick={() => {
                 setIsCameraActive(true);
+                setIsCameraReady(false);
+                setCameraError(null);
                 setStatusMessage(null);
                 setError(null);
               }}
@@ -350,12 +387,17 @@ export function StudentFaceEnrollModal({
               className="w-full sm:w-auto"
               disabled={
                 !isCameraActive ||
+                !isCameraReady ||
                 selectedImages.length >= MAX_FACE_ENROLLMENT_IMAGES ||
                 isProcessingImage
               }
               onClick={() => void handleCapture()}
             >
-              {isProcessingImage ? "Processing..." : "Capture Photo"}
+              {isProcessingImage
+                ? "Processing..."
+                : isCameraActive && !isCameraReady
+                  ? "Starting camera..."
+                  : "Capture Photo"}
             </Button>
             <Button
               type="button"
@@ -380,6 +422,11 @@ export function StudentFaceEnrollModal({
               selected. Add different clear angles for better matching.
             </p>
           ) : null}
+          <p className="text-xs text-muted-foreground">
+            On phones, camera access requires an HTTPS kiosk or dashboard URL and
+            browser permission. Photo upload remains available if the camera is
+            blocked.
+          </p>
         </div>
       </DialogContent>
     </Dialog>

@@ -36,7 +36,7 @@ export default function LoginPage() {
         getApiErrorMessage(
           requestError,
           "Unable to sign in. Check your credentials.",
-          "Cannot reach the backend API. Check that the backend is running on your PC LAN IP and port.",
+          "Cannot reach the service. Check your internet connection and try again.",
         ),
       );
     } finally {

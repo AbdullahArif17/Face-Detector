@@ -175,9 +175,9 @@ The browser uses a secure HttpOnly session cookie plus a CSRF cookie through the
 same-origin Next.js backend proxy. Bearer tokens remain accepted for non-browser
 API clients, but the frontend no longer persists tokens in `localStorage`.
 
-User emails are scoped per organization. The same email address can exist in multiple organizations, but a single organization cannot have two users with the same email.
+User emails are scoped per organization. The same email address can exist in multiple organizations, but a single organization cannot have two users with the same email. Portal user creation always derives the organization from the authenticated session: clients cannot select or override `company_id`. All user-management and organization-data lookups apply the tenant filter first, including for `super_admin`; cross-organization identifiers return `404`.
 
-Student, attendance dashboard, face enrollment, WhatsApp notification, user management, and company endpoints require a valid access token. Kiosk auto-marking uses a school/company `X-API-Key` header instead of JWT. Student and face write operations require `super_admin`, `admin`, or `hr`; user management requires `super_admin` or `admin`; company list/create requires `super_admin`.
+Student, attendance dashboard, face enrollment, WhatsApp notification, user management, and company endpoints require a valid access token. Kiosk auto-marking uses a school/company `X-API-Key` header instead of JWT. Student and face write operations require `super_admin`, `admin`, or `hr`; user management requires `super_admin` or `admin`. Company settings/listing remain tenant-scoped; company creation is restricted to `super_admin`.
 
 Legacy employee endpoints (kept for migration compatibility):
 

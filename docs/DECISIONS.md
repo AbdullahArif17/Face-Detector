@@ -182,6 +182,13 @@
 - Decision: Append up to three enrollment samples with explicit per-sample removal; never silently discard an existing pending sample. Accept source files up to 50 MB and compress them in the browser before network transfer. Keep profile-photo replacement/removal explicit and independent from embedding enrollment or unenrollment. Continue storing only a small profile thumbnail plus the encrypted aggregate embedding in Neon.
 - Consequences: No database migration or large-image database storage is required, and Vercel receives only bounded processed payloads. Original enrollment photos cannot be restored later because they are intentionally not retained; a student must be re-enrolled to derive a new aggregate embedding.
 
+## D-027: Derive tenant scope exclusively from the authenticated session
+- Date: 2026-07-17
+- Status: Accepted
+- Context: Allowing an organization administrator or a global-looking role to select or submit a different `company_id` creates an insecure direct-object-reference path and makes frontend controls part of the security boundary.
+- Decision: Derive organization scope from the current authenticated user's `company_id` for all organization data and user-management operations. Do not expose an organization selector when creating portal users. Reject explicit tenant mismatches and unknown request fields, apply tenant filters before authorization checks, and return 404 for cross-tenant resource identifiers. A `super_admin` role grants elevated permissions inside its organization but does not bypass tenant isolation.
+- Consequences: A compromised or modified client cannot create, list, or mutate users in another organization. Cross-organization support operations require a future explicit platform-admin control plane with separate authentication, authorization, and audit logging rather than a tenant-role bypass.
+
 ## Decision Template
 ```markdown
 ## D-NNN: Decision title

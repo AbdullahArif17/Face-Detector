@@ -30,9 +30,12 @@ from app.routers.attendance import (
     expire_stale_attendance_sessions,
 )
 from app.routers.face import should_update_profile_image, unenroll_face
+from app.routers.companies import ensure_company_access
+from app.routers.users import ensure_can_manage_user, resolve_user_company_id
 from app.schemas.whatsapp import WhatsappTestRequest
 from app.schemas.face import FaceEnrollRequest
 from app.schemas.auth import SignupRequest
+from app.schemas.user import UserCreate
 from app.services import whatsapp
 import main as backend_main
 
@@ -194,6 +197,70 @@ def test_bcrypt_password_limit_is_validated() -> None:
             email="admin@example.com",
             password="a" * 73,
         )
+
+
+def test_user_creation_is_locked_to_authenticated_organization() -> None:
+    current_user = SimpleNamespace(company_id=8, role="super_admin")
+
+    assert resolve_user_company_id(current_user, None) == 8  # type: ignore[arg-type]
+    assert resolve_user_company_id(current_user, 8) == 8  # type: ignore[arg-type]
+
+    with pytest.raises(HTTPException) as error:
+        resolve_user_company_id(current_user, 9)  # type: ignore[arg-type]
+
+    assert error.value.status_code == 403
+    assert "current organization" in str(error.value.detail)
+
+
+def test_user_create_rejects_privilege_fields() -> None:
+    with pytest.raises(ValidationError):
+        UserCreate.model_validate(
+            {
+                "name": "Tenant User",
+                "email": "tenant-user@example.com",
+                "password": "strong-password",
+                "role": "hr",
+                "is_active": True,
+            },
+        )
+
+
+def test_cross_organization_user_management_is_hidden_even_from_super_admin() -> None:
+    current_user = SimpleNamespace(company_id=8, role="super_admin")
+    other_organization_user = SimpleNamespace(company_id=9, role="admin")
+
+    with pytest.raises(HTTPException) as error:
+        ensure_can_manage_user(
+            current_user,  # type: ignore[arg-type]
+            other_organization_user,  # type: ignore[arg-type]
+        )
+
+    assert error.value.status_code == 404
+    assert error.value.detail == "User not found"
+
+
+def test_company_settings_are_tenant_scoped_even_for_super_admin() -> None:
+    current_user = SimpleNamespace(company_id=8, role="super_admin")
+
+    ensure_company_access(current_user, 8)  # type: ignore[arg-type]
+    with pytest.raises(HTTPException) as error:
+        ensure_company_access(current_user, 9)  # type: ignore[arg-type]
+
+    assert error.value.status_code == 404
+    assert error.value.detail == "Organization not found"
+
+
+def test_organization_admin_cannot_manage_super_admin() -> None:
+    current_user = SimpleNamespace(company_id=8, role="admin")
+    protected_user = SimpleNamespace(company_id=8, role="super_admin")
+
+    with pytest.raises(HTTPException) as error:
+        ensure_can_manage_user(
+            current_user,  # type: ignore[arg-type]
+            protected_user,  # type: ignore[arg-type]
+        )
+
+    assert error.value.status_code == 403
 
 
 def test_pakistan_phone_normalization() -> None:
