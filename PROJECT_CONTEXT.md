@@ -1,6 +1,6 @@
 # Project Context
 
-Last updated: 2026-07-16
+Last updated: 2026-07-17
 
 ## Product
 
@@ -15,7 +15,7 @@ Last updated: 2026-07-16
 |---|---|---|
 | `face-attendance/frontend` | Next.js 16, React 19, strict TypeScript, Tailwind | Vercel frontend (`face-detector-seven.vercel.app`) |
 | `face-attendance/backend` | FastAPI, async SQLAlchemy, Alembic, Neon PostgreSQL | Vercel backend (`face-detector-k4dl.vercel.app`) |
-| `face-attendance/ai-service` | FastAPI, DeepFace ArcFace, RetinaFace/OpenCV, TensorFlow | Hugging Face Docker Space (`abdullah017-face-attendance-ai.hf.space`) |
+| `face-attendance/ai-service` | Python 3.11, FastAPI, DeepFace ArcFace, RetinaFace/OpenCV, TensorFlow | Hugging Face Docker Space (`abdullah017-face-attendance-ai.hf.space`) |
 
 The browser calls the same-origin Next.js route `/api/backend/*`; that route proxies to `BACKEND_INTERNAL_URL`. The backend is the only caller of the AI service and authenticates with `X-API-Key`.
 
@@ -32,7 +32,7 @@ The browser calls the same-origin Next.js route `/api/backend/*`; that route pro
 - Organization-specific WhatsApp tokens are encrypted at rest with `CREDENTIAL_ENCRYPTION_KEY`, or a domain-separated key derived from `BIOMETRIC_ENCRYPTION_KEY`. Deploy compatible backend code before running `python -m app.encrypt_company_credentials`.
 - WhatsApp webhook POSTs require Meta HMAC signatures in production. Inbound IDs are deduplicated. Parent lookup fails closed when a shared fallback number is ambiguous across tenants.
 - AI defaults: ArcFace, RetinaFace primary detector, OpenCV/SSD/MTCNN fallbacks, threshold `0.42`, runner-up margin `0.03`, up to three same-person enrollment photos, enrollment flip augmentation, serialized CPU inference, image quality gates, and hard rejection of group photos.
-- The Hugging Face Docker image runs as a non-root user and pre-bundles ArcFace and RetinaFace weights. Production requires `AI_API_KEY`.
+- The Hugging Face Docker image runs as a non-root Python 3.11 user, pins patched Keras 3.15.0, and pre-bundles ArcFace and RetinaFace weights. Production requires `AI_API_KEY`.
 - Student source photos are optimized in the browser. The backend stores a small JPEG profile thumbnail and an encrypted embedding, not the original enrollment image.
 - The kiosk is responsive, class scoped, HTTPS-camera aware, automatically polls session state, and offers separate fresh-photo/upload fallbacks. Its company API key remains a bearer credential and must be rotated if a kiosk URL is exposed.
 - Frontend/backend responses include security headers; frontend has a production CSP and HSTS. API responses are non-cacheable. Production startup rejects unsafe origins, secrets, database transport, cookie settings, AI URLs, and invalid encryption keys.
@@ -43,6 +43,7 @@ The browser calls the same-origin Next.js route `/api/backend/*`; that route pro
 - Backend: 18 tests pass under pytest 9.1.1; compile and dependency checks pass; production and development requirements have no known vulnerabilities.
 - Frontend: strict TypeScript, ESLint, optimized Next.js production build, and npm audit pass with zero findings.
 - AI: 6 unit tests pass; production requirements have no known vulnerabilities.
+- The Python 3.11 Linux dependency graph resolves with Keras 3.15.0 and passes `pip-audit`; this replaces the vulnerable Python-3.10-compatible Keras line found by the first CI run.
 - Final AI Docker image builds successfully with Python 3.10 and exact pinned packages. Health reported ArcFace/RetinaFace ready with API-key enforcement.
 - Real-photo container smoke: enrollment returned a 512-dimensional ArcFace vector; a second photo of the same person matched at `0.59` with threshold `0.42`.
 - Clean PostgreSQL 16 smoke: every migration applied through `c1d4e7f9a620`, and `alembic check` reported no schema drift.

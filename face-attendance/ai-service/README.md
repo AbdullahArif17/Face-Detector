@@ -47,6 +47,9 @@ The Docker build preloads the default ArcFace and RetinaFace weights. This makes
 Space startup deterministic and avoids downloading model files during the first
 real enrollment or scan.
 
+The image uses Python 3.11 and pins a patched Keras release. Keep those versions
+aligned with `requirements.txt`; Python 3.10 cannot install the patched Keras line.
+
 `ENABLE_ANTI_SPOOFING=false` keeps uploaded-photo kiosk fallback compatible.
 Enable it only for live-camera-only kiosks after validating the deployment hardware;
 static photos are intentionally rejected when liveness checking is enabled.

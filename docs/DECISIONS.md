@@ -168,6 +168,13 @@
 - Decision: Use ArcFace with RetinaFace primary detection, calibrated cosine threshold `0.42`, runner-up margin `0.03`, up to three same-person enrollment photos, enrollment-only flip augmentation, hard group-photo rejection, and pre-bundled model weights. Encrypt new embeddings and organization WhatsApp credentials in the backend with separate/domain-derived Fernet keys, and store only small profile thumbnails.
 - Consequences: Existing Facenet faces must be re-enrolled. Legacy plaintext values need controlled conversion after deployment. Thresholds still require representative school validation, free CPU hosting has limited throughput, and liveness remains mandatory before unattended high-stakes use.
 
+## D-025: Use Python 3.11 for the AI deployment security baseline
+- Date: 2026-07-17
+- Status: Accepted
+- Context: Python 3.10 cannot install the patched Keras releases required to clear current security advisories, while TensorFlow 2.21 and the deployed DeepFace stack support Python 3.11.
+- Decision: Build and test the AI service on Python 3.11 and pin Keras 3.15.0 alongside TensorFlow/tf-keras 2.21.0.
+- Consequences: The Hugging Face image must rebuild on Python 3.11. Future TensorFlow, Keras, and Python upgrades must be tested together with model loading, enrollment, recognition, and dependency auditing.
+
 ## Decision Template
 ```markdown
 ## D-NNN: Decision title

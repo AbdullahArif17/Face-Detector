@@ -393,6 +393,12 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: Real Neon login/auth-me/logout works with cookies and CSRF, and the same flow passes through the production-built Next.js proxy.
 - Pending: Push both repositories, confirm deployment environment values, deploy, migrate Neon from `a7e2d5c8f310` to `c1d4e7f9a620`, convert stored company credentials, then perform one live kiosk scan and one real inbound WhatsApp acceptance test.
 
+## 2026-07-17 - Patch AI runtime dependency baseline
+- Diagnosed: GitHub CI backend and frontend jobs passed, but the AI audit found three Keras advisories because Python 3.10 resolved Keras 3.12.3.
+- Changed: Moved the AI Docker image and CI job to Python 3.11 and pinned Keras 3.15.0 in both the monorepo service and Hugging Face checkout.
+- Verified: Six AI tests, compile, package checks, a Python 3.11 Linux dependency resolution, and a full resolved dependency audit pass with no known vulnerabilities.
+- Pending: Push both repositories, rebuild the Hugging Face Space, let GitHub CI pass, redeploy Vercel, and complete the manual migration/acceptance checklist.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title
