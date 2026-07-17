@@ -397,7 +397,8 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Diagnosed: GitHub CI backend and frontend jobs passed, but the AI audit found three Keras advisories because Python 3.10 resolved Keras 3.12.3.
 - Changed: Moved the AI Docker image and CI job to Python 3.11 and pinned Keras 3.15.0 in both the monorepo service and Hugging Face checkout.
 - Verified: Six AI tests, compile, package checks, a Python 3.11 Linux dependency resolution, and a full resolved dependency audit pass with no known vulnerabilities.
-- Pending: Push both repositories, rebuild the Hugging Face Space, let GitHub CI pass, redeploy Vercel, and complete the manual migration/acceptance checklist.
+- Deployed: Pushed Hugging Face `d20eb84` and main `7288424`; GitHub CI passes, both Vercel services serve the hardened release, backend readiness is green, and production cookie auth passes.
+- Pending: Change stale Hugging Face overrides from OpenCV/`0.58` to RetinaFace/`0.42`, migrate Neon from `a7e2d5c8f310` to `c1d4e7f9a620`, convert legacy credentials, and complete one real class-session camera scan.
 
 ## Entry Template
 ```markdown

@@ -51,15 +51,19 @@ The browser calls the same-origin Next.js route `/api/backend/*`; that route pro
 - Next.js proxy smoke: health, login, Set-Cookie forwarding, authenticated `/auth/me`, CSRF forwarding, and logout all passed through `/api/backend`.
 - Secret scan found no tracked `.env` files or obvious committed credentials.
 
+## Live Rollout Status (2026-07-17)
+
+- Main commit `7288424` is pushed; GitHub CI passes, Vercel serves the hardened frontend/backend, backend `/ready` reports database/AI/encryption ready, and production cookie login/auth-me/logout passes.
+- Hugging Face commit `d20eb84` is running on CPU Basic with the Python 3.11/Keras security fix. Space dashboard overrides still force `DETECTOR_BACKEND=opencv` and `RECOGNITION_THRESHOLD=0.58`; manually change them to `retinaface` and `0.42`, then restart the Space.
+- Neon is still at Alembic revision `a7e2d5c8f310`. Apply `alembic upgrade head` and confirm `c1d4e7f9a620` before class-session acceptance testing.
+
 ## Release Order
 
-1. Confirm Vercel and Hugging Face environment variables listed in `face-attendance/README.md`. Rotate any credential previously pasted into chat or screenshots.
-2. Push the Hugging Face checkout in `hf-face-attendance-ai` and confirm `/health` reports model ready, threshold `0.42`, and API-key protection.
-3. Push/deploy the GitHub monorepo changes and confirm backend `/health` and `/ready` plus frontend login.
-4. From `face-attendance/backend`, run `python -m alembic upgrade head` against Neon and confirm `python -m alembic current` reports `c1d4e7f9a620`.
-5. Run `python -m app.encrypt_company_credentials`. Run `python -m app.encrypt_face_embeddings` only after key verification.
-6. Re-enroll any Facenet or plaintext demo faces under ArcFace, start one class session, and perform one real kiosk scan.
-7. Send one real inbound WhatsApp `STATUS` message and verify inbound, reply, and delivery/read callback rows.
+1. Change the stale Hugging Face detector/threshold overrides, restart the Space, and confirm `/health` reports RetinaFace, threshold `0.42`, model ready, and API-key protection.
+2. Create a Neon backup branch, run `python -m alembic upgrade head`, and confirm `python -m alembic current` reports `c1d4e7f9a620`.
+3. Run `python -m app.encrypt_company_credentials`. Run `python -m app.encrypt_face_embeddings` only after production key verification.
+4. Re-enroll any Facenet or plaintext demo faces under ArcFace, start one class session, and perform one real kiosk scan plus a repeat-scan idempotency check.
+5. When WhatsApp work resumes, send one real inbound `STATUS` message and verify inbound, reply, and delivery/read callback rows.
 
 ## External Acceptance / Production Limits
 
