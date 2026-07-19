@@ -22,6 +22,7 @@ import {
 } from "react";
 import Webcam from "react-webcam";
 
+import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import {
   autoMarkAttendance,
@@ -449,9 +450,10 @@ export default function KioskPage() {
       <div className="relative mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-3 py-3 sm:px-6 sm:py-6 lg:px-8">
         <header className="flex flex-col gap-5 border-b border-white/10 pb-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3 sm:gap-4">
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-400 text-white shadow-lg shadow-blue-500/20 sm:size-14">
-              <ScanFace aria-hidden="true" className="size-7" />
-            </div>
+            <BrandLogo
+              showName={false}
+              markClassName="size-12 rounded-2xl shadow-lg shadow-blue-500/20 ring-1 ring-white/15 sm:size-14"
+            />
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.28em] text-blue-300">
                 Attendance Kiosk

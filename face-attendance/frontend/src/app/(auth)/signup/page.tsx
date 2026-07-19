@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 
+import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -58,15 +59,16 @@ export default function SignupPage() {
 
   if (process.env.NEXT_PUBLIC_ALLOW_SIGNUP !== "true") {
     return (
-      <main className="flex min-h-dvh items-center justify-center px-4 py-12">
-        <Card className="w-full max-w-md">
-          <CardHeader>
+      <main className="flex min-h-dvh items-center justify-center bg-muted/30 px-4 py-8 sm:py-12">
+        <Card className="w-full max-w-md shadow-lg">
+          <CardHeader className="space-y-4 px-5 pt-6 sm:px-8 sm:pt-8">
+            <BrandLogo markClassName="size-10" nameClassName="text-base" />
             <CardTitle>Organization signup is closed</CardTitle>
             <p className="text-sm text-muted-foreground text-pretty">
               Ask the platform administrator to create your organization.
             </p>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-5 pb-6 sm:px-8 sm:pb-8">
             <Button asChild className="w-full">
               <Link href="/login">Return to sign in</Link>
             </Button>
@@ -77,15 +79,16 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center px-4 py-12">
-      <Card className="w-full max-w-md">
-        <CardHeader>
+    <main className="flex min-h-dvh items-center justify-center bg-muted/30 px-4 py-8 sm:py-12">
+      <Card className="w-full max-w-md shadow-lg">
+        <CardHeader className="space-y-4 px-5 pt-6 sm:px-8 sm:pt-8">
+          <BrandLogo markClassName="size-10" nameClassName="text-base" />
           <CardTitle>Create your organization</CardTitle>
           <p className="text-sm text-muted-foreground text-pretty">
             Start with a school or organization administrator account.
           </p>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 px-5 pb-6 sm:px-8 sm:pb-8">
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor="company-name">
               Organization / School name

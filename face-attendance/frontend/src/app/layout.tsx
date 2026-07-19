@@ -6,6 +6,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  applicationName: "Face Attendance",
   title: "Face Attendance",
   description: "AI-powered face recognition attendance management",
 };

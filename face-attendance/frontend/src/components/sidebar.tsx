@@ -15,10 +15,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
-import { cn } from "@/lib/utils";
+import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { canManageUsers } from "@/lib/permissions";
+import { cn } from "@/lib/utils";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -103,10 +104,14 @@ export function Sidebar() {
       <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur lg:hidden">
         <Link
           href="/dashboard"
-          className="text-base font-semibold text-balance"
+          className="min-w-0"
           onClick={() => setIsMobileOpen(false)}
+          aria-label="Face Attendance dashboard"
         >
-          Face Attendance
+          <BrandLogo
+            markClassName="size-9"
+            nameClassName="hidden text-base min-[360px]:inline"
+          />
         </Link>
         <Button
           type="button"
@@ -130,9 +135,7 @@ export function Sidebar() {
           />
           <aside className="relative flex h-full w-72 max-w-[85vw] flex-col border-r bg-card shadow-xl">
             <div className="flex h-16 items-center justify-between border-b px-4">
-              <span className="text-base font-semibold text-balance">
-                Face Attendance
-              </span>
+              <BrandLogo markClassName="size-9" nameClassName="text-base" />
               <Button
                 type="button"
                 size="icon"
@@ -156,9 +159,7 @@ export function Sidebar() {
 
       <aside className="hidden w-64 shrink-0 flex-col border-r bg-card lg:flex">
         <div className="flex h-16 items-center border-b px-6">
-          <span className="text-lg font-semibold text-balance">
-            Face Attendance
-          </span>
+          <BrandLogo markClassName="size-10" nameClassName="text-lg" />
         </div>
         <nav aria-label="Dashboard navigation" className="flex-1 space-y-1 p-4">
           {renderNavLinks()}

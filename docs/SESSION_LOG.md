@@ -435,6 +435,12 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - UX: Rebuilt login as a responsive visual/form split, with mobile-safe cropping, concise product benefits, stronger hierarchy, password visibility, accessible errors/loading state, organization-scoped security messaging, and clearer legal links.
 - Verified: Frontend strict TypeScript, ESLint, optimized Next.js production build, asset presence, and patch whitespace checks pass.
 
+## 2026-07-19 - Add responsive project branding
+- Added: Generated an original face-scan/checkmark logo and stored the project-owned asset at `frontend/public/images/face-attendance-logo.png`.
+- UX: Added one reusable responsive brand component across login, signup, mobile/desktop navigation, kiosk, and legal pages. Very narrow navigation keeps the recognizable mark without crowding the menu button.
+- Added: Configured matching Next.js browser and Apple icons through `frontend/src/app/icon.png` and `frontend/src/app/apple-icon.png`.
+- Verified: Frontend strict TypeScript, ESLint, optimized Next.js production build, and patch whitespace checks pass.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

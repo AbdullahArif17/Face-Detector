@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { BrandLogo } from "@/components/brand-logo";
+
 interface LegalPageProps {
   title: string;
   description: string;
@@ -11,9 +13,12 @@ export function LegalPage({ title, description, children }: LegalPageProps) {
   return (
     <main className="min-h-screen bg-muted/30 px-4 py-10 sm:px-6">
       <article className="mx-auto max-w-3xl rounded-xl border bg-background p-6 shadow-sm sm:p-10">
-        <Link className="text-sm font-medium text-primary hover:underline" href="/login">
-          ← Back to Face Attendance
-        </Link>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <BrandLogo markClassName="size-9" nameClassName="text-base" />
+          <Link className="text-sm font-medium text-primary hover:underline" href="/login">
+            Back to sign in
+          </Link>
+        </div>
         <header className="mt-6 border-b pb-6">
           <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
           <p className="mt-3 text-muted-foreground">{description}</p>

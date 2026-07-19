@@ -13,6 +13,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { type KeyboardEvent, useState } from "react";
 
+import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -87,11 +88,12 @@ export default function LoginPage() {
         />
 
         <div className="relative flex min-h-[18rem] flex-col justify-between p-5 text-white sm:min-h-[23rem] sm:p-8 lg:min-h-dvh lg:p-12 xl:p-16">
-          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/20 bg-slate-950/35 px-3 py-2 text-sm font-semibold shadow-sm backdrop-blur-md">
-            <span className="flex size-8 items-center justify-center rounded-full bg-blue-600">
-              <ScanFace aria-hidden="true" className="size-4" />
-            </span>
-            Face Attendance
+          <div className="inline-flex w-fit rounded-full border border-white/20 bg-slate-950/35 py-1.5 pl-1.5 pr-3 shadow-sm backdrop-blur-md">
+            <BrandLogo
+              priority
+              markClassName="size-9 rounded-full"
+              nameClassName="text-sm text-white"
+            />
           </div>
 
           <div className="max-w-2xl">
@@ -124,9 +126,11 @@ export default function LoginPage() {
       <section className="relative flex items-center justify-center px-4 py-8 sm:px-8 sm:py-12 lg:px-10 xl:px-16">
         <Card className="w-full max-w-md border-0 bg-card shadow-xl ring-1 ring-border/70 lg:shadow-2xl">
           <CardHeader className="space-y-3 px-5 pb-4 pt-6 sm:px-8 sm:pt-8">
-            <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary lg:hidden">
-              <ScanFace aria-hidden="true" className="size-6" />
-            </div>
+            <BrandLogo
+              showName={false}
+              className="lg:hidden"
+              markClassName="size-12 rounded-2xl shadow-md"
+            />
             <div>
               <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
                 Welcome back
