@@ -45,6 +45,7 @@ The browser calls the same-origin Next.js route `/api/backend/*`; that route pro
 - Organization admins cannot manage a `super_admin`, cannot alter their own role/status, and cannot delete themselves. User input schemas reject unknown privilege-bearing fields.
 - Dashboard workflows now use accessible confirmation dialogs, retryable API errors, safer destructive-action labels, responsive mobile cards, clearer empty states, camera/upload guidance, and non-localhost production API defaults.
 - Settings is intentionally kiosk-only: it contains the class-scoped kiosk workflow, link generator, open/copy actions, and key-rotation warning. WhatsApp diagnostics, school-phone fields, test-message controls, and raw kiosk-key display do not belong on the organization Settings page.
+- Login uses a project-owned generated school-kiosk illustration at `frontend/public/images/login-attendance-hero.png`. The page is a responsive split layout on desktop and a compact visual banner plus form on mobile, with accessible password visibility, loading, error, security, and legal controls.
 - Verification: 26 backend tests pass, frontend strict TypeScript and ESLint pass, the optimized Next.js production build succeeds, and `git diff --check` reports no patch errors.
 
 ## Validation Evidence (2026-07-16)

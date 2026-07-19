@@ -430,6 +430,11 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Clarified: Parent WhatsApp recipients remain on individual student records; no school phone is required on this page. Attendance is recorded only while the selected class session is active.
 - Verified: Frontend strict TypeScript, ESLint, and the optimized Next.js production build pass.
 
+## 2026-07-19 - Add responsive login artwork and redesign
+- Added: Generated an original school-arrival face-attendance kiosk illustration and stored it as `frontend/public/images/login-attendance-hero.png` for local, CSP-safe delivery.
+- UX: Rebuilt login as a responsive visual/form split, with mobile-safe cropping, concise product benefits, stronger hierarchy, password visibility, accessible errors/loading state, organization-scoped security messaging, and clearer legal links.
+- Verified: Frontend strict TypeScript, ESLint, optimized Next.js production build, asset presence, and patch whitespace checks pass.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title
