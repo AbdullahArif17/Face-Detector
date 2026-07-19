@@ -446,6 +446,10 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Changed: Removed the repeated logo from the mobile form card so branding remains clear without consuming extra vertical space.
 - Verified: Frontend strict TypeScript, ESLint, optimized Next.js production build, and patch whitespace checks pass.
 
+## 2026-07-19 - Increase mobile login artwork height
+- UX: Increased the login artwork to 20rem on phones and 24rem on small tablets after visual review, while preserving the denser form and unchanged desktop split layout.
+- Verified: Frontend strict TypeScript, ESLint, and patch whitespace checks pass.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

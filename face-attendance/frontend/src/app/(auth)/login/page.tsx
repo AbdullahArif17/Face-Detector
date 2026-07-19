@@ -73,7 +73,7 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-dvh bg-background lg:grid lg:grid-cols-[minmax(0,1.12fr)_minmax(28rem,0.88fr)]">
-      <section className="relative min-h-[15.5rem] overflow-hidden bg-slate-950 sm:min-h-[22rem] lg:min-h-dvh">
+      <section className="relative min-h-[20rem] overflow-hidden bg-slate-950 sm:min-h-[24rem] lg:min-h-dvh">
         <Image
           src="/images/login-attendance-hero.png"
           alt="Students checking in at a school attendance kiosk"
@@ -87,7 +87,7 @@ export default function LoginPage() {
           aria-hidden="true"
         />
 
-        <div className="relative flex min-h-[15.5rem] flex-col justify-between p-4 text-white sm:min-h-[22rem] sm:p-8 lg:min-h-dvh lg:p-12 xl:p-16">
+        <div className="relative flex min-h-[20rem] flex-col justify-between p-4 text-white sm:min-h-[24rem] sm:p-8 lg:min-h-dvh lg:p-12 xl:p-16">
           <div className="inline-flex w-fit rounded-full border border-white/20 bg-slate-950/35 py-1 pl-1 pr-2.5 shadow-sm backdrop-blur-md">
             <BrandLogo
               priority
