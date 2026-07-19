@@ -73,37 +73,37 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-dvh bg-background lg:grid lg:grid-cols-[minmax(0,1.12fr)_minmax(28rem,0.88fr)]">
-      <section className="relative min-h-[18rem] overflow-hidden bg-slate-950 sm:min-h-[23rem] lg:min-h-dvh">
+      <section className="relative min-h-[15.5rem] overflow-hidden bg-slate-950 sm:min-h-[22rem] lg:min-h-dvh">
         <Image
           src="/images/login-attendance-hero.png"
           alt="Students checking in at a school attendance kiosk"
           fill
           priority
           sizes="(min-width: 1024px) 56vw, 100vw"
-          className="object-cover object-[center_70%] lg:object-[center_58%]"
+          className="object-cover object-[center_68%] lg:object-[center_58%]"
         />
         <div
           className="absolute inset-0 bg-gradient-to-b from-slate-950/75 via-slate-950/5 to-slate-950/90 lg:bg-gradient-to-tr lg:from-slate-950/90 lg:via-slate-950/15 lg:to-transparent"
           aria-hidden="true"
         />
 
-        <div className="relative flex min-h-[18rem] flex-col justify-between p-5 text-white sm:min-h-[23rem] sm:p-8 lg:min-h-dvh lg:p-12 xl:p-16">
-          <div className="inline-flex w-fit rounded-full border border-white/20 bg-slate-950/35 py-1.5 pl-1.5 pr-3 shadow-sm backdrop-blur-md">
+        <div className="relative flex min-h-[15.5rem] flex-col justify-between p-4 text-white sm:min-h-[22rem] sm:p-8 lg:min-h-dvh lg:p-12 xl:p-16">
+          <div className="inline-flex w-fit rounded-full border border-white/20 bg-slate-950/35 py-1 pl-1 pr-2.5 shadow-sm backdrop-blur-md">
             <BrandLogo
               priority
-              markClassName="size-9 rounded-full"
-              nameClassName="text-sm text-white"
+              markClassName="size-8 rounded-full sm:size-9"
+              nameClassName="text-xs text-white sm:text-sm"
             />
           </div>
 
           <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-blue-200 sm:text-sm">
+            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-blue-200 sm:text-sm sm:tracking-[0.22em]">
               AI-powered school attendance
             </p>
-            <h1 className="mt-3 max-w-xl text-3xl font-bold leading-tight text-balance sm:text-4xl lg:text-5xl xl:text-6xl">
+            <h1 className="mt-2 max-w-xl text-[1.65rem] font-bold leading-[1.12] text-balance min-[390px]:text-3xl sm:mt-3 sm:text-4xl sm:leading-tight lg:text-5xl xl:text-6xl">
               Every arrival, recorded in real time.
             </h1>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-slate-200 text-pretty sm:text-base lg:mt-5 lg:text-lg">
+            <p className="mt-2 max-w-xl text-[0.8125rem] leading-5 text-slate-200 text-pretty sm:mt-3 sm:text-base sm:leading-6 lg:mt-5 lg:text-lg">
               Run secure class sessions, recognize enrolled students, and keep
               attendance organized from one simple portal.
             </p>
@@ -123,27 +123,22 @@ export default function LoginPage() {
         </div>
       </section>
 
-      <section className="relative flex items-center justify-center px-4 py-8 sm:px-8 sm:py-12 lg:px-10 xl:px-16">
-        <Card className="w-full max-w-md border-0 bg-card shadow-xl ring-1 ring-border/70 lg:shadow-2xl">
-          <CardHeader className="space-y-3 px-5 pb-4 pt-6 sm:px-8 sm:pt-8">
-            <BrandLogo
-              showName={false}
-              className="lg:hidden"
-              markClassName="size-12 rounded-2xl shadow-md"
-            />
+      <section className="relative flex items-center justify-center px-3 py-5 sm:px-8 sm:py-10 lg:px-10 lg:py-12 xl:px-16">
+        <Card className="w-full max-w-md border-0 bg-card shadow-lg ring-1 ring-border/70 sm:shadow-xl lg:shadow-2xl">
+          <CardHeader className="px-5 pb-3 pt-5 sm:px-8 sm:pb-4 sm:pt-8">
             <div>
-              <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+              <h2 className="text-[1.65rem] font-bold tracking-tight sm:text-3xl">
                 Welcome back
               </h2>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground text-pretty">
+              <p className="mt-1.5 text-sm leading-5 text-muted-foreground text-pretty sm:mt-2 sm:leading-6">
                 Sign in with your organization and account details.
               </p>
             </div>
           </CardHeader>
 
-          <CardContent className="space-y-5 px-5 pb-6 sm:px-8 sm:pb-8">
-            <div className="space-y-4" onKeyDown={handleKeyDown}>
-              <div className="space-y-2">
+          <CardContent className="space-y-4 px-5 pb-5 sm:space-y-5 sm:px-8 sm:pb-8">
+            <div className="space-y-3.5 sm:space-y-4" onKeyDown={handleKeyDown}>
+              <div className="space-y-1.5 sm:space-y-2">
                 <label className="text-sm font-medium" htmlFor="organization-name">
                   Organization or school
                 </label>
@@ -155,12 +150,12 @@ export default function LoginPage() {
                   value={organizationName}
                   onChange={(event) => setOrganizationName(event.target.value)}
                   aria-invalid={Boolean(error)}
-                  className="h-11"
+                  className="h-10 sm:h-11"
                   required
                 />
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5 sm:space-y-2">
                 <label className="text-sm font-medium" htmlFor="email">
                   Email address
                 </label>
@@ -174,12 +169,12 @@ export default function LoginPage() {
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   aria-invalid={Boolean(error)}
-                  className="h-11"
+                  className="h-10 sm:h-11"
                   required
                 />
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5 sm:space-y-2">
                 <label className="text-sm font-medium" htmlFor="password">
                   Password
                 </label>
@@ -193,7 +188,7 @@ export default function LoginPage() {
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     aria-invalid={Boolean(error)}
-                    className="h-11 pr-11"
+                    className="h-10 pr-11 sm:h-11"
                     required
                   />
                   <button
@@ -221,7 +216,7 @@ export default function LoginPage() {
               ) : null}
 
               <Button
-                className="h-11 w-full gap-2"
+                className="h-10 w-full gap-2 sm:h-11"
                 type="button"
                 disabled={isLoginDisabled}
                 aria-busy={isSubmitting}
@@ -246,7 +241,7 @@ export default function LoginPage() {
               </p>
             ) : null}
 
-            <div className="flex items-center justify-center gap-2 rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+            <div className="flex items-center justify-center gap-1.5 rounded-lg bg-muted/60 px-2.5 py-2 text-[0.6875rem] text-muted-foreground sm:gap-2 sm:px-3 sm:text-xs">
               <ShieldCheck aria-hidden="true" className="size-4 text-emerald-600" />
               Secure, organization-scoped access
             </div>

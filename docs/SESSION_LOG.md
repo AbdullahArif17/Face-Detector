@@ -441,6 +441,11 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Added: Configured matching Next.js browser and Apple icons through `frontend/src/app/icon.png` and `frontend/src/app/apple-icon.png`.
 - Verified: Frontend strict TypeScript, ESLint, optimized Next.js production build, and patch whitespace checks pass.
 
+## 2026-07-19 - Tighten small-screen login layout
+- UX: Reduced the phone hero height, logo badge, headline scale, form padding, field spacing, and control heights while retaining the existing tablet and desktop layout.
+- Changed: Removed the repeated logo from the mobile form card so branding remains clear without consuming extra vertical space.
+- Verified: Frontend strict TypeScript, ESLint, optimized Next.js production build, and patch whitespace checks pass.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title
