@@ -7,7 +7,6 @@ import {
   LogOut,
   Menu,
   MessageSquareText,
-  Settings,
   UserCog,
   Users,
   X,
