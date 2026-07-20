@@ -192,6 +192,7 @@ export interface AttendanceSession {
   branch_name: string | null;
   class_name: string | null;
   status: "active" | "stopped" | string;
+  session_type: "check_in" | "check_out" | string;
   started_by_id: number;
   stopped_by_id: number | null;
   started_at: string;
@@ -203,6 +204,8 @@ export interface AttendanceSessionStatus {
   branch_id: number;
   class_id: number;
   active_session: AttendanceSession | null;
+  active_check_in_session: AttendanceSession | null;
+  active_check_out_session: AttendanceSession | null;
 }
 
 export interface AttendanceClassSessionStatus {
@@ -630,10 +633,12 @@ export async function getAttendanceClassSessionStatuses(): Promise<
   return response.data;
 }
 
-export async function startAttendanceSession(): Promise<AttendanceSession> {
+export async function startAttendanceSession(
+  sessionType: "check_in" | "check_out" = "check_in",
+): Promise<AttendanceSession> {
   const response = await api.post<AttendanceSession>(
     "/attendance/sessions/start",
-    {},
+    { session_type: sessionType },
   );
   return response.data;
 }

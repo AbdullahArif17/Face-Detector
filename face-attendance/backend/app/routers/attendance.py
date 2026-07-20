@@ -191,9 +191,10 @@ async def get_active_attendance_session(
     session: AsyncSession,
     *,
     company_id: int,
+    session_type: str | None = None,
 ) -> AttendanceSession | None:
     day_start, day_end = today_bounds()
-    return await session.scalar(
+    query = (
         select(AttendanceSession)
         .where(
             AttendanceSession.company_id == company_id,
@@ -202,8 +203,11 @@ async def get_active_attendance_session(
             AttendanceSession.started_at >= day_start,
             AttendanceSession.started_at < day_end,
         )
-        .order_by(AttendanceSession.started_at.desc()),
     )
+    if session_type:
+        query = query.where(AttendanceSession.session_type == session_type)
+        
+    return await session.scalar(query.order_by(AttendanceSession.started_at.desc()))
 
 
 async def expire_stale_attendance_sessions(
@@ -267,6 +271,7 @@ def build_attendance_session_read(
         branch_name=branch.name if branch is not None else None,
         class_name=branch.name if branch is not None else None,
         status=attendance_session.status,
+        session_type=attendance_session.session_type,
         started_by_id=attendance_session.started_by_id,
         stopped_by_id=attendance_session.stopped_by_id,
         started_at=attendance_session.started_at,
@@ -456,7 +461,9 @@ async def get_class_session_statuses(
     )
     active_session = None
     if active_sessions:
-        # Under the global model, there is only one active session per company
+        # Under the global model, there is only one active session of a given type per company
+        # We can just return the most recently started active session for the status page.
+        active_sessions.sort(key=lambda s: s.started_at, reverse=True)
         active_session = active_sessions[0]
 
     return [
@@ -484,15 +491,36 @@ async def get_active_session_status(
         require_role("super_admin", "admin", "hr", "branch_manager", "viewer"),
     ),
 ) -> AttendanceSessionStatus:
-    active_session = await get_active_attendance_session(
+    active_check_in = await get_active_attendance_session(
         session,
         company_id=current_user.company_id,
+        session_type="check_in",
     )
+    active_check_out = await get_active_attendance_session(
+        session,
+        company_id=current_user.company_id,
+        session_type="check_out",
+    )
+    # determine "most recent" for backward compatibility of active_session
+    sessions = []
+    if active_check_in:
+        sessions.append(active_check_in)
+    if active_check_out:
+        sessions.append(active_check_out)
+    sessions.sort(key=lambda s: s.started_at, reverse=True)
+    active_session = sessions[0] if sessions else None
+
     return AttendanceSessionStatus(
         branch_id=active_session.branch_id if active_session else None,
         class_id=active_session.branch_id if active_session else None,
         active_session=build_attendance_session_read(active_session, None)
         if active_session is not None
+        else None,
+        active_check_in_session=build_attendance_session_read(active_check_in, None)
+        if active_check_in is not None
+        else None,
+        active_check_out_session=build_attendance_session_read(active_check_out, None)
+        if active_check_out is not None
         else None,
     )
 
@@ -515,11 +543,12 @@ async def start_attendance_session(
     existing_session = await get_active_attendance_session(
         session,
         company_id=current_user.company_id,
+        session_type=payload.session_type,
     )
     if existing_session is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Attendance session is already active",
+            detail=f"Attendance {payload.session_type} session is already active",
         )
 
     attendance_session = AttendanceSession(
@@ -527,6 +556,7 @@ async def start_attendance_session(
         branch_id=None,
         started_by_id=current_user.id,
         status="active",
+        session_type=payload.session_type,
     )
     session.add(attendance_session)
     try:
@@ -535,7 +565,7 @@ async def start_attendance_session(
         await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Attendance session is already active",
+            detail=f"Attendance {payload.session_type} session is already active",
         ) from exc
     await session.refresh(attendance_session)
     return build_attendance_session_read(attendance_session, None)
@@ -593,6 +623,8 @@ async def auto_mark_attendance(
             action="session_closed",
             message="Attendance session is not active",
         )
+
+    action_type = active_session.session_type
 
     candidates_result = await session.execute(
         select(Student, FaceEmbedding)

@@ -15,8 +15,9 @@ class AttendanceSession(Base):
             "status",
         ),
         Index(
-            "uq_attendance_sessions_one_active_company",
+            "uq_attendance_sessions_one_active_company_per_type",
             "company_id",
+            "session_type",
             unique=True,
             postgresql_where=text("status = 'active' AND stopped_at IS NULL"),
         ),
@@ -42,6 +43,7 @@ class AttendanceSession(Base):
         nullable=True,
     )
     status: Mapped[str] = mapped_column(String(50), default="active", nullable=False, index=True)
+    session_type: Mapped[str] = mapped_column(String(20), default="check_in", server_default="check_in", nullable=False)
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

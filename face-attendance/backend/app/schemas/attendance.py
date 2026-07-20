@@ -53,7 +53,7 @@ class ClassScopedRequest(BaseModel):
 
 
 class AttendanceSessionStart(ClassScopedRequest):
-    pass
+    session_type: str = Field(default="check_in", max_length=20)
 
 
 class AttendanceSessionStop(BaseModel):
@@ -68,6 +68,7 @@ class AttendanceSessionRead(BaseModel):
     branch_name: str | None = None
     class_name: str | None = None
     status: str
+    session_type: str
     started_by_id: int
     stopped_by_id: int | None = None
     started_at: datetime
@@ -79,6 +80,8 @@ class AttendanceSessionStatus(BaseModel):
     branch_id: int | None = None
     class_id: int | None = None
     active_session: AttendanceSessionRead | None = None
+    active_check_in_session: AttendanceSessionRead | None = None
+    active_check_out_session: AttendanceSessionRead | None = None
 
 
 class AttendanceClassSessionStatus(BaseModel):

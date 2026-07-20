@@ -11,9 +11,7 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
 import {
   getCompanyApiKey,
-  getSchoolClasses,
   regenerateCompanyApiKey,
-  type SchoolClass,
 } from "@/lib/api";
 import { canManageKiosk } from "@/lib/permissions";
 
@@ -24,14 +22,9 @@ const KIOSK_STEPS = [
       "Open Students and enroll two or three clear, front-facing photos for each student.",
   },
   {
-    title: "Choose the class",
-    description:
-      "Select a class below. The generated kiosk link is restricted to that class.",
-  },
-  {
     title: "Start attendance",
     description:
-      "Open Attendance and start a session for the same class before scanning anyone.",
+      "Open Attendance and start a global session before scanning anyone.",
   },
   {
     title: "Open the kiosk",
@@ -41,7 +34,7 @@ const KIOSK_STEPS = [
   {
     title: "Stop the session",
     description:
-      "Stop the class session when attendance is complete. Scans outside an active session are not recorded.",
+      "Stop the session when attendance is complete. Scans outside an active session are not recorded.",
   },
 ] as const;
 
@@ -96,8 +89,6 @@ async function copyToClipboard(text: string): Promise<boolean> {
 export default function SettingsPage() {
   const { user } = useAuth();
   const [apiKey, setApiKey] = useState<string | null>(null);
-  const [classId, setClassId] = useState("");
-  const [schoolClasses, setSchoolClasses] = useState<SchoolClass[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isRegenerateDialogOpen, setIsRegenerateDialogOpen] = useState(false);
@@ -112,20 +103,8 @@ export default function SettingsPage() {
 
     setIsLoading(true);
     try {
-      const [keyResponse, classesResponse] = await Promise.all([
-        getCompanyApiKey(user.company_id),
-        getSchoolClasses(user.company_id),
-      ]);
+      const keyResponse = await getCompanyApiKey(user.company_id);
       setApiKey(keyResponse.api_key);
-      setSchoolClasses(classesResponse);
-      setClassId((currentClassId) => {
-        const currentStillExists = classesResponse.some(
-          (schoolClass) => schoolClass.id.toString() === currentClassId,
-        );
-        return currentStillExists
-          ? currentClassId
-          : (classesResponse[0]?.id.toString() ?? "");
-      });
       setHasError(false);
     } catch {
       setHasError(true);
@@ -150,18 +129,14 @@ export default function SettingsPage() {
     if (!apiKey || typeof window === "undefined") {
       return "";
     }
-    const normalizedClass = classId.trim();
-    if (!normalizedClass) {
-      return "";
-    }
     const baseUrl = getKioskBaseUrl();
     if (!baseUrl) {
       return "";
     }
     return `${baseUrl}/kiosk?key=${encodeURIComponent(
       apiKey,
-    )}&class_id=${encodeURIComponent(normalizedClass)}`;
-  }, [apiKey, classId]);
+    )}`;
+  }, [apiKey]);
 
   async function handleCopyKioskUrl(): Promise<void> {
     if (!kioskUrl) {
@@ -227,7 +202,7 @@ export default function SettingsPage() {
           <div>
             <h2 className="text-xl font-semibold">Attendance Kiosk</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Generate one secure kiosk link for each class attendance device.
+              Generate a secure kiosk link for your attendance devices.
             </p>
           </div>
           <Button
@@ -278,29 +253,6 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="grid gap-2">
-              <label className="text-sm font-medium" htmlFor="kiosk-class">
-                Select class
-              </label>
-              <select
-                id="kiosk-class"
-                value={classId}
-                onChange={(event) => setClassId(event.target.value)}
-                disabled={isLoading || schoolClasses.length === 0}
-                className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <option value="">Select class</option>
-                {schoolClasses.map((schoolClass) => (
-                  <option key={schoolClass.id} value={schoolClass.id}>
-                    {schoolClass.name}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-muted-foreground">
-                {schoolClasses.length === 0 && !isLoading
-                  ? "No classes with active students were found. Add students before creating a kiosk link."
-                  : "Each class gets a different kiosk URL and attendance session."}
-              </p>
             </div>
 
             <div className="grid gap-2">
@@ -314,7 +266,7 @@ export default function SettingsPage() {
                   value={
                     isLoading
                       ? "Loading kiosk access..."
-                      : kioskUrl || "Select a class to generate its kiosk URL"
+                      : kioskUrl
                   }
                   onFocus={(event) => event.target.select()}
                 />
@@ -369,7 +321,7 @@ export default function SettingsPage() {
       <ConfirmDialog
         open={isRegenerateDialogOpen}
         title="Regenerate kiosk access?"
-        description="Every existing kiosk link will stop working immediately. You will need to copy and redistribute a new link for each class."
+        description="The existing kiosk link will stop working immediately. You will need to copy and redistribute the new link."
         confirmLabel="Regenerate access"
         busyLabel="Regenerating..."
         destructive

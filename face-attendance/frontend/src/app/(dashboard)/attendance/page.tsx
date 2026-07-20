@@ -301,18 +301,18 @@ export default function AttendancePage() {
     await Promise.all([loadToday(), loadGlobalSession()]);
   }
 
-  async function handleStartSession(): Promise<void> {
+  async function handleStartSession(sessionType: "check_in" | "check_out"): Promise<void> {
     setIsUpdatingSession(true);
     setSessionMessage("");
     setSessionMessageIsError(false);
     try {
-      await startAttendanceSession();
-      setSessionMessage("Global attendance session started.");
+      await startAttendanceSession(sessionType);
+      setSessionMessage(`Global ${sessionType.replace("_", "-")} session started.`);
       await Promise.all([loadGlobalSession(), loadToday()]);
     } catch (error) {
       setSessionMessageIsError(true);
       setSessionMessage(
-        getApiErrorMessage(error, "Unable to start attendance session."),
+        getApiErrorMessage(error, `Unable to start ${sessionType.replace("_", "-")} session.`),
       );
     } finally {
       setIsUpdatingSession(false);
@@ -320,9 +320,7 @@ export default function AttendancePage() {
   }
 
   async function handleStopSession(sessionStatus: AttendanceSessionStatus): Promise<void> {
-    if (!sessionStatus.active_session) {
-      setSessionMessageIsError(true);
-      setSessionMessage("No active attendance session to stop.");
+    if (!pendingStopSession) {
       return;
     }
 
@@ -330,7 +328,7 @@ export default function AttendancePage() {
     setSessionMessage("");
     setSessionMessageIsError(false);
     try {
-      await stopAttendanceSession(sessionStatus.active_session.id);
+      await stopAttendanceSession(pendingStopSession.id);
       setSessionMessage("Attendance session stopped.");
       await Promise.all([loadGlobalSession(), loadToday()]);
     } catch (error) {
@@ -394,7 +392,8 @@ export default function AttendancePage() {
     }
   }
 
-  const isActive = globalSession?.active_session !== null && globalSession?.active_session !== undefined;
+  const isCheckInActive = Boolean(globalSession?.active_check_in_session);
+  const isCheckOutActive = Boolean(globalSession?.active_check_out_session);
 
   return (
     <section className="space-y-6">
@@ -455,66 +454,129 @@ export default function AttendancePage() {
         ) : null}
 
         {!isSessionLoading && globalSession && (
-          <article
-            className={cn(
-              "space-y-3 rounded-lg border p-4 max-w-sm",
-              isActive && "border-primary ring-1 ring-primary/20",
-            )}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="font-semibold">Today&apos;s Session</h3>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Global organization session
-                </p>
+          <div className="grid gap-4 md:grid-cols-2 lg:max-w-3xl">
+            <article
+              className={cn(
+                "space-y-3 rounded-lg border p-4",
+                isCheckInActive && "border-primary ring-1 ring-primary/20",
+              )}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-semibold">Check-in Session</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Students arriving at school
+                  </p>
+                </div>
+                <span
+                  className={cn(
+                    "inline-flex rounded-full px-2.5 py-1 text-xs font-semibold",
+                    isCheckInActive
+                      ? "bg-green-100 text-green-700"
+                      : "bg-slate-100 text-slate-600",
+                  )}
+                >
+                  {isCheckInActive ? "ON" : "OFF"}
+                </span>
               </div>
-              <span
-                className={cn(
-                  "inline-flex rounded-full px-2.5 py-1 text-xs font-semibold",
-                  isActive
-                    ? "bg-green-100 text-green-700"
-                    : "bg-slate-100 text-slate-600",
-                )}
-              >
-                {isActive ? "ON" : "OFF"}
-              </span>
-            </div>
 
-            <p className="min-h-10 text-sm text-muted-foreground">
-              {isActive && globalSession.active_session
-                ? `Started ${dateTimeFormatter.format(
-                    new Date(globalSession.active_session.started_at),
-                  )}`
-                : "Kiosk scans are blocked until session is started."}
-            </p>
+              <p className="min-h-10 text-sm text-muted-foreground">
+                {isCheckInActive && globalSession.active_check_in_session
+                  ? `Started ${dateTimeFormatter.format(
+                      new Date(globalSession.active_check_in_session.started_at),
+                    )}`
+                  : "Kiosk check-in scans are currently blocked."}
+              </p>
 
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant={isActive ? "outline" : "default"}
-                disabled={!canManageSessions || isUpdatingSession}
-                className="w-full gap-2"
-                onClick={() =>
-                  isActive
-                    ? setPendingStopSession(globalSession)
-                    : void handleStartSession()
-                }
-              >
-                {isActive ? (
-                  <PowerOff aria-hidden="true" className="size-4" />
-                ) : (
-                  <Power aria-hidden="true" className="size-4" />
-                )}
-                {isUpdatingSession
-                  ? isActive
-                    ? "Stopping..."
-                    : "Starting..."
-                  : isActive
-                    ? "Turn OFF"
-                    : "Turn ON"}
-              </Button>
-            </div>
-          </article>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={isCheckInActive ? "outline" : "default"}
+                  disabled={!canManageSessions || isUpdatingSession}
+                  className="w-full gap-2"
+                  onClick={() =>
+                    isCheckInActive
+                      ? setPendingStopSession(globalSession.active_check_in_session)
+                      : void handleStartSession("check_in")
+                  }
+                >
+                  {isCheckInActive ? (
+                    <PowerOff aria-hidden="true" className="size-4" />
+                  ) : (
+                    <Power aria-hidden="true" className="size-4" />
+                  )}
+                  {isUpdatingSession
+                    ? isCheckInActive
+                      ? "Stopping..."
+                      : "Starting..."
+                    : isCheckInActive
+                      ? "Turn OFF"
+                      : "Turn ON"}
+                </Button>
+              </div>
+            </article>
+
+            <article
+              className={cn(
+                "space-y-3 rounded-lg border p-4",
+                isCheckOutActive && "border-primary ring-1 ring-primary/20",
+              )}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-semibold">Check-out Session</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Students leaving school
+                  </p>
+                </div>
+                <span
+                  className={cn(
+                    "inline-flex rounded-full px-2.5 py-1 text-xs font-semibold",
+                    isCheckOutActive
+                      ? "bg-green-100 text-green-700"
+                      : "bg-slate-100 text-slate-600",
+                  )}
+                >
+                  {isCheckOutActive ? "ON" : "OFF"}
+                </span>
+              </div>
+
+              <p className="min-h-10 text-sm text-muted-foreground">
+                {isCheckOutActive && globalSession.active_check_out_session
+                  ? `Started ${dateTimeFormatter.format(
+                      new Date(globalSession.active_check_out_session.started_at),
+                    )}`
+                  : "Kiosk check-out scans are currently blocked."}
+              </p>
+
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={isCheckOutActive ? "outline" : "default"}
+                  disabled={!canManageSessions || isUpdatingSession}
+                  className="w-full gap-2"
+                  onClick={() =>
+                    isCheckOutActive
+                      ? setPendingStopSession(globalSession.active_check_out_session)
+                      : void handleStartSession("check_out")
+                  }
+                >
+                  {isCheckOutActive ? (
+                    <PowerOff aria-hidden="true" className="size-4" />
+                  ) : (
+                    <Power aria-hidden="true" className="size-4" />
+                  )}
+                  {isUpdatingSession
+                    ? isCheckOutActive
+                      ? "Stopping..."
+                      : "Starting..."
+                    : isCheckOutActive
+                      ? "Turn OFF"
+                      : "Turn ON"}
+                </Button>
+              </div>
+            </article>
+          </div>
         )}
       </div>
 
@@ -682,18 +744,18 @@ export default function AttendancePage() {
       ) : null}
 
       <ConfirmDialog
-        open={pendingStopSession !== null}
-        title="Stop global attendance session?"
-        description="New kiosk scans will be blocked immediately. Attendance already recorded in this session will be preserved."
+        open={Boolean(pendingStopSession)}
+        title="Stop attendance session?"
+        description={
+          pendingStopSession
+            ? `Are you sure you want to stop the ${pendingStopSession.session_type.replace("_", "-")} session? Kiosk scans for this session will be blocked.`
+            : ""
+        }
         confirmLabel="Stop session"
         busyLabel="Stopping..."
         destructive
         isConfirming={isUpdatingSession}
-        onOpenChange={(nextOpen) => {
-          if (!nextOpen && !isUpdatingSession) {
-            setPendingStopSession(null);
-          }
-        }}
+        onOpenChange={(open) => !open && setPendingStopSession(null)}
         onConfirm={() => {
           if (pendingStopSession) {
             void handleStopSession(pendingStopSession);
