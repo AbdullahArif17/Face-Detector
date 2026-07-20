@@ -614,12 +614,9 @@ export async function getAttendanceSessions(options: {
   return response.data;
 }
 
-export async function getActiveAttendanceSession(
-  classId: number,
-): Promise<AttendanceSessionStatus> {
+export async function getActiveAttendanceSession(): Promise<AttendanceSessionStatus> {
   const response = await api.get<AttendanceSessionStatus>(
     "/attendance/sessions/active",
-    { params: { class_id: classId } },
   );
   return response.data;
 }
@@ -633,12 +630,10 @@ export async function getAttendanceClassSessionStatuses(): Promise<
   return response.data;
 }
 
-export async function startAttendanceSession(
-  classId: number,
-): Promise<AttendanceSession> {
+export async function startAttendanceSession(): Promise<AttendanceSession> {
   const response = await api.post<AttendanceSession>(
     "/attendance/sessions/start",
-    { class_id: classId },
+    {},
   );
   return response.data;
 }

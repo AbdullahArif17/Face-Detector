@@ -2,6 +2,7 @@
 
 import {
   CalendarCheck,
+  FileText,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -25,6 +26,7 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Students", href: "/students", icon: Users },
   { name: "Attendance", href: "/attendance", icon: CalendarCheck },
+  { name: "Reports", href: "/reports", icon: FileText },
   { name: "Notifications", href: "/notifications", icon: MessageSquareText },
   { name: "Settings", href: "/settings", icon: Settings },
 ] as const;
@@ -42,12 +44,9 @@ export function Sidebar() {
   const visibleNavigation =
     canManageUsers(user)
       ? [
-          navigation[0],
-          navigation[1],
-          navigation[2],
-          navigation[3],
+          ...navigation.slice(0, 4),
           usersNavigationItem,
-          navigation[4],
+          ...navigation.slice(4),
         ]
       : navigation;
 
