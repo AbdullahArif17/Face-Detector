@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ApiError } from "@/components/api-error";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { KioskSettings } from "@/components/kiosk-settings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
@@ -417,6 +418,8 @@ export default function AttendancePage() {
           Refresh Today
         </Button>
       </div>
+
+      <KioskSettings />
 
       <div className="space-y-4 rounded-lg border bg-card p-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">

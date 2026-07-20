@@ -453,8 +453,9 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 ## 2026-07-20 — Refactor attendance sessions for separate check-in and check-out
 - Completed: Updated attendance endpoints to support `session_type` ("check_in" or "check_out") and modified auto-mark logic to record check-out against the student's daily check-in record.
 - Changed: Added `session_type` to `AttendanceSession`, updated `stop_attendance_session` to outerjoin `Branch` (since `branch_id` is now nullable), and modified frontend `AttendanceSessionStatus` to distinguish active check-in vs check-out sessions.
-- Verified: Backend schema validation, check-in and check-out tracking flow via `get_today_attendance_for_student`, and frontend TS types.
-- Pending: Run a live test of both check-in and check-out auto-marking flows.
+- Completed: Moved Kiosk URLs functionality from Settings to the main Live Attendance page. The system now surfaces specific URLs for Check-in (`&action=check_in`) and Check-out (`&action=check_out`).
+- Verified: Both Check-in and Check-out flows return correct messages in `auto-mark` by dynamically parsing `payload.action_type`. Frontend strictly typechecks and compiles securely. Backend pytest completes successfully.
+- Pending: Wait for feedback from end users on kiosk usability.
 
 ## Entry Template
 ```markdown

@@ -28,7 +28,6 @@ const navigation = [
   { name: "Attendance", href: "/attendance", icon: CalendarCheck },
   { name: "Reports", href: "/reports", icon: FileText },
   { name: "Notifications", href: "/notifications", icon: MessageSquareText },
-  { name: "Settings", href: "/settings", icon: Settings },
 ] as const;
 
 const usersNavigationItem = {

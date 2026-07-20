@@ -86,7 +86,7 @@ async function copyToClipboard(text: string): Promise<boolean> {
   return copyTextWithFallback(text);
 }
 
-export default function SettingsPage() {
+export function KioskSettings() {
   const { user } = useAuth();
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -125,7 +125,7 @@ export default function SettingsPage() {
     return () => window.clearTimeout(timeout);
   }, [toastMessage]);
 
-  const kioskUrl = useMemo(() => {
+  const checkInKioskUrl = useMemo(() => {
     if (!apiKey || typeof window === "undefined") {
       return "";
     }
@@ -135,14 +135,27 @@ export default function SettingsPage() {
     }
     return `${baseUrl}/kiosk?key=${encodeURIComponent(
       apiKey,
-    )}`;
+    )}&action=check_in`;
   }, [apiKey]);
 
-  async function handleCopyKioskUrl(): Promise<void> {
-    if (!kioskUrl) {
+  const checkOutKioskUrl = useMemo(() => {
+    if (!apiKey || typeof window === "undefined") {
+      return "";
+    }
+    const baseUrl = getKioskBaseUrl();
+    if (!baseUrl) {
+      return "";
+    }
+    return `${baseUrl}/kiosk?key=${encodeURIComponent(
+      apiKey,
+    )}&action=check_out`;
+  }, [apiKey]);
+
+  async function handleCopyKioskUrl(url: string): Promise<void> {
+    if (!url) {
       return;
     }
-    const copied = await copyToClipboard(kioskUrl);
+    const copied = await copyToClipboard(url);
     setToastMessage(
       copied
         ? "Kiosk URL copied"
@@ -170,15 +183,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <section className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-balance sm:text-3xl">
-          Settings
-        </h1>
-        <p className="mt-2 text-muted-foreground text-pretty">
-          Create and operate secure, class-specific attendance kiosks.
-        </p>
-      </div>
+    <div className="space-y-6">
 
       {hasError ? (
         <ApiError
@@ -253,48 +258,95 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="grid gap-2">
-              <label className="text-sm font-medium" htmlFor="kiosk-url">
-                Kiosk URL
-              </label>
-              <div className="flex flex-col gap-2 lg:flex-row">
-                <Input
-                  id="kiosk-url"
-                  readOnly
-                  value={
-                    isLoading
-                      ? "Loading kiosk access..."
-                      : kioskUrl
-                  }
-                  onFocus={(event) => event.target.select()}
-                />
-                <Button
-                  type="button"
-                  className="gap-2 lg:w-auto"
-                  disabled={!kioskUrl}
-                  onClick={() => void handleCopyKioskUrl()}
-                >
-                  <Copy aria-hidden="true" className="size-4" />
-                  Copy URL
-                </Button>
-                {kioskUrl ? (
-                  <Button asChild variant="outline" className="gap-2 lg:w-auto">
-                    <a href={kioskUrl} target="_blank" rel="noreferrer">
-                      <ExternalLink aria-hidden="true" className="size-4" />
-                      Open Kiosk
-                    </a>
-                  </Button>
-                ) : (
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="check-in-kiosk-url">
+                  Check-in Kiosk URL
+                </label>
+                <div className="flex flex-col gap-2 lg:flex-row">
+                  <Input
+                    id="check-in-kiosk-url"
+                    readOnly
+                    value={
+                      isLoading
+                        ? "Loading kiosk access..."
+                        : checkInKioskUrl
+                    }
+                    onFocus={(event) => event.target.select()}
+                  />
                   <Button
                     type="button"
-                    variant="outline"
-                    disabled
                     className="gap-2 lg:w-auto"
+                    disabled={!checkInKioskUrl}
+                    onClick={() => void handleCopyKioskUrl(checkInKioskUrl)}
                   >
-                    <ExternalLink aria-hidden="true" className="size-4" />
-                    Open Kiosk
+                    <Copy aria-hidden="true" className="size-4" />
+                    Copy URL
                   </Button>
-                )}
+                  {checkInKioskUrl ? (
+                    <Button asChild variant="outline" className="gap-2 lg:w-auto">
+                      <a href={checkInKioskUrl} target="_blank" rel="noreferrer">
+                        <ExternalLink aria-hidden="true" className="size-4" />
+                        Open Kiosk
+                      </a>
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled
+                      className="gap-2 lg:w-auto"
+                    >
+                      <ExternalLink aria-hidden="true" className="size-4" />
+                      Open Kiosk
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="check-out-kiosk-url">
+                  Check-out Kiosk URL
+                </label>
+                <div className="flex flex-col gap-2 lg:flex-row">
+                  <Input
+                    id="check-out-kiosk-url"
+                    readOnly
+                    value={
+                      isLoading
+                        ? "Loading kiosk access..."
+                        : checkOutKioskUrl
+                    }
+                    onFocus={(event) => event.target.select()}
+                  />
+                  <Button
+                    type="button"
+                    className="gap-2 lg:w-auto"
+                    disabled={!checkOutKioskUrl}
+                    onClick={() => void handleCopyKioskUrl(checkOutKioskUrl)}
+                  >
+                    <Copy aria-hidden="true" className="size-4" />
+                    Copy URL
+                  </Button>
+                  {checkOutKioskUrl ? (
+                    <Button asChild variant="outline" className="gap-2 lg:w-auto">
+                      <a href={checkOutKioskUrl} target="_blank" rel="noreferrer">
+                        <ExternalLink aria-hidden="true" className="size-4" />
+                        Open Kiosk
+                      </a>
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled
+                      className="gap-2 lg:w-auto"
+                    >
+                      <ExternalLink aria-hidden="true" className="size-4" />
+                      Open Kiosk
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -327,6 +379,6 @@ export default function SettingsPage() {
         onOpenChange={setIsRegenerateDialogOpen}
         onConfirm={() => void handleRegenerateKey()}
       />
-    </section>
+    </div>
   );
 }

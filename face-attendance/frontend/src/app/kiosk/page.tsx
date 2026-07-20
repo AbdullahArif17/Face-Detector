@@ -222,6 +222,12 @@ export default function KioskPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const key = params.get("key");
+    const action = params.get("action");
+    if (action === "check_out") {
+      setActionType("check_out");
+    } else {
+      setActionType("check_in");
+    }
     window.setTimeout(() => setApiKey(key), 0);
   }, []);
 

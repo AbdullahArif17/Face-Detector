@@ -636,6 +636,7 @@ async def auto_mark_attendance(
     active_session = await get_active_attendance_session(
         session,
         company_id=company.id,
+        session_type=payload.action_type,
     )
     if active_session is None:
         return AttendanceAutoMarkResponse(
