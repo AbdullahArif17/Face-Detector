@@ -47,9 +47,11 @@ from app.schemas.attendance import (
 )
 from app.services.whatsapp import (
     checkin_message_body,
+    checkout_message_body,
     get_whatsapp_credentials,
     log_whatsapp_message,
     send_checkin_message,
+    send_checkout_message,
     school_phone_or_default,
 )
 
@@ -318,6 +320,53 @@ async def send_checkin_notification(
         student_id=student.id,
         parent_phone=student.parent_phone,
         message_type="check_in",
+        message_body=message_body,
+        status=notification_status,
+        meta_message_id=result["message_id"] if isinstance(result["message_id"], str) else None,
+        error_message=result["error"] if isinstance(result["error"], str) else None,
+    )
+
+
+async def send_checkout_notification(
+    *,
+    session: AsyncSession,
+    attendance: Attendance,
+    student: Student,
+    school: Company,
+    event_time: datetime,
+) -> None:
+    access_token, phone_number_id = get_whatsapp_credentials(school)
+    if not access_token or not phone_number_id:
+        attendance.notification_sent = False
+        attendance.notification_status = None
+        return
+
+    check_time = display_time(event_time)
+    date_str = display_date(event_time)
+    message_body = checkout_message_body(student, school, check_time, date_str)
+    result = await send_checkout_message(
+        phone_number_id,
+        access_token,
+        student.parent_phone,
+        student.parent_name,
+        student.student_name,
+        school.name,
+        school_phone_or_default(school),
+        check_time,
+        date_str,
+        student.grade,
+        student.section,
+    )
+
+    notification_status = "sent" if result["success"] else "failed"
+    attendance.notification_sent = result["success"] is True
+    attendance.notification_status = notification_status
+    await log_whatsapp_message(
+        session,
+        school_id=school.id,
+        student_id=student.id,
+        parent_phone=student.parent_phone,
+        message_type="check_out",
         message_body=message_body,
         status=notification_status,
         meta_message_id=result["message_id"] if isinstance(result["message_id"], str) else None,
@@ -674,6 +723,19 @@ async def auto_mark_attendance(
             )
             
         existing_attendance.check_out = now
+        
+        if should_notify:
+            try:
+                await send_checkout_notification(
+                    session=session,
+                    attendance=existing_attendance,
+                    student=student,
+                    school=company,
+                    event_time=now,
+                )
+            except Exception:
+                logger.exception("Failed to send checkout WhatsApp notification")
+
         await session.commit()
         return AttendanceAutoMarkResponse(
             matched=True,

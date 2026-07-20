@@ -7,7 +7,6 @@ import {
   Clock3,
   LoaderCircle,
   RefreshCcw,
-  ScanFace,
   Upload,
   XCircle,
   LogOut,
@@ -43,7 +42,7 @@ const videoConstraints = {
   height: { ideal: 1080 },
 };
 
-type CameraState = "starting" | "ready" | "unavailable";
+// Camera state is tracked inline via cameraReady / cameraError booleans.
 
 function getCameraErrorMessage(error: unknown): string {
   if (typeof window !== "undefined" && !window.isSecureContext) {

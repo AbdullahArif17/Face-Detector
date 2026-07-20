@@ -463,7 +463,7 @@ export default function AttendancePage() {
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="font-semibold">Today's Session</h3>
+                <h3 className="font-semibold">Today&apos;s Session</h3>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Global organization session
                 </p>

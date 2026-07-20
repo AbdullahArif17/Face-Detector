@@ -322,7 +322,6 @@ async def test_stale_attendance_session_is_expired_before_new_start() -> None:
     await expire_stale_attendance_sessions(
         fake_session,  # type: ignore[arg-type]
         company_id=1,
-        branch_id=2,
         stopped_by_id=3,
     )
 

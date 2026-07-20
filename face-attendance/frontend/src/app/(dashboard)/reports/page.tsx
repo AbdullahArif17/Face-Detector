@@ -1,7 +1,7 @@
 "use client";
 
-import { Download, RefreshCcw } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Download } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
 import { ApiError } from "@/components/api-error";
 import { Button } from "@/components/ui/button";
@@ -54,7 +54,6 @@ function StatusBadge({ status }: Readonly<{ status: string }>) {
 }
 
 export default function ReportsPage() {
-  const { user } = useAuth();
   const [historyRecords, setHistoryRecords] = useState<AttendanceDashboardRecord[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState("");
