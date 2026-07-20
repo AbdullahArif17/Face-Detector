@@ -5,13 +5,13 @@ import {
   CameraOff,
   CheckCircle2,
   Clock3,
-  ImageUp,
   LoaderCircle,
   RefreshCcw,
   ScanFace,
-  ShieldCheck,
   Upload,
   XCircle,
+  LogOut,
+  LogIn,
 } from "lucide-react";
 import {
   useCallback,
@@ -39,8 +39,8 @@ const KIOSK_STATUS_INTERVAL_MS = 15_000;
 
 const videoConstraints = {
   facingMode: "user",
-  width: { ideal: 960 },
-  height: { ideal: 720 },
+  width: { ideal: 1920 },
+  height: { ideal: 1080 },
 };
 
 type CameraState = "starting" | "ready" | "unavailable";
@@ -93,7 +93,7 @@ function formatTime(date: Date): string {
   }).format(date);
 }
 
-function ResultCard({
+function ResultOverlay({
   result,
   isProcessing,
   attendanceActive,
@@ -104,47 +104,31 @@ function ResultCard({
 }>) {
   if (isProcessing) {
     return (
-      <div className="flex min-h-28 items-center justify-center gap-3 rounded-2xl border border-blue-400/30 bg-blue-500/10 px-5 text-blue-100 shadow-2xl">
-        <LoaderCircle aria-hidden="true" className="size-6 animate-spin" />
+      <div className="absolute inset-x-4 bottom-4 z-50 flex min-h-28 items-center justify-center gap-3 rounded-2xl bg-blue-600/90 px-6 py-4 text-white shadow-2xl backdrop-blur-md sm:bottom-8 sm:left-1/2 sm:w-[480px] sm:-translate-x-1/2">
+        <LoaderCircle aria-hidden="true" className="size-8 animate-spin" />
         <div>
-          <p className="font-semibold">Checking attendance</p>
-          <p className="mt-1 text-sm text-blue-200/70">
-            Hold still while the face is verified.
-          </p>
+          <p className="text-lg font-semibold">Verifying...</p>
+          <p className="text-blue-100">Hold still while the face is checked.</p>
         </div>
       </div>
     );
   }
 
   if (!result) {
-    return (
-      <div className="flex min-h-28 items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-5 text-slate-300 shadow-2xl">
-        <span
-          className={cn(
-            "flex size-11 items-center justify-center rounded-full",
-            attendanceActive ? "bg-emerald-400/10" : "bg-slate-800",
-          )}
-        >
-          {attendanceActive ? (
-            <ScanFace aria-hidden="true" className="size-6 text-emerald-300" />
-          ) : (
-            <Clock3 aria-hidden="true" className="size-6 text-slate-400" />
-          )}
-        </span>
-        <div>
-          <p className="font-semibold text-white">
-            {attendanceActive
-              ? "Ready for the next student"
-              : "Attendance session is closed"}
-          </p>
-          <p className="mt-1 text-sm text-slate-400">
-            {attendanceActive
-              ? "Look at the camera and keep your face inside the guide."
-              : "An administrator must turn this class ON from Attendance."}
-          </p>
+    if (!attendanceActive) {
+      return (
+        <div className="absolute inset-x-4 bottom-4 z-50 flex min-h-28 items-center justify-center gap-4 rounded-2xl bg-black/80 px-6 py-4 text-white shadow-2xl backdrop-blur-md sm:bottom-8 sm:left-1/2 sm:w-[480px] sm:-translate-x-1/2">
+          <Clock3 aria-hidden="true" className="size-8 text-slate-400" />
+          <div>
+            <p className="text-lg font-semibold">Session Closed</p>
+            <p className="text-sm text-slate-300">
+              An administrator must turn on Attendance.
+            </p>
+          </div>
         </div>
-      </div>
-    );
+      );
+    }
+    return null; // Don't show default placeholder to keep UI clean
   }
 
   const student = result.student ?? result.employee;
@@ -167,37 +151,37 @@ function ResultCard({
             : result.message;
   const notificationText =
     result.notification_status === "failed"
-      ? "Parent notification failed"
+      ? "Notification failed"
       : result.notification_status
-        ? "Parent notification submitted"
+        ? "Notification sent"
         : null;
 
   return (
     <div
       aria-live="polite"
       className={cn(
-        "flex min-h-28 items-center gap-4 rounded-2xl border px-5 py-4 shadow-2xl transition",
+        "absolute inset-x-4 bottom-4 z-50 flex min-h-28 items-center gap-5 rounded-2xl px-6 py-4 shadow-2xl backdrop-blur-xl transition sm:bottom-8 sm:left-1/2 sm:w-[500px] sm:-translate-x-1/2",
         !result.matched
-          ? "border-rose-400/40 bg-rose-500/15 text-rose-50"
+          ? "bg-rose-600/90 text-white"
           : result.action === "check_in"
-            ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-50"
+            ? "bg-emerald-600/90 text-white"
             : result.action === "check_out"
-              ? "border-blue-400/40 bg-blue-500/15 text-blue-50"
+              ? "bg-blue-600/90 text-white"
               : result.action === "too_soon"
-                ? "border-amber-400/40 bg-amber-500/15 text-amber-50"
-                : "border-white/15 bg-white/[0.06] text-white",
+                ? "bg-amber-500/90 text-white"
+                : "bg-slate-800/90 text-white",
       )}
     >
-      <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-black/20">
+      <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-black/20">
         {isSuccessfulAction ? (
-          <CheckCircle2 aria-hidden="true" className="size-7" />
+          <CheckCircle2 aria-hidden="true" className="size-8" />
         ) : (
-          <XCircle aria-hidden="true" className="size-7" />
+          <XCircle aria-hidden="true" className="size-8" />
         )}
       </span>
       <div className="min-w-0">
-        <p className="text-lg font-semibold sm:text-xl">{title}</p>
-        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm opacity-75">
+        <p className="text-xl font-bold">{title}</p>
+        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm font-medium text-white/80">
           {classText ? <span>{classText}</span> : null}
           {result.time ? <span>{result.time}</span> : null}
           {result.confidence_score ? (
@@ -206,7 +190,7 @@ function ResultCard({
           {notificationText ? <span>{notificationText}</span> : null}
         </div>
         {!result.matched && result.message !== title ? (
-          <p className="mt-1 text-sm opacity-80">{result.message}</p>
+          <p className="mt-1 text-sm text-white/90">{result.message}</p>
         ) : null}
       </div>
     </div>
@@ -221,7 +205,7 @@ export default function KioskPage() {
   const processingRef = useRef(false);
   const resultTimeoutRef = useRef<number | null>(null);
   const [apiKey, setApiKey] = useState<string | null>(null);
-  const [classId, setClassId] = useState<number | null>(null);
+  const [actionType, setActionType] = useState<"check_in" | "check_out">("check_in");
   const [kioskInfo, setKioskInfo] =
     useState<CompanyKioskInfoResponse | null>(null);
   const [isKioskInfoLoading, setIsKioskInfoLoading] = useState(true);
@@ -239,17 +223,7 @@ export default function KioskPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const key = params.get("key");
-    const rawClassId =
-      params.get("class_id") ?? params.get("class") ?? params.get("branch") ?? "";
-    const parsedClassId = Number.parseInt(rawClassId, 10);
-    window.setTimeout(() => {
-      setApiKey(key);
-      setClassId(
-        Number.isInteger(parsedClassId) && parsedClassId > 0
-          ? parsedClassId
-          : null,
-      );
-    }, 0);
+    window.setTimeout(() => setApiKey(key), 0);
   }, []);
 
   useEffect(() => {
@@ -258,13 +232,13 @@ export default function KioskPage() {
   }, []);
 
   const loadKioskInfo = useCallback(async (): Promise<void> => {
-    if (!apiKey || classId === null) {
+    if (!apiKey) {
       setIsKioskInfoLoading(false);
       return;
     }
 
     try {
-      const company = await getKioskCompanyInfo(apiKey, classId);
+      const company = await getKioskCompanyInfo(apiKey);
       setKioskInfo(company);
       setKioskInfoError(null);
       if (!company.attendance_active) {
@@ -278,7 +252,7 @@ export default function KioskPage() {
     } finally {
       setIsKioskInfoLoading(false);
     }
-  }, [apiKey, classId]);
+  }, [apiKey]);
 
   useEffect(() => {
     void Promise.resolve().then(loadKioskInfo);
@@ -296,7 +270,6 @@ export default function KioskPage() {
     async (image: string): Promise<void> => {
       if (
         !apiKey ||
-        classId === null ||
         !kioskInfo?.attendance_active ||
         processingRef.current
       ) {
@@ -307,7 +280,7 @@ export default function KioskPage() {
       setIsProcessing(true);
 
       try {
-        const markResult = await autoMarkAttendance(apiKey, classId, image);
+        const markResult = await autoMarkAttendance(apiKey, image, actionType);
         setResult(markResult);
 
         if (markResult.action === "session_closed") {
@@ -344,13 +317,12 @@ export default function KioskPage() {
         setIsProcessing(false);
       }
     },
-    [apiKey, classId, kioskInfo?.attendance_active, loadKioskInfo],
+    [apiKey, actionType, kioskInfo?.attendance_active, loadKioskInfo],
   );
 
   useEffect(() => {
     if (
       !apiKey ||
-      classId === null ||
       !kioskInfo?.attendance_active ||
       !isCameraReady
     ) {
@@ -377,7 +349,7 @@ export default function KioskPage() {
         window.clearInterval(intervalRef.current);
       }
     };
-  }, [apiKey, classId, isCameraReady, kioskInfo?.attendance_active, submitImageForAttendance]);
+  }, [apiKey, isCameraReady, kioskInfo?.attendance_active, submitImageForAttendance]);
 
   useEffect(
     () => () => {
@@ -424,7 +396,7 @@ export default function KioskPage() {
     setCameraAttempt((attempt) => attempt + 1);
   }
 
-  const hasValidConfig = Boolean(apiKey && classId !== null);
+  const hasValidConfig = Boolean(apiKey);
   const attendanceActive = kioskInfo?.attendance_active ?? false;
   const liveCameraBlocked = isSecureContext === false;
   const shouldStartCamera =
@@ -434,325 +406,221 @@ export default function KioskPage() {
     (liveCameraBlocked
       ? "Live camera requires HTTPS. Use Take photo or Upload image below."
       : null);
-  const cameraState: CameraState = cameraMessage
-    ? "unavailable"
-    : isCameraReady
-      ? "ready"
-      : "starting";
   const fallbackDisabled =
     !hasValidConfig || !attendanceActive || isProcessing;
 
   return (
-    <main className="relative min-h-dvh overflow-hidden bg-[#050816] text-white">
-      <div className="pointer-events-none absolute -left-40 top-24 size-96 rounded-full bg-blue-600/15 blur-3xl" />
-      <div className="pointer-events-none absolute -right-40 bottom-10 size-96 rounded-full bg-cyan-500/10 blur-3xl" />
-
-      <div className="relative mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-3 py-3 sm:px-6 sm:py-6 lg:px-8">
-        <header className="flex flex-col gap-5 border-b border-white/10 pb-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <BrandLogo
-              showName={false}
-              markClassName="size-12 rounded-2xl shadow-lg shadow-blue-500/20 ring-1 ring-white/15 sm:size-14"
-            />
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-blue-300">
-                Attendance Kiosk
+    <main className="relative flex h-dvh w-screen flex-col overflow-hidden bg-black text-white">
+      {/* Absolute Fullscreen Camera Background */}
+      <div className="absolute inset-0 z-0">
+        {shouldStartCamera ? (
+          <Webcam
+            key={cameraAttempt}
+            ref={webcamRef}
+            audio={false}
+            mirrored
+            playsInline
+            screenshotFormat="image/jpeg"
+            screenshotQuality={0.8}
+            videoConstraints={videoConstraints}
+            className="size-full object-cover opacity-90"
+            onUserMedia={() => {
+              setCameraError(null);
+              setIsCameraReady(true);
+            }}
+            onUserMediaError={(error) => {
+              setIsCameraReady(false);
+              setCameraError(getCameraErrorMessage(error));
+            }}
+          />
+        ) : (
+          <div className="flex size-full items-center justify-center bg-slate-900 p-6 text-center">
+            <div className="max-w-md">
+              <span className="mx-auto flex size-20 items-center justify-center rounded-3xl bg-slate-800">
+                {attendanceActive ? (
+                  cameraMessage ? (
+                    <CameraOff aria-hidden="true" className="size-10 text-rose-400" />
+                  ) : (
+                    <LoaderCircle aria-hidden="true" className="size-10 animate-spin text-blue-400" />
+                  )
+                ) : (
+                  <Clock3 aria-hidden="true" className="size-10 text-amber-400" />
+                )}
+              </span>
+              <h2 className="mt-6 text-2xl font-semibold">
+                {!hasValidConfig
+                  ? "Kiosk link is incomplete"
+                  : !attendanceActive
+                    ? "Attendance has not started"
+                    : cameraMessage
+                      ? "Live camera could not start"
+                      : "Connecting to camera"}
+              </h2>
+              <p className="mt-3 text-base text-slate-400">
+                {!hasValidConfig
+                  ? "Open a kiosk URL generated from Settings."
+                  : !attendanceActive
+                    ? "Ask an administrator to turn ON the session. This screen refreshes automatically."
+                    : cameraMessage ?? "Approve camera access when your browser asks."}
               </p>
-              <h1 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">
-                {kioskInfo?.name ??
-                  (isKioskInfoLoading
-                    ? "Loading organization..."
-                    : kioskInfoError
-                      ? "Kiosk unavailable"
-                      : "Face Attendance")}
-              </h1>
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-300">
-                <span className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1">
-                  {kioskInfo?.class_name ??
-                    (classId ? `Class ${classId}` : "Class not selected")}
-                </span>
-                {kioskInfo ? (
-                  <span className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1">
-                    {kioskInfo.student_count} students
-                  </span>
-                ) : null}
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-medium",
-                    attendanceActive
-                      ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-300"
-                      : "border-amber-400/25 bg-amber-400/10 text-amber-200",
-                  )}
+              {cameraMessage && !liveCameraBlocked ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-6 gap-2 border-white/20 bg-white/10 text-white hover:bg-white/20"
+                  onClick={handleRetryCamera}
                 >
-                  <span
-                    className={cn(
-                      "size-1.5 rounded-full",
-                      attendanceActive ? "bg-emerald-300" : "bg-amber-300",
-                    )}
-                  />
-                  {attendanceActive ? "Session open" : "Session closed"}
-                </span>
-              </div>
+                  <RefreshCcw aria-hidden="true" className="size-4" />
+                  Try camera again
+                </Button>
+              ) : null}
             </div>
           </div>
+        )}
 
-          <div className="flex items-center gap-3 sm:text-right">
-            <span className="hidden size-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-slate-300 sm:flex">
-              <Clock3 aria-hidden="true" className="size-5" />
-            </span>
-            <div>
-              <p className="text-sm text-slate-400">{formatDate(clock)}</p>
-              <p className="mt-0.5 text-xl font-semibold tabular-nums sm:text-2xl">
-                {formatTime(clock)}
-              </p>
-            </div>
-          </div>
-        </header>
-
-        {kioskInfoError ? (
-          <div className="mt-5 rounded-2xl border border-rose-400/30 bg-rose-500/10 p-4 text-sm text-rose-100" role="alert">
-            {kioskInfoError}
-          </div>
+        {isCameraReady && attendanceActive ? (
+          <>
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/60" />
+            <div className="pointer-events-none absolute left-1/2 top-1/2 h-[75%] w-[45%] min-w-64 -translate-x-1/2 -translate-y-1/2 rounded-[50%] border-4 border-white/40 shadow-[0_0_0_9999px_rgba(0,0,0,0.3)] transition-all duration-1000" />
+          </>
         ) : null}
+      </div>
 
-        <section className="grid flex-1 gap-5 py-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
-          <div className="overflow-hidden rounded-3xl border border-white/10 bg-slate-900/80 shadow-2xl shadow-black/30 backdrop-blur">
-            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 sm:px-5">
-              <div>
-                <p className="font-semibold">Live face scanner</p>
-                <p className="mt-0.5 text-xs text-slate-400">
-                  Automatic scan every {AUTO_SCAN_INTERVAL_MS / 1_000} seconds
-                </p>
-              </div>
+      {/* Top Header Overlay */}
+      <header className="relative z-10 flex w-full flex-col sm:flex-row sm:items-center sm:justify-between p-4 sm:p-6 lg:p-8 gap-4">
+        <div className="flex items-center gap-4">
+          <BrandLogo
+            showName={false}
+            markClassName="size-12 rounded-2xl shadow-xl ring-2 ring-white/20"
+          />
+          <div className="hidden sm:block">
+            <h1 className="text-xl font-bold tracking-tight drop-shadow-md">
+              {kioskInfo?.name ??
+                (isKioskInfoLoading
+                  ? "Loading organization..."
+                  : kioskInfoError
+                    ? "Kiosk unavailable"
+                    : "Face Attendance")}
+            </h1>
+            <div className="mt-1 flex items-center gap-2">
               <span
                 className={cn(
-                  "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium",
-                  cameraState === "ready"
-                    ? "bg-emerald-400/10 text-emerald-300"
-                    : cameraState === "unavailable"
-                      ? "bg-rose-400/10 text-rose-200"
-                      : "bg-blue-400/10 text-blue-200",
+                  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold backdrop-blur-md",
+                  attendanceActive
+                    ? "bg-emerald-500/20 text-emerald-300"
+                    : "bg-amber-500/20 text-amber-300",
                 )}
               >
                 <span
                   className={cn(
-                    "size-2 rounded-full",
-                    cameraState === "ready"
-                      ? "animate-pulse bg-emerald-300"
-                      : cameraState === "unavailable"
-                        ? "bg-rose-300"
-                        : "animate-pulse bg-blue-300",
+                    "size-1.5 rounded-full",
+                    attendanceActive ? "bg-emerald-400" : "bg-amber-400",
                   )}
                 />
-                {cameraState === "ready"
-                  ? "Camera ready"
-                  : cameraState === "unavailable"
-                    ? "Camera unavailable"
-                    : attendanceActive
-                      ? "Starting camera"
-                      : "Camera paused"}
+                {attendanceActive ? "Session Open" : "Session Closed"}
               </span>
-            </div>
-
-            <div className="relative aspect-[4/3] min-h-72 overflow-hidden bg-[#090f20] sm:aspect-video sm:min-h-64">
-              {shouldStartCamera ? (
-                <Webcam
-                  key={cameraAttempt}
-                  ref={webcamRef}
-                  audio={false}
-                  mirrored
-                  playsInline
-                   screenshotFormat="image/jpeg"
-                   screenshotQuality={0.8}
-                   videoConstraints={videoConstraints}
-                  className="absolute inset-0 size-full object-cover"
-                  onUserMedia={() => {
-                    setCameraError(null);
-                    setIsCameraReady(true);
-                  }}
-                  onUserMediaError={(error) => {
-                    setIsCameraReady(false);
-                    setCameraError(getCameraErrorMessage(error));
-                  }}
-                />
+              {kioskInfo ? (
+                <span className="rounded-full bg-black/40 px-2.5 py-0.5 text-xs font-medium text-white/90 backdrop-blur-md">
+                  {kioskInfo.student_count} students
+                </span>
               ) : null}
-
-              {isCameraReady && attendanceActive ? (
-                <>
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/35 via-transparent to-slate-950/20" />
-                  <div className="pointer-events-none absolute left-1/2 top-1/2 h-[72%] w-[42%] min-w-44 -translate-x-1/2 -translate-y-1/2 rounded-[48%] border-2 border-white/70 shadow-[0_0_0_999px_rgba(2,6,23,0.18)]" />
-                  <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-slate-950/70 px-4 py-2 text-xs text-slate-100 backdrop-blur">
-                    Center one face inside the guide
-                  </div>
-                </>
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center p-6 text-center">
-                  <div className="max-w-md">
-                    <span className="mx-auto flex size-16 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05]">
-                      {attendanceActive ? (
-                        cameraMessage ? (
-                          <CameraOff aria-hidden="true" className="size-8 text-rose-300" />
-                        ) : (
-                          <LoaderCircle aria-hidden="true" className="size-8 animate-spin text-blue-300" />
-                        )
-                      ) : (
-                        <Clock3 aria-hidden="true" className="size-8 text-amber-200" />
-                      )}
-                    </span>
-                    <h2 className="mt-4 text-lg font-semibold">
-                      {!hasValidConfig
-                        ? "Kiosk link is incomplete"
-                        : !attendanceActive
-                          ? "Attendance has not started"
-                          : cameraMessage
-                            ? "Live camera could not start"
-                            : "Connecting to camera"}
-                    </h2>
-                    <p className="mt-2 text-sm leading-6 text-slate-400">
-                      {!hasValidConfig
-                        ? "Open a class kiosk URL generated from Settings."
-                        : !attendanceActive
-                          ? "Ask an administrator to turn this class ON from the Attendance page. This screen refreshes automatically."
-                          : cameraMessage ?? "Approve camera access when your browser asks."}
-                    </p>
-                    {cameraMessage && !liveCameraBlocked ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="mt-4 gap-2 border-white/15 bg-white/[0.06] text-white hover:bg-white/10 hover:text-white"
-                        onClick={handleRetryCamera}
-                      >
-                        <RefreshCcw aria-hidden="true" className="size-4" />
-                        Try camera again
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
+        </div>
 
-          <aside className="space-y-4">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                    Current class
-                  </p>
-                  <h2 className="mt-2 text-xl font-semibold">
-                    {kioskInfo?.class_name ?? "Not available"}
-                  </h2>
-                  <p className="mt-1 text-sm text-slate-400">
-                    {kioskInfo?.class_location ?? "Classroom"}
-                  </p>
-                </div>
-                <span
-                  className={cn(
-                    "flex size-10 items-center justify-center rounded-xl",
-                    attendanceActive
-                      ? "bg-emerald-400/10 text-emerald-300"
-                      : "bg-amber-400/10 text-amber-200",
-                  )}
-                >
-                  {attendanceActive ? (
-                    <CheckCircle2 aria-hidden="true" className="size-5" />
-                  ) : (
-                    <Clock3 aria-hidden="true" className="size-5" />
-                  )}
-                </span>
-              </div>
-              <div className="mt-4 grid grid-cols-2 gap-2 text-center">
-                <div className="rounded-xl bg-black/20 px-3 py-3">
-                  <p className="text-xl font-semibold tabular-nums">
-                    {kioskInfo?.student_count ?? "—"}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-400">Students</p>
-                </div>
-                <div className="rounded-xl bg-black/20 px-3 py-3">
-                  <p
-                    className={cn(
-                      "text-sm font-semibold",
-                      attendanceActive ? "text-emerald-300" : "text-amber-200",
-                    )}
-                  >
-                    {attendanceActive ? "OPEN" : "CLOSED"}
-                  </p>
-                  <p className="mt-2 text-xs text-slate-400">Session</p>
-                </div>
-              </div>
-            </div>
+        {/* Action Toggle (Check In / Check Out) */}
+        {attendanceActive && (
+          <div className="flex items-center rounded-2xl bg-black/40 p-1 backdrop-blur-lg self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => setActionType("check_in")}
+              className={cn(
+                "flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all",
+                actionType === "check_in"
+                  ? "bg-emerald-500 text-white shadow-lg"
+                  : "text-white/60 hover:text-white hover:bg-white/10",
+              )}
+            >
+              <LogIn className="size-4" />
+              Check In
+            </button>
+            <button
+              type="button"
+              onClick={() => setActionType("check_out")}
+              className={cn(
+                "flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all",
+                actionType === "check_out"
+                  ? "bg-blue-500 text-white shadow-lg"
+                  : "text-white/60 hover:text-white hover:bg-white/10",
+              )}
+            >
+              <LogOut className="size-4" />
+              Check Out
+            </button>
+          </div>
+        )}
 
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur">
-              <div className="flex items-center gap-2">
-                <ImageUp aria-hidden="true" className="size-5 text-blue-300" />
-                <h2 className="font-semibold">Photo fallback</h2>
-              </div>
-              <p className="mt-2 text-sm leading-6 text-slate-400">
-                If live video is unavailable, take a fresh photo or choose a clear existing image.
-              </p>
+        <div className="hidden items-center gap-3 text-right drop-shadow-md md:flex">
+          <div>
+            <p className="text-sm font-medium text-white/80">{formatDate(clock)}</p>
+            <p className="text-2xl font-bold tabular-nums">
+              {formatTime(clock)}
+            </p>
+          </div>
+        </div>
+      </header>
 
-              <input
-                ref={captureInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                capture="user"
-                className="hidden"
-                onChange={(event) => void handleFileCapture(event)}
-              />
-              <input
-                ref={uploadInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={(event) => void handleFileCapture(event)}
-              />
-
-              <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-                <Button
-                  type="button"
-                  disabled={fallbackDisabled}
-                  className="h-11 gap-2 bg-blue-500 text-white hover:bg-blue-400"
-                  onClick={() => captureInputRef.current?.click()}
-                >
-                  <Camera aria-hidden="true" className="size-4" />
-                  Take photo
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={fallbackDisabled}
-                  className="h-11 gap-2 border-white/15 bg-slate-800 text-white hover:bg-slate-700 hover:text-white"
-                  onClick={() => uploadInputRef.current?.click()}
-                >
-                  <Upload aria-hidden="true" className="size-4" />
-                  Upload image
-                </Button>
-              </div>
-
-              {!attendanceActive ? (
-                <p className="mt-3 text-xs text-amber-200/80">
-                  Photo actions unlock when this class session opens.
-                </p>
-              ) : null}
-            </div>
-
-            <div className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-400">
-              <ShieldCheck aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-emerald-300" />
-              <p className="leading-6">
-                Images are used for attendance verification. Only one student should be visible at a time.
-              </p>
-            </div>
-          </aside>
-        </section>
-
-        <footer className="pb-2">
-          <ResultCard
-            result={result}
-            isProcessing={isProcessing}
-            attendanceActive={attendanceActive}
-          />
-        </footer>
+      {/* Main Content Area / Overlays */}
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-end p-6 pointer-events-none">
+        <ResultOverlay
+          result={result}
+          isProcessing={isProcessing}
+          attendanceActive={attendanceActive}
+        />
+        
+        {/* Hidden File Inputs */}
+        <input
+          ref={captureInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          capture="user"
+          className="hidden"
+          onChange={(event) => void handleFileCapture(event)}
+        />
+        <input
+          ref={uploadInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={(event) => void handleFileCapture(event)}
+        />
       </div>
+
+      {/* Bottom Floating Action Buttons */}
+      {attendanceActive && (
+        <div className="absolute bottom-6 right-6 z-20 flex flex-col gap-3 sm:flex-row">
+          <Button
+            type="button"
+            disabled={fallbackDisabled}
+            size="icon"
+            className="size-12 rounded-full bg-white/20 text-white shadow-xl backdrop-blur-md hover:bg-white/30"
+            onClick={() => uploadInputRef.current?.click()}
+            title="Upload image"
+          >
+            <Upload aria-hidden="true" className="size-5" />
+          </Button>
+          <Button
+            type="button"
+            disabled={fallbackDisabled}
+            size="icon"
+            className="size-12 rounded-full bg-white/20 text-white shadow-xl backdrop-blur-md hover:bg-white/30"
+            onClick={() => captureInputRef.current?.click()}
+            title="Take photo manually"
+          >
+            <Camera aria-hidden="true" className="size-5" />
+          </Button>
+        </div>
+      )}
     </main>
   );
 }

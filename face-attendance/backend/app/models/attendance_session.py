@@ -10,15 +10,13 @@ class AttendanceSession(Base):
     __tablename__ = "attendance_sessions"
     __table_args__ = (
         Index(
-            "ix_attendance_sessions_active_class",
+            "ix_attendance_sessions_active_company",
             "company_id",
-            "branch_id",
             "status",
         ),
         Index(
-            "uq_attendance_sessions_one_active_class",
+            "uq_attendance_sessions_one_active_company",
             "company_id",
-            "branch_id",
             unique=True,
             postgresql_where=text("status = 'active' AND stopped_at IS NULL"),
         ),
@@ -30,9 +28,9 @@ class AttendanceSession(Base):
         nullable=False,
         index=True,
     )
-    branch_id: Mapped[int] = mapped_column(
+    branch_id: Mapped[int | None] = mapped_column(
         ForeignKey("branches.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
     started_by_id: Mapped[int] = mapped_column(

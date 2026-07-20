@@ -45,24 +45,10 @@ class ClassScopedRequest(BaseModel):
     branch_id: int | None = Field(default=None, gt=0)
     class_id: int | None = Field(default=None, gt=0)
 
-    @model_validator(mode="after")
-    def validate_class_id(self) -> "ClassScopedRequest":
-        if self.branch_id is None and self.class_id is None:
-            raise ValueError("class_id is required")
-        if (
-            self.branch_id is not None
-            and self.class_id is not None
-            and self.branch_id != self.class_id
-        ):
-            raise ValueError("class_id and branch_id must match when both are provided")
-        return self
-
     @property
-    def resolved_class_id(self) -> int:
+    def resolved_class_id(self) -> int | None:
         if self.class_id is not None:
             return self.class_id
-        if self.branch_id is None:
-            raise ValueError("class_id is required")
         return self.branch_id
 
 
@@ -77,8 +63,8 @@ class AttendanceSessionStop(BaseModel):
 class AttendanceSessionRead(BaseModel):
     id: int
     company_id: int
-    branch_id: int
-    class_id: int
+    branch_id: int | None = None
+    class_id: int | None = None
     branch_name: str | None = None
     class_name: str | None = None
     status: str
@@ -90,8 +76,8 @@ class AttendanceSessionRead(BaseModel):
 
 
 class AttendanceSessionStatus(BaseModel):
-    branch_id: int
-    class_id: int
+    branch_id: int | None = None
+    class_id: int | None = None
     active_session: AttendanceSessionRead | None = None
 
 
@@ -104,6 +90,7 @@ class AttendanceClassSessionStatus(BaseModel):
 
 class AttendanceAutoMarkRequest(ClassScopedRequest):
     image: str = Field(min_length=1, max_length=MAX_IMAGE_BASE64_LENGTH)
+    action_type: str = Field(default="check_in", max_length=50)
 
 
 class AttendanceAutoStudent(BaseModel):

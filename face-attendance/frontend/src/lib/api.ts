@@ -255,9 +255,6 @@ export interface CompanyKioskInfoResponse {
   company_id: number;
   name: string;
   school_logo: string | null;
-  class_id: number | null;
-  class_name: string | null;
-  class_location: string | null;
   student_count: number;
   attendance_active: boolean;
 }
@@ -714,12 +711,12 @@ export async function exportAttendanceHistory(
 
 export async function autoMarkAttendance(
   apiKey: string,
-  classId: number,
   image: string,
+  actionType: "check_in" | "check_out" = "check_in",
 ): Promise<KioskAttendanceResult> {
   const response = await publicApi.post<KioskAttendanceResult>(
     "/attendance/auto-mark",
-    { image, class_id: classId },
+    { image, action_type: actionType },
     {
       headers: { "X-API-Key": apiKey },
       timeout: FACE_REQUEST_TIMEOUT_MS,
@@ -730,13 +727,11 @@ export async function autoMarkAttendance(
 
 export async function getKioskCompanyInfo(
   apiKey: string,
-  classId?: number,
 ): Promise<CompanyKioskInfoResponse> {
   const response = await publicApi.get<CompanyKioskInfoResponse>(
     "/companies/kiosk-info",
     {
       headers: { "X-API-Key": apiKey },
-      params: classId ? { class_id: classId } : undefined,
     },
   );
   return response.data;

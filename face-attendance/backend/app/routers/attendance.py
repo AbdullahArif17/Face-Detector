@@ -189,14 +189,12 @@ async def get_active_attendance_session(
     session: AsyncSession,
     *,
     company_id: int,
-    branch_id: int,
 ) -> AttendanceSession | None:
     day_start, day_end = today_bounds()
     return await session.scalar(
         select(AttendanceSession)
         .where(
             AttendanceSession.company_id == company_id,
-            AttendanceSession.branch_id == branch_id,
             AttendanceSession.status == "active",
             AttendanceSession.stopped_at.is_(None),
             AttendanceSession.started_at >= day_start,
@@ -210,7 +208,6 @@ async def expire_stale_attendance_sessions(
     session: AsyncSession,
     *,
     company_id: int,
-    branch_id: int,
     stopped_by_id: int,
 ) -> None:
     """Close forgotten sessions from earlier school days before a new start."""
@@ -219,7 +216,6 @@ async def expire_stale_attendance_sessions(
         await session.scalars(
             select(AttendanceSession).where(
                 AttendanceSession.company_id == company_id,
-                AttendanceSession.branch_id == branch_id,
                 AttendanceSession.status == "active",
                 AttendanceSession.stopped_at.is_(None),
                 AttendanceSession.started_at < day_start,
@@ -341,7 +337,6 @@ async def list_attendance_sessions(
         require_role("super_admin", "admin", "hr", "branch_manager", "viewer"),
     ),
 ) -> list[AttendanceSessionRead]:
-    selected_class_id = resolve_class_query(class_id=class_id, branch_id=branch_id)
     offset = (page - 1) * per_page
     query = (
         select(AttendanceSession, Branch)
@@ -351,9 +346,8 @@ async def list_attendance_sessions(
         .offset(offset)
         .limit(per_page)
     )
-    if selected_class_id is not None:
-        query = query.where(AttendanceSession.branch_id == selected_class_id)
-    if status_filter:
+        .limit(per_page)
+    )
         query = query.where(AttendanceSession.status == status_filter)
         if status_filter.lower() == "active":
             day_start, day_end = today_bounds()
@@ -441,25 +435,14 @@ async def get_active_session_status(
         require_role("super_admin", "admin", "hr", "branch_manager", "viewer"),
     ),
 ) -> AttendanceSessionStatus:
-    selected_class_id = resolve_class_query(
-        class_id=class_id,
-        branch_id=branch_id,
-        required=True,
-    )
-    branch = await get_company_branch(
-        session,
-        company_id=current_user.company_id,
-        branch_id=selected_class_id,
-    )
     active_session = await get_active_attendance_session(
         session,
         company_id=current_user.company_id,
-        branch_id=selected_class_id,
     )
     return AttendanceSessionStatus(
-        branch_id=selected_class_id,
-        class_id=selected_class_id,
-        active_session=build_attendance_session_read(active_session, branch)
+        branch_id=active_session.branch_id if active_session else None,
+        class_id=active_session.branch_id if active_session else None,
+        active_session=build_attendance_session_read(active_session, None)
         if active_session is not None
         else None,
     )
@@ -475,32 +458,24 @@ async def start_attendance_session(
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("super_admin", "admin", "hr", "branch_manager")),
 ) -> AttendanceSessionRead:
-    selected_class_id = payload.resolved_class_id
-    branch = await get_company_branch(
-        session,
-        company_id=current_user.company_id,
-        branch_id=selected_class_id,
-    )
     await expire_stale_attendance_sessions(
         session,
         company_id=current_user.company_id,
-        branch_id=selected_class_id,
         stopped_by_id=current_user.id,
     )
     existing_session = await get_active_attendance_session(
         session,
         company_id=current_user.company_id,
-        branch_id=selected_class_id,
     )
     if existing_session is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Attendance is already active for this class",
+            detail="Attendance session is already active",
         )
 
     attendance_session = AttendanceSession(
         company_id=current_user.company_id,
-        branch_id=selected_class_id,
+        branch_id=None,
         started_by_id=current_user.id,
         status="active",
     )
@@ -511,10 +486,10 @@ async def start_attendance_session(
         await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Attendance is already active for this class",
+            detail="Attendance session is already active",
         ) from exc
     await session.refresh(attendance_session)
-    return build_attendance_session_read(attendance_session, branch)
+    return build_attendance_session_read(attendance_session, None)
 
 
 @router.post("/sessions/{session_id}/stop", response_model=AttendanceSessionRead)
@@ -559,22 +534,15 @@ async def auto_mark_attendance(
     company: Company = Depends(get_company_by_api_key),
 ) -> AttendanceAutoMarkResponse:
     normalized_image = normalize_base64_image(payload.image)
-    selected_class_id = payload.resolved_class_id
-    await get_company_branch(
-        session,
-        company_id=company.id,
-        branch_id=selected_class_id,
-    )
     active_session = await get_active_attendance_session(
         session,
         company_id=company.id,
-        branch_id=selected_class_id,
     )
     if active_session is None:
         return AttendanceAutoMarkResponse(
             matched=False,
             action="session_closed",
-            message="Attendance session is not active for this class",
+            message="Attendance session is not active",
         )
 
     candidates_result = await session.execute(
@@ -582,7 +550,6 @@ async def auto_mark_attendance(
         .join(FaceEmbedding, FaceEmbedding.student_id == Student.id)
         .where(
             Student.school_id == company.id,
-            Student.class_id == selected_class_id,
             Student.status == "active",
             func.lower(FaceEmbedding.model_name) == settings.ai_model_name.lower(),
         ),
@@ -592,7 +559,7 @@ async def auto_mark_attendance(
         return AttendanceAutoMarkResponse(
             matched=False,
             message=(
-                f"No {settings.ai_model_name} face enrollments found for this class. "
+                f"No {settings.ai_model_name} face enrollments found. "
                 "Re-enroll student faces before scanning."
             ),
         )
@@ -685,6 +652,38 @@ async def auto_mark_attendance(
         section=student.section,
     )
     should_notify = has_whatsapp_config(company)
+
+    if payload.action_type == "check_out":
+        if existing_attendance is None:
+            return AttendanceAutoMarkResponse(
+                matched=True,
+                student=response_student,
+                employee=response_student,
+                action="already_done",
+                message=f"{student.student_name} hasn't checked in yet.",
+            )
+        
+        if existing_attendance.check_out is not None:
+            return AttendanceAutoMarkResponse(
+                matched=True,
+                student=response_student,
+                employee=response_student,
+                action="already_done",
+                time=display_time(existing_attendance.check_out),
+                message=f"{student.student_name} has already checked out.",
+            )
+            
+        existing_attendance.check_out = now
+        await session.commit()
+        return AttendanceAutoMarkResponse(
+            matched=True,
+            student=response_student,
+            employee=response_student,
+            action="check_out",
+            time=display_time(now),
+            confidence_score=confidence,
+            message=f"Goodbye {student.student_name}! Check-out recorded.",
+        )
 
     if existing_attendance is not None:
         return AttendanceAutoMarkResponse(
