@@ -187,6 +187,26 @@ async def get_session_attendance_for_student(
     )
 
 
+async def get_today_attendance_for_student(
+    session: AsyncSession,
+    *,
+    company_id: int,
+    student_id: int,
+) -> Attendance | None:
+    """Find any attendance record for a student today (across all sessions)."""
+    day_start, day_end = today_bounds()
+    return await session.scalar(
+        select(Attendance)
+        .where(
+            Attendance.company_id == company_id,
+            Attendance.student_id == student_id,
+            Attendance.check_in >= day_start,
+            Attendance.check_in < day_end,
+        )
+        .order_by(Attendance.check_in.desc()),
+    )
+
+
 async def get_active_attendance_session(
     session: AsyncSession,
     *,
@@ -579,7 +599,7 @@ async def stop_attendance_session(
 ) -> AttendanceSessionRead:
     result = await session.execute(
         select(AttendanceSession, Branch)
-        .join(Branch, Branch.id == AttendanceSession.branch_id)
+        .outerjoin(Branch, Branch.id == AttendanceSession.branch_id)
         .where(
             AttendanceSession.id == session_id,
             AttendanceSession.company_id == current_user.company_id,
@@ -734,33 +754,38 @@ async def auto_mark_attendance(
     )
     should_notify = has_whatsapp_config(company)
 
-    if payload.action_type == "check_out":
-        if existing_attendance is None:
+    if action_type == "check_out":
+        today_attendance = await get_today_attendance_for_student(
+            session,
+            company_id=company.id,
+            student_id=student.id,
+        )
+        if today_attendance is None:
             return AttendanceAutoMarkResponse(
                 matched=True,
                 student=response_student,
                 employee=response_student,
                 action="already_done",
-                message=f"{student.student_name} hasn't checked in yet.",
+                message=f"{student.student_name} hasn\u2019t checked in yet.",
             )
         
-        if existing_attendance.check_out is not None:
+        if today_attendance.check_out is not None:
             return AttendanceAutoMarkResponse(
                 matched=True,
                 student=response_student,
                 employee=response_student,
                 action="already_done",
-                time=display_time(existing_attendance.check_out),
+                time=display_time(today_attendance.check_out),
                 message=f"{student.student_name} has already checked out.",
             )
             
-        existing_attendance.check_out = now
+        today_attendance.check_out = now
         
         if should_notify:
             try:
                 await send_checkout_notification(
                     session=session,
-                    attendance=existing_attendance,
+                    attendance=today_attendance,
                     student=student,
                     school=company,
                     event_time=now,

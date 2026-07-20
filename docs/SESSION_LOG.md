@@ -450,6 +450,12 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - UX: Increased the login artwork to 20rem on phones and 24rem on small tablets after visual review, while preserving the denser form and unchanged desktop split layout.
 - Verified: Frontend strict TypeScript, ESLint, and patch whitespace checks pass.
 
+## 2026-07-20 — Refactor attendance sessions for separate check-in and check-out
+- Completed: Updated attendance endpoints to support `session_type` ("check_in" or "check_out") and modified auto-mark logic to record check-out against the student's daily check-in record.
+- Changed: Added `session_type` to `AttendanceSession`, updated `stop_attendance_session` to outerjoin `Branch` (since `branch_id` is now nullable), and modified frontend `AttendanceSessionStatus` to distinguish active check-in vs check-out sessions.
+- Verified: Backend schema validation, check-in and check-out tracking flow via `get_today_attendance_for_student`, and frontend TS types.
+- Pending: Run a live test of both check-in and check-out auto-marking flows.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

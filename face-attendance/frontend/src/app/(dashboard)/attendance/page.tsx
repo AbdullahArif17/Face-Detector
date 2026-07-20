@@ -17,6 +17,7 @@ import {
   startAttendanceSession,
   stopAttendanceSession,
   updateManualAttendance,
+  type AttendanceSession,
   type AttendanceSessionStatus,
   type AttendanceDashboardRecord,
 } from "@/lib/api";
@@ -245,7 +246,7 @@ export default function AttendancePage() {
   const [sessionMessageIsError, setSessionMessageIsError] = useState(false);
   
   const [editState, setEditState] = useState<AttendanceEditState | null>(null);
-  const [pendingStopSession, setPendingStopSession] = useState<AttendanceSessionStatus | null>(null);
+  const [pendingStopSession, setPendingStopSession] = useState<AttendanceSession | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const loadToday = useCallback(async (): Promise<void> => {
@@ -319,7 +320,7 @@ export default function AttendancePage() {
     }
   }
 
-  async function handleStopSession(sessionStatus: AttendanceSessionStatus): Promise<void> {
+  async function handleStopSession(sessionToStop: AttendanceSession): Promise<void> {
     if (!pendingStopSession) {
       return;
     }
