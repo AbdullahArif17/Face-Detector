@@ -229,17 +229,15 @@ export default function LoginPage() {
               </Button>
             </div>
 
-            {process.env.NEXT_PUBLIC_ALLOW_SIGNUP === "true" ? (
-              <p className="text-center text-sm text-muted-foreground text-pretty">
-                New organization?{" "}
-                <Link
-                  className="font-medium text-primary hover:underline"
-                  href="/signup"
-                >
-                  Create an account
-                </Link>
-              </p>
-            ) : null}
+            <p className="text-center text-sm text-muted-foreground text-pretty">
+              New organization?{" "}
+              <Link
+                className="font-medium text-primary hover:underline"
+                href="/signup"
+              >
+                Create an account
+              </Link>
+            </p>
 
             <div className="flex items-center justify-center gap-1.5 rounded-lg bg-muted/60 px-2.5 py-2 text-[0.6875rem] text-muted-foreground sm:gap-2 sm:px-3 sm:text-xs">
               <ShieldCheck aria-hidden="true" className="size-4 text-emerald-600" />

@@ -57,26 +57,7 @@ export default function SignupPage() {
     password.length < 8 ||
     !confirmPassword;
 
-  if (process.env.NEXT_PUBLIC_ALLOW_SIGNUP !== "true") {
-    return (
-      <main className="flex min-h-dvh items-center justify-center bg-muted/30 px-4 py-8 sm:py-12">
-        <Card className="w-full max-w-md shadow-lg">
-          <CardHeader className="space-y-4 px-5 pt-6 sm:px-8 sm:pt-8">
-            <BrandLogo markClassName="size-10" nameClassName="text-base" />
-            <CardTitle>Organization signup is closed</CardTitle>
-            <p className="text-sm text-muted-foreground text-pretty">
-              Ask the platform administrator to create your organization.
-            </p>
-          </CardHeader>
-          <CardContent className="px-5 pb-6 sm:px-8 sm:pb-8">
-            <Button asChild className="w-full">
-              <Link href="/login">Return to sign in</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </main>
-    );
-  }
+
 
   return (
     <main className="flex min-h-dvh items-center justify-center bg-muted/30 px-4 py-8 sm:py-12">
