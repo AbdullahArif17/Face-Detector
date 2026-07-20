@@ -340,14 +340,14 @@ async def list_attendance_sessions(
     offset = (page - 1) * per_page
     query = (
         select(AttendanceSession, Branch)
-        .join(Branch, Branch.id == AttendanceSession.branch_id)
+        .outerjoin(Branch, Branch.id == AttendanceSession.branch_id)
         .where(AttendanceSession.company_id == current_user.company_id)
         .order_by(AttendanceSession.started_at.desc())
         .offset(offset)
         .limit(per_page)
     )
-        .limit(per_page)
-    )
+
+    if status_filter:
         query = query.where(AttendanceSession.status == status_filter)
         if status_filter.lower() == "active":
             day_start, day_end = today_bounds()
@@ -405,10 +405,10 @@ async def get_class_session_statuses(
             ),
         ),
     )
-    active_by_class = {
-        attendance_session.branch_id: attendance_session
-        for attendance_session in active_sessions
-    }
+    active_session = None
+    if active_sessions:
+        # Under the global model, there is only one active session per company
+        active_session = active_sessions[0]
 
     return [
         AttendanceClassSessionStatus(
@@ -416,10 +416,10 @@ async def get_class_session_statuses(
             class_name=branch.name,
             student_count=student_counts.get(branch.id, 0),
             active_session=build_attendance_session_read(
-                active_by_class[branch.id],
+                active_session,
                 branch,
             )
-            if branch.id in active_by_class
+            if active_session is not None
             else None,
         )
         for branch in branches
