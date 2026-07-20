@@ -253,8 +253,6 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            </div>
-
             <div className="grid gap-2">
               <label className="text-sm font-medium" htmlFor="kiosk-url">
                 Kiosk URL
