@@ -295,7 +295,7 @@ export default function KioskPage() {
         }
         resultTimeoutRef.current = window.setTimeout(
           () => setResult(null),
-          markResult.matched ? 5_000 : 3_500,
+          3_500,
         );
       } catch (markError) {
         setResult({
@@ -531,37 +531,7 @@ export default function KioskPage() {
           </div>
         </div>
 
-        {/* Action Toggle (Check In / Check Out) */}
-        {attendanceActive && (
-          <div className="flex items-center rounded-2xl bg-black/40 p-1 backdrop-blur-lg self-start sm:self-auto">
-            <button
-              type="button"
-              onClick={() => setActionType("check_in")}
-              className={cn(
-                "flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all",
-                actionType === "check_in"
-                  ? "bg-emerald-500 text-white shadow-lg"
-                  : "text-white/60 hover:text-white hover:bg-white/10",
-              )}
-            >
-              <LogIn className="size-4" />
-              Check In
-            </button>
-            <button
-              type="button"
-              onClick={() => setActionType("check_out")}
-              className={cn(
-                "flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all",
-                actionType === "check_out"
-                  ? "bg-blue-500 text-white shadow-lg"
-                  : "text-white/60 hover:text-white hover:bg-white/10",
-              )}
-            >
-              <LogOut className="size-4" />
-              Check Out
-            </button>
-          </div>
-        )}
+
 
         <div className="hidden items-center gap-3 text-right drop-shadow-md md:flex">
           <div>

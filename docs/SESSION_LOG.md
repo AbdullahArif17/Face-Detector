@@ -454,8 +454,9 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Completed: Updated attendance endpoints to support `session_type` ("check_in" or "check_out") and modified auto-mark logic to record check-out against the student's daily check-in record.
 - Changed: Added `session_type` to `AttendanceSession`, updated `stop_attendance_session` to outerjoin `Branch` (since `branch_id` is now nullable), and modified frontend `AttendanceSessionStatus` to distinguish active check-in vs check-out sessions.
 - Completed: Moved Kiosk URLs functionality from Settings to the main Live Attendance page. The system now surfaces specific URLs for Check-in (`&action=check_in`) and Check-out (`&action=check_out`).
+- Changed: Removed manual toggle action from the Kiosk screen so URL params strictly enforce mode. Standardized Kiosk UI notification delay to 3.5 seconds.
+- Completed: Implemented `send_absent_notification` during session teardown in `stop_attendance_session`. Absent messages are now delayed and dispatched to unaccounted students only when the check-in session is officially closed.
 - Verified: Both Check-in and Check-out flows return correct messages in `auto-mark` by dynamically parsing `payload.action_type`. Frontend strictly typechecks and compiles securely. Backend pytest completes successfully.
-- Pending: Wait for feedback from end users on kiosk usability.
 
 ## Entry Template
 ```markdown

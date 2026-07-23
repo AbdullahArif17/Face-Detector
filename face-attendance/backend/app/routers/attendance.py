@@ -46,10 +46,12 @@ from app.schemas.attendance import (
     AttendanceSessionStatus,
 )
 from app.services.whatsapp import (
+    absent_message_body,
     checkin_message_body,
     checkout_message_body,
     get_whatsapp_credentials,
     log_whatsapp_message,
+    send_absent_message,
     send_checkin_message,
     send_checkout_message,
     school_phone_or_default,
@@ -399,6 +401,49 @@ async def send_checkout_notification(
     )
 
 
+async def send_absent_notification(
+    *,
+    session: AsyncSession,
+    attendance: Attendance,
+    student: Student,
+    school: Company,
+    event_time: datetime,
+) -> None:
+    access_token, phone_number_id = get_whatsapp_credentials(school)
+    if not access_token or not phone_number_id:
+        attendance.notification_sent = False
+        attendance.notification_status = None
+        return
+
+    date_str = display_date(event_time)
+    message_body = absent_message_body(student, school, date_str)
+    result = await send_absent_message(
+        phone_number_id,
+        access_token,
+        student.parent_phone,
+        student.parent_name,
+        school.name,
+        school_phone_or_default(school),
+        student.student_name,
+        date_str,
+    )
+
+    notification_status = "sent" if result["success"] else "failed"
+    attendance.notification_sent = result["success"] is True
+    attendance.notification_status = notification_status
+    await log_whatsapp_message(
+        session,
+        school_id=school.id,
+        student_id=student.id,
+        parent_phone=student.parent_phone,
+        message_type="absent",
+        message_body=message_body,
+        status=notification_status,
+        meta_message_id=result["message_id"] if isinstance(result["message_id"], str) else None,
+        error_message=result["error"] if isinstance(result["error"], str) else None,
+    )
+
+
 @router.get("/sessions", response_model=list[AttendanceSessionRead])
 async def list_attendance_sessions(
     class_id: int | None = Query(default=None, gt=0),
@@ -619,6 +664,48 @@ async def stop_attendance_session(
     attendance_session.status = "stopped"
     attendance_session.stopped_at = datetime.now(timezone.utc)
     attendance_session.stopped_by_id = current_user.id
+    
+    if attendance_session.session_type == "check_in":
+        company = await session.get(Company, current_user.company_id)
+        if company:
+            absent_students_result = await session.execute(
+                select(Student).where(
+                    Student.school_id == current_user.company_id,
+                    Student.status == "active",
+                    ~select(Attendance.id).where(
+                        Attendance.student_id == Student.id,
+                        Attendance.session_id == attendance_session.id
+                    ).exists()
+                )
+            )
+            absent_students = absent_students_result.scalars().all()
+            
+            for student in absent_students:
+                attendance = Attendance(
+                    student_id=student.id,
+                    company_id=current_user.company_id,
+                    session_id=attendance_session.id,
+                    check_in=None,
+                    status="absent",
+                    notification_sent=False,
+                    notification_status="pending",
+                )
+                session.add(attendance)
+                await session.flush()
+                
+                try:
+                    await send_absent_notification(
+                        session=session,
+                        attendance=attendance,
+                        student=student,
+                        school=company,
+                        event_time=attendance_session.started_at,
+                    )
+                except Exception:
+                    logger.exception("Failed to send absent WhatsApp notification")
+                    attendance.notification_status = "failed"
+                    attendance.notification_sent = False
+
     await session.commit()
     await session.refresh(attendance_session)
     return build_attendance_session_read(attendance_session, branch)
