@@ -321,7 +321,7 @@ export default function AttendancePage() {
     }
   }
 
-  async function handleStopSession(sessionToStop: AttendanceSession): Promise<void> {
+  async function handleStopSession(): Promise<void> {
     if (!pendingStopSession) {
       return;
     }
@@ -762,7 +762,7 @@ export default function AttendancePage() {
         onOpenChange={(open) => !open && setPendingStopSession(null)}
         onConfirm={() => {
           if (pendingStopSession) {
-            void handleStopSession(pendingStopSession);
+            void handleStopSession();
           }
         }}
       />

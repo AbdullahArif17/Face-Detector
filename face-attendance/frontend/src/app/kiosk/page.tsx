@@ -9,8 +9,6 @@ import {
   RefreshCcw,
   Upload,
   XCircle,
-  LogOut,
-  LogIn,
 } from "lucide-react";
 import {
   useCallback,
