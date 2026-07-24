@@ -458,6 +458,11 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Completed: Implemented `send_absent_notification` during session teardown in `stop_attendance_session`. Absent messages are now delayed and dispatched to unaccounted students only when the check-in session is officially closed.
 - Verified: Both Check-in and Check-out flows return correct messages in `auto-mark` by dynamically parsing `payload.action_type`. Frontend strictly typechecks and compiles securely. Backend pytest completes successfully.
 
+## 2026-07-24 - Align WhatsApp approved templates
+- Fixed: Aligned check-in, check-out, and absent template body parameter order with the approved Meta templates. Check-in and check-out now send seven values; absent sends six values including class and school.
+- Added: Backend test coverage for exact attendance template parameter order to prevent future drift.
+- Verified: Full backend pytest passes 29/29. Pytest still reports a Windows permission warning for `.pytest_cache`, but tests complete successfully.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

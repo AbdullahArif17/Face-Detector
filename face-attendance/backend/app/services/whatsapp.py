@@ -252,13 +252,13 @@ async def send_checkin_message(
             parent_phone=parent_phone,
             template_name=template_name.strip(),
             body_parameters=[
+                "check-in",
                 parent_name,
                 student_name,
                 check_time,
                 date_str,
                 f"{grade}-{section}",
                 school_name,
-                school_phone,
             ],
         )
 
@@ -301,6 +301,7 @@ async def send_checkout_message(
             parent_phone=parent_phone,
             template_name=template_name.strip(),
             body_parameters=[
+                "check-out",
                 parent_name,
                 student_name,
                 checkout_time,
@@ -336,6 +337,8 @@ async def send_absent_message(
     school_phone: str,
     student_name: str,
     date_str: str,
+    grade: str,
+    section: str,
 ) -> dict[str, str | bool | None]:
     template_name = settings.meta_absent_template_name
     if is_configured_value(template_name):
@@ -345,10 +348,11 @@ async def send_absent_message(
             parent_phone=parent_phone,
             template_name=template_name.strip(),
             body_parameters=[
+                "absence",
                 parent_name,
                 student_name,
                 date_str,
-                school_phone,
+                f"{grade}-{section}",
                 school_name,
             ],
         )

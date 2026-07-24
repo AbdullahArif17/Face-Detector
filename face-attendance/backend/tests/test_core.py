@@ -359,6 +359,94 @@ async def test_whatsapp_test_mode_blocks_other_recipients(
     assert "test mode" in str(result["error"])
 
 
+@pytest.mark.asyncio
+async def test_attendance_template_parameter_order(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, list[str]] = {}
+
+    async def fake_send_template_message(**kwargs: object) -> dict[str, str | bool | None]:
+        captured[str(kwargs["template_name"])] = list(kwargs["body_parameters"])  # type: ignore[arg-type]
+        return {"success": True, "message_id": "wamid.test", "error": None}
+
+    monkeypatch.setattr(
+        whatsapp,
+        "settings",
+        SimpleNamespace(
+            meta_checkin_template_name="school_checkin_alert",
+            meta_checkout_template_name="school_checkout_alert",
+            meta_absent_template_name="school_absent_alert",
+        ),
+    )
+    monkeypatch.setattr(whatsapp, "send_template_message", fake_send_template_message)
+
+    await whatsapp.send_checkin_message(
+        "phone-id",
+        "token",
+        "923001234567",
+        "Parent",
+        "Abdullah",
+        "Demo School",
+        "923001111111",
+        "08:15 AM",
+        "24 July 2026",
+        "Class 5",
+        "A",
+    )
+    await whatsapp.send_checkout_message(
+        "phone-id",
+        "token",
+        "923001234567",
+        "Parent",
+        "Abdullah",
+        "Demo School",
+        "923001111111",
+        "01:30 PM",
+        "24 July 2026",
+        "Class 5",
+        "A",
+    )
+    await whatsapp.send_absent_message(
+        "phone-id",
+        "token",
+        "923001234567",
+        "Parent",
+        "Demo School",
+        "923001111111",
+        "Abdullah",
+        "24 July 2026",
+        "Class 5",
+        "A",
+    )
+
+    assert captured["school_checkin_alert"] == [
+        "check-in",
+        "Parent",
+        "Abdullah",
+        "08:15 AM",
+        "24 July 2026",
+        "Class 5-A",
+        "Demo School",
+    ]
+    assert captured["school_checkout_alert"] == [
+        "check-out",
+        "Parent",
+        "Abdullah",
+        "01:30 PM",
+        "24 July 2026",
+        "Class 5-A",
+        "Demo School",
+    ]
+    assert captured["school_absent_alert"] == [
+        "absence",
+        "Parent",
+        "Abdullah",
+        "24 July 2026",
+        "Class 5-A",
+        "Demo School",
+    ]
+
+
 def test_embedding_encryption_round_trip(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         biometrics,

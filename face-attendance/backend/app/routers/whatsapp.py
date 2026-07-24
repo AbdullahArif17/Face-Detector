@@ -281,6 +281,8 @@ async def retry_failed_whatsapp(
                 school_phone_or_default(school),
                 student.student_name,
                 date_str,
+                student.grade,
+                student.section,
             )
         else:
             send_result = await send_text_message(

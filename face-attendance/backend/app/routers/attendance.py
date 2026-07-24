@@ -426,6 +426,8 @@ async def send_absent_notification(
         school_phone_or_default(school),
         student.student_name,
         date_str,
+        student.grade,
+        student.section,
     )
 
     notification_status = "sent" if result["success"] else "failed"
