@@ -687,7 +687,7 @@ async def stop_attendance_session(
                     student_id=student.id,
                     company_id=current_user.company_id,
                     session_id=attendance_session.id,
-                    check_in=None,
+                    check_in=datetime.now(timezone.utc),
                     status="absent",
                     notification_sent=False,
                     notification_status="pending",
