@@ -1,7 +1,9 @@
+import asyncio
 from contextlib import asynccontextmanager
 import hmac
 import json
 import logging
+import os
 from time import perf_counter
 from urllib.parse import parse_qsl, urlsplit
 from uuid import uuid4
@@ -120,11 +122,43 @@ def validate_runtime_configuration() -> None:
         raise RuntimeError("DATABASE_URL must require TLS in production")
 
 
+HF_KEEPALIVE_INTERVAL = int(os.getenv("HF_KEEPALIVE_INTERVAL_SECONDS", "300"))
+
+
+async def _hf_keepalive(client: httpx.AsyncClient) -> None:
+    """Ping the AI service periodically to prevent HF Spaces from sleeping."""
+    url = f"{settings.ai_service_url}/health"
+    while True:
+        await asyncio.sleep(HF_KEEPALIVE_INTERVAL)
+        try:
+            resp = await client.get(url, timeout=15.0)
+            logger.debug("HF keep-alive ping: %s %s", resp.status_code, url)
+        except Exception:
+            logger.warning("HF keep-alive ping failed for %s", url)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     validate_runtime_configuration()
     app.state.http_client = httpx.AsyncClient(timeout=30.0)
+
+    keepalive_task: asyncio.Task | None = None
+    if HF_KEEPALIVE_INTERVAL > 0:
+        keepalive_task = asyncio.create_task(_hf_keepalive(app.state.http_client))
+        logger.info(
+            "HF Spaces keep-alive started (interval=%ds, url=%s/health)",
+            HF_KEEPALIVE_INTERVAL,
+            settings.ai_service_url,
+        )
+
     yield
+
+    if keepalive_task is not None:
+        keepalive_task.cancel()
+        try:
+            await keepalive_task
+        except asyncio.CancelledError:
+            pass
     await app.state.http_client.aclose()
 
 
