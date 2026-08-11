@@ -15,9 +15,14 @@ class WhatsappLog(Base):
         nullable=False,
         index=True,
     )
-    student_id: Mapped[int] = mapped_column(
+    student_id: Mapped[int | None] = mapped_column(
         ForeignKey("students.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
+        index=True,
+    )
+    employee_id: Mapped[int | None] = mapped_column(
+        ForeignKey("employees.id", ondelete="CASCADE"),
+        nullable=True,
         index=True,
     )
     parent_phone: Mapped[str] = mapped_column(String(20), nullable=False, index=True)

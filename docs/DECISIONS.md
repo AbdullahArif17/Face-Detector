@@ -197,6 +197,14 @@
 - Decision: Read WhatsApp access tokens and phone number IDs only from backend environment variables. Remove credential fields from organization settings and creation schemas, reject unknown credential override fields, and ignore legacy company credential columns during delivery. Resolve inbound messages to a tenant only through an unambiguous parent/student relationship.
 - Consequences: Organization Settings exposes no WhatsApp credentials, diagnostics, school-phone field, or test-recipient controls; parent recipients come from each student record. A sender linked to students in multiple organizations receives no tenant-specific chatbot data. Supporting separate WhatsApp accounts later requires an explicit audited platform feature rather than reusing tenant-editable settings.
 
+## D-029: Teachers and staff attendance with alerts to the school number
+- Date: 2026-08-11
+- Status: Accepted
+- Supersession: Supersedes the "no school-phone field" portion of D-028 (the school phone IS settable on the school Settings, per explicit user request); WhatsApp credentials remain platform-managed per D-028.
+- Context: The product is school attendance. Teachers and staff need the same face-enrollment, kiosk check-in/check-out, and attendance-reporting experience as students, but there are no parents to notify — the school itself is the recipient.
+- Decision: Add Teachers and Staff management pages, a Staff Attendance page (today, history, manual edit, CSV export), and kiosk recognition of employees alongside students. Employees enroll in the AI service under prefixed IDs (`"e{employee_id}"`) so they cannot collide with student IDs (`"5"`); the backend maps `"e5"` back to employee 5 via `parse_recognition_subject`. Staff check-in/check-out events are sent as free-form WhatsApp text messages to `company.school_phone` (normalized `92...` format; unset/invalid means no notification, attendance still marked), logged in `whatsapp_logs` with `employee_id`. Staff absences are not auto-created or notified; attendance sessions are shared with students (one global session, kiosk scans mark both).
+- Consequences: School settings exposes one new editable field (`school_phone`); invalid numbers silently disable staff notifications rather than failing scans. Employee retries of failed WhatsApp messages reuse stored text (no school message templates yet). Teachers are grouped by a free-form `designation` containing "teacher" (case-insensitive); strict teacher/staff bucketing would need an enum/badge later.
+
 ## Decision Template
 ```markdown
 ## D-NNN: Decision title

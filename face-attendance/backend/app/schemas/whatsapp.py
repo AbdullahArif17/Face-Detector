@@ -8,8 +8,10 @@ class WhatsappLogResponse(BaseModel):
 
     id: int
     school_id: int
-    student_id: int
+    student_id: int | None = None
     student_name: str | None = None
+    employee_id: int | None = None
+    employee_name: str | None = None
     parent_phone: str
     message_type: str
     message_body: str

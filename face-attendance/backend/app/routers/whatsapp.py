@@ -15,6 +15,7 @@ from app.core.time import (
 )
 from app.dependencies import require_role
 from app.models.company import Company
+from app.models.employee import Employee
 from app.models.student import Student
 from app.models.user import User
 from app.models.whatsapp_log import WhatsappLog
@@ -59,14 +60,23 @@ async def build_log_response(
     session: AsyncSession,
     log: WhatsappLog,
 ) -> WhatsappLogResponse:
-    student_name = await session.scalar(
-        select(Student.student_name).where(Student.id == log.student_id),
-    )
+    student_name = None
+    if log.student_id is not None:
+        student_name = await session.scalar(
+            select(Student.student_name).where(Student.id == log.student_id),
+        )
+    employee_name = None
+    if log.employee_id is not None:
+        employee_name = await session.scalar(
+            select(Employee.name).where(Employee.id == log.employee_id),
+        )
     return WhatsappLogResponse(
         id=log.id,
         school_id=log.school_id,
         student_id=log.student_id,
         student_name=student_name,
+        employee_id=log.employee_id,
+        employee_name=employee_name,
         parent_phone=log.parent_phone,
         message_type=log.message_type,
         message_body=log.message_body,
@@ -226,7 +236,9 @@ async def retry_failed_whatsapp(
         ),
     )
     failed_logs = list(result.scalars().all())
-    student_ids = {log.student_id for log in failed_logs}
+    # ponytail: staff logs retry as the stored text body; rebuild structured
+    # staff messages when school templates exist
+    student_ids = {log.student_id for log in failed_logs if log.student_id is not None}
     students = {
         student.id: student
         for student in (

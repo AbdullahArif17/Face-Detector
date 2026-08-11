@@ -16,7 +16,26 @@ import {
   type Employee,
 } from "@/lib/api";
 
+interface EmployeeDirectoryProps {
+  variant: "teachers" | "staff";
+}
+
 type FaceFilter = "all" | "enrolled" | "not_enrolled";
+
+const COPY = {
+  teachers: {
+    title: "Teachers",
+    description:
+      "Manage teacher records and face enrollment status. Teachers check in and out at the kiosk like students, and alerts go to the school number in Settings.",
+    addLabel: "Add Teacher",
+  },
+  staff: {
+    title: "Staff",
+    description:
+      "Manage staff records and face enrollment status. Staff check in and out at the kiosk like students, and alerts go to the school number in Settings.",
+    addLabel: "Add Staff Member",
+  },
+} as const;
 
 function StatusBadge({ status }: Readonly<{ status: string }>) {
   const isActive = status.toLowerCase() === "active";
@@ -56,7 +75,16 @@ function FaceBadge({
   );
 }
 
-export default function EmployeesPage() {
+// ponytail: freeform designation grouping; switch to enum/badge options
+// if schools want strict teacher/staff bucketing
+function isTeacher(designation: string | null): boolean {
+  return Boolean(designation && designation.toLowerCase().includes("teacher"));
+}
+
+export function EmployeeDirectory({
+  variant,
+}: Readonly<EmployeeDirectoryProps>) {
+  const copy = COPY[variant];
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [faceFilter, setFaceFilter] = useState<FaceFilter>("all");
@@ -71,10 +99,16 @@ export default function EmployeesPage() {
   useEffect(() => {
     let isCancelled = false;
 
-    void getAllEmployees()
+    void getAllEmployees(
+      variant === "teachers" ? { designation: "teacher" } : {},
+    )
       .then((records) => {
         if (!isCancelled) {
-          setEmployees(records);
+          setEmployees(
+            variant === "teachers"
+              ? records
+              : records.filter((record) => !isTeacher(record.designation)),
+          );
           setHasError(false);
         }
       })
@@ -92,7 +126,7 @@ export default function EmployeesPage() {
     return () => {
       isCancelled = true;
     };
-  }, []);
+  }, [variant]);
 
   useEffect(() => {
     if (!toastMessage) {
@@ -138,7 +172,12 @@ export default function EmployeesPage() {
     });
     setEditingEmployee(null);
     setToastMessage(
-      message ?? (mode === "created" ? "Employee added" : "Employee updated"),
+      message ??
+        (mode === "created"
+          ? variant === "teachers"
+            ? "Teacher added"
+            : "Staff member added"
+          : "Profile updated"),
     );
   }
 
@@ -159,7 +198,7 @@ export default function EmployeesPage() {
             : currentEmployee,
         ),
       );
-      setToastMessage("Employee marked inactive");
+      setToastMessage("Marked inactive");
     } catch {
       setHasError(true);
     } finally {
@@ -195,10 +234,10 @@ export default function EmployeesPage() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-balance sm:text-3xl">
-            Employees
+            {copy.title}
           </h1>
           <p className="mt-2 text-muted-foreground text-pretty">
-            Manage employee records and face enrollment status.
+            {copy.description}
           </p>
         </div>
         <Button
@@ -210,7 +249,7 @@ export default function EmployeesPage() {
           }}
         >
           <UserPlus aria-hidden="true" className="size-4" />
-          Add Employee
+          {copy.addLabel}
         </Button>
       </div>
 
@@ -221,7 +260,7 @@ export default function EmployeesPage() {
             className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
           />
           <Input
-            aria-label="Search employees by name"
+            aria-label={`Search ${copy.title.toLowerCase()} by name`}
             className="pl-9"
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
@@ -266,7 +305,7 @@ export default function EmployeesPage() {
             {isLoading ? (
               <tr>
                 <td className="px-4 py-6 text-muted-foreground" colSpan={8}>
-                  Loading employees...
+                  Loading {copy.title.toLowerCase()}...
                 </td>
               </tr>
             ) : null}
@@ -274,7 +313,7 @@ export default function EmployeesPage() {
             {!isLoading && filteredEmployees.length === 0 ? (
               <tr>
                 <td className="px-4 py-6 text-muted-foreground" colSpan={8}>
-                  No employees found.
+                  No {copy.title.toLowerCase()} found.
                 </td>
               </tr>
             ) : null}

@@ -26,12 +26,19 @@ class AttendanceMark(BaseModel):
 
 
 class AttendanceManualUpdate(BaseModel):
-    student_id: int = Field(gt=0)
+    student_id: int | None = Field(default=None, gt=0)
+    employee_id: int | None = Field(default=None, gt=0)
     attendance_id: int | None = Field(default=None, gt=0)
     attendance_date: date
     status: str = Field(max_length=50)
     check_in_time: str | None = Field(default=None, pattern=r"^\d{2}:\d{2}$")
     check_out_time: str | None = Field(default=None, pattern=r"^\d{2}:\d{2}$")
+
+    @model_validator(mode="after")
+    def require_subject(self) -> "AttendanceManualUpdate":
+        if (self.student_id is None) == (self.employee_id is None):
+            raise ValueError("Exactly one of student_id or employee_id is required")
+        return self
 
 
 class AttendanceRead(AttendanceBase):
@@ -99,8 +106,9 @@ class AttendanceAutoMarkRequest(ClassScopedRequest):
 class AttendanceAutoStudent(BaseModel):
     id: int
     name: str
-    grade: str
-    section: str
+    grade: str | None = None
+    section: str | None = None
+    designation: str | None = None
 
 
 class AttendanceAutoMarkResponse(BaseModel):
@@ -125,6 +133,22 @@ class AttendanceDashboardRecord(BaseModel):
     section: str
     branch_id: int
     class_id: int
+    check_in: datetime | None = None
+    check_out: datetime | None = None
+    status: str
+    confidence_score: float | None = None
+    notification_sent: bool = False
+    notification_status: str | None = None
+    working_hours: str
+    attendance_date: date
+
+
+class StaffAttendanceRecord(BaseModel):
+    attendance_id: int | None = None
+    employee_id: int
+    employee_name: str
+    designation: str | None = None
+    department: str | None = None
     check_in: datetime | None = None
     check_out: datetime | None = None
     status: str

@@ -5,7 +5,9 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.phones import normalize_pakistan_phone
 from app.models.company import Company
+from app.models.employee import Employee
 from app.models.student import Student
 from app.models.whatsapp_log import WhatsappLog
 
@@ -376,7 +378,8 @@ async def log_whatsapp_message(
     session: AsyncSession,
     *,
     school_id: int,
-    student_id: int,
+    student_id: int | None = None,
+    employee_id: int | None = None,
     parent_phone: str,
     message_type: str,
     message_body: str,
@@ -387,6 +390,7 @@ async def log_whatsapp_message(
     log = WhatsappLog(
         school_id=school_id,
         student_id=student_id,
+        employee_id=employee_id,
         parent_phone=parent_phone,
         message_type=message_type,
         message_body=message_body,
@@ -401,6 +405,138 @@ async def log_whatsapp_message(
 
 def school_phone_or_default(school: Company) -> str:
     return school.school_phone or "School office"
+
+
+def school_notification_phone(school: Company) -> str | None:
+    """The normalized school number staff notifications are sent to.
+
+    Returns None when the school number is unset or invalid, in which case
+    attendance is still recorded but no WhatsApp message is sent.
+    """
+    if not school.school_phone:
+        return None
+    try:
+        return normalize_pakistan_phone(school.school_phone)
+    except ValueError:
+        return None
+
+
+def build_staff_checkin_message(
+    *,
+    employee_name: str,
+    designation: str,
+    school_name: str,
+    school_phone: str,
+    check_time: str,
+    date_str: str,
+) -> str:
+    return f"""✅ Staff Check-in | عملے کی حاضری
+
+{employee_name} has arrived at school.
+{employee_name} اسکول پہنچ گئے۔
+
+👔 Designation | عہدہ: {designation or "Staff"}
+🕐 Time | وقت: {check_time}
+📅 Date | تاریخ: {date_str}
+🏫 School: {school_name}
+
+JazakAllah Khair 🤲
+📞 {school_phone}"""
+
+
+def build_staff_checkout_message(
+    *,
+    employee_name: str,
+    designation: str,
+    school_name: str,
+    checkout_time: str,
+    date_str: str,
+) -> str:
+    return f"""🏠 Staff Check-out | عملے کی روانگی
+
+{employee_name} has left school.
+{employee_name} اسکول سے روانہ ہو گئے۔
+
+👔 Designation | عہدہ: {designation or "Staff"}
+🕐 Time | وقت: {checkout_time}
+📅 Date | تاریخ: {date_str}
+
+Have a safe journey home! 🤲
+گھر سلامت پہنچیں۔
+
+{school_name}"""
+
+
+# ponytail: staff messages use plain text only; switch to school templates
+# when the school asks for branded template messages
+async def send_staff_checkin_message(
+    phone_number_id: str,
+    access_token: str,
+    school_phone: str,
+    employee_name: str,
+    designation: str,
+    school_name: str,
+    check_time: str,
+    date_str: str,
+) -> dict[str, str | bool | None]:
+    return await send_text_message(
+        phone_number_id=phone_number_id,
+        access_token=access_token,
+        parent_phone=school_phone,
+        message=build_staff_checkin_message(
+            employee_name=employee_name,
+            designation=designation,
+            school_name=school_name,
+            school_phone=school_phone,
+            check_time=check_time,
+            date_str=date_str,
+        ),
+    )
+
+
+async def send_staff_checkout_message(
+    phone_number_id: str,
+    access_token: str,
+    school_phone: str,
+    employee_name: str,
+    designation: str,
+    school_name: str,
+    checkout_time: str,
+    date_str: str,
+) -> dict[str, str | bool | None]:
+    return await send_text_message(
+        phone_number_id=phone_number_id,
+        access_token=access_token,
+        parent_phone=school_phone,
+        message=build_staff_checkout_message(
+            employee_name=employee_name,
+            designation=designation,
+            school_name=school_name,
+            checkout_time=checkout_time,
+            date_str=date_str,
+        ),
+    )
+
+
+def staff_checkin_message_body(employee: Employee, school: Company, check_time: str, date_str: str) -> str:
+    return build_staff_checkin_message(
+        employee_name=employee.name,
+        designation=employee.designation or "",
+        school_name=school.name,
+        school_phone=school_phone_or_default(school),
+        check_time=check_time,
+        date_str=date_str,
+    )
+
+
+def staff_checkout_message_body(employee: Employee, school: Company, checkout_time: str, date_str: str) -> str:
+    return build_staff_checkout_message(
+        employee_name=employee.name,
+        designation=employee.designation or "",
+        school_name=school.name,
+        checkout_time=checkout_time,
+        date_str=date_str,
+    )
 
 
 def checkin_message_body(student: Student, school: Company, check_time: str, date_str: str) -> str:

@@ -10,9 +10,15 @@ class FaceEmbedding(Base):
     __tablename__ = "face_embeddings"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    student_id: Mapped[int] = mapped_column(
+    student_id: Mapped[int | None] = mapped_column(
         ForeignKey("students.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
+        unique=True,
+        index=True,
+    )
+    employee_id: Mapped[int | None] = mapped_column(
+        ForeignKey("employees.id", ondelete="CASCADE"),
+        nullable=True,
         unique=True,
         index=True,
     )

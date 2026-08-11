@@ -42,12 +42,14 @@ class FaceEnrollRequest(BaseModel):
 
 class FaceEnrollResponse(BaseModel):
     success: bool
-    student_id: int
+    student_id: int | None = None
+    employee_id: int | None = None
     message: str
     profile_image: str | None = None
 
 
 class FaceEnrollmentStatusResponse(BaseModel):
-    student_id: int
+    student_id: int | None = None
+    employee_id: int | None = None
     has_face_enrolled: bool
     enrollment_date: datetime | None = None

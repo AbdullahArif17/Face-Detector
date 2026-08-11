@@ -153,18 +153,36 @@ export interface AttendanceDashboardRecord {
 
 export interface AttendanceManualUpdateInput {
   attendance_id?: number | null;
-  student_id: number;
+  student_id?: number | null;
+  employee_id?: number | null;
   attendance_date: string;
   status: "present" | "absent" | "excused";
   check_in_time?: string | null;
   check_out_time?: string | null;
 }
 
+export interface StaffAttendanceRecord {
+  attendance_id: number | null;
+  employee_id: number;
+  employee_name: string;
+  designation: string | null;
+  department: string | null;
+  check_in: string | null;
+  check_out: string | null;
+  status: string;
+  confidence_score: number | null;
+  notification_sent: boolean;
+  notification_status: string | null;
+  working_hours: string;
+  attendance_date: string;
+}
+
 export interface KioskAttendanceStudent {
   id: number;
   name: string;
-  grade: string;
-  section: string;
+  grade: string | null;
+  section: string | null;
+  designation?: string | null;
 }
 
 export interface KioskAttendanceResult {
@@ -285,8 +303,10 @@ export interface SchoolSettings {
 export interface WhatsappLog {
   id: number;
   school_id: number;
-  student_id: number;
+  student_id: number | null;
   student_name: string | null;
+  employee_id?: number | null;
+  employee_name?: string | null;
   parent_phone: string;
   message_type: "check_in" | "check_out" | "absent" | string;
   message_body: string;
@@ -411,6 +431,7 @@ export async function logoutRequest(): Promise<void> {
 interface PageOptions {
   page?: number;
   perPage?: number;
+  designation?: string;
 }
 
 export async function getEmployees(
@@ -420,17 +441,20 @@ export async function getEmployees(
     params: {
       page: options.page ?? 1,
       per_page: options.perPage ?? API_PAGE_SIZE,
+      designation: options.designation || undefined,
     },
   });
   return response.data;
 }
 
-export async function getAllEmployees(): Promise<Employee[]> {
+export async function getAllEmployees(
+  options: PageOptions = {},
+): Promise<Employee[]> {
   const employees: Employee[] = [];
   let page = 1;
 
   while (true) {
-    const records = await getEmployees({ page, perPage: API_PAGE_SIZE });
+    const records = await getEmployees({ ...options, page, perPage: API_PAGE_SIZE });
     employees.push(...records);
 
     if (records.length < API_PAGE_SIZE) {
@@ -523,7 +547,8 @@ export async function deleteEmployee(employeeId: number): Promise<void> {
 
 export interface FaceEnrollResponse {
   success: boolean;
-  student_id: number;
+  student_id: number | null;
+  employee_id?: number | null;
   message: string;
   profile_image: string | null;
 }
@@ -537,8 +562,8 @@ export async function enrollEmployeeFace(
   image: string,
 ): Promise<FaceEnrollResponse> {
   const response = await api.post<FaceEnrollResponse>(
-    `/face/enroll/${employeeId}`,
-    { image },
+    `/face/employee-enroll/${employeeId}`,
+    { images: [image] },
     { timeout: FACE_REQUEST_TIMEOUT_MS },
   );
   return response.data;
@@ -709,6 +734,67 @@ export async function exportAttendanceHistory(
   return response.data;
 }
 
+export async function getStaffAttendanceToday(): Promise<
+  StaffAttendanceRecord[]
+> {
+  const response = await api.get<StaffAttendanceRecord[]>(
+    "/attendance/staff/today",
+  );
+  return response.data;
+}
+
+export async function getStaffAttendanceHistory(options: {
+  startDate?: string;
+  endDate?: string;
+  employeeId?: number;
+  status?: string;
+  page?: number;
+  perPage?: number;
+} = {}): Promise<StaffAttendanceRecord[]> {
+  const response = await api.get<StaffAttendanceRecord[]>(
+    "/attendance/staff/history",
+    {
+      params: {
+        start_date: options.startDate || undefined,
+        end_date: options.endDate || undefined,
+        employee_id: options.employeeId || undefined,
+        status: options.status || undefined,
+        page: options.page ?? 1,
+        per_page: options.perPage ?? API_PAGE_SIZE,
+      },
+    },
+  );
+  return response.data;
+}
+
+export async function exportStaffAttendanceHistory(options: {
+  startDate?: string;
+  endDate?: string;
+  employeeId?: number;
+  status?: string;
+} = {}): Promise<Blob> {
+  const response = await api.get<Blob>("/attendance/staff/export", {
+    params: {
+      start_date: options.startDate || undefined,
+      end_date: options.endDate || undefined,
+      employee_id: options.employeeId || undefined,
+      status: options.status || undefined,
+    },
+    responseType: "blob",
+  });
+  return response.data;
+}
+
+export async function updateStaffManualAttendance(
+  input: AttendanceManualUpdateInput,
+): Promise<StaffAttendanceRecord> {
+  const response = await api.put<StaffAttendanceRecord>(
+    "/attendance/staff/manual",
+    input,
+  );
+  return response.data;
+}
+
 export async function autoMarkAttendance(
   apiKey: string,
   image: string,
@@ -804,6 +890,17 @@ export async function getSchoolSettings(
   companyId: number,
 ): Promise<SchoolSettings> {
   const response = await api.get<SchoolSettings>(`/companies/${companyId}/settings`);
+  return response.data;
+}
+
+export async function updateSchoolSettings(
+  companyId: number,
+  input: { school_phone: string | null },
+): Promise<SchoolSettings> {
+  const response = await api.put<SchoolSettings>(
+    `/companies/${companyId}/settings`,
+    input,
+  );
   return response.data;
 }
 

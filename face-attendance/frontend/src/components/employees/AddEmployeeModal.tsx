@@ -318,8 +318,17 @@ export function AddEmployeeModal({
                 value={designation}
                 disabled={isProfileLocked}
                 onChange={(event) => setDesignation(event.target.value)}
-                placeholder="HR Manager"
+                placeholder="Teacher or Staff"
+                list="employee-designation-suggestions"
               />
+              <datalist id="employee-designation-suggestions">
+                <option value="Teacher" />
+                <option value="Staff" />
+              </datalist>
+              <p className="text-xs text-muted-foreground">
+                Use &quot;Teacher&quot; so they appear on the Teachers page;
+                anything else appears on the Staff page.
+              </p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="employee-department">Department</Label>

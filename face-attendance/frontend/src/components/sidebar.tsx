@@ -1,8 +1,11 @@
 "use client";
 
 import {
+  Briefcase,
   CalendarCheck,
+  ClipboardList,
   FileText,
+  GraduationCap,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -24,7 +27,10 @@ import { cn } from "@/lib/utils";
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Students", href: "/students", icon: Users },
+  { name: "Teachers", href: "/teachers", icon: GraduationCap },
+  { name: "Staff", href: "/staff", icon: Briefcase },
   { name: "Attendance", href: "/attendance", icon: CalendarCheck },
+  { name: "Staff Attendance", href: "/staff-attendance", icon: ClipboardList },
   { name: "Reports", href: "/reports", icon: FileText },
   { name: "Notifications", href: "/notifications", icon: MessageSquareText },
 ] as const;

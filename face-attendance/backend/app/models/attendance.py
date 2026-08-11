@@ -16,12 +16,24 @@ class Attendance(Base):
             unique=True,
             postgresql_where=text("session_id IS NOT NULL"),
         ),
+        Index(
+            "uq_attendance_one_mark_per_session_employee",
+            "session_id",
+            "employee_id",
+            unique=True,
+            postgresql_where=text("session_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    student_id: Mapped[int] = mapped_column(
+    student_id: Mapped[int | None] = mapped_column(
         ForeignKey("students.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
+        index=True,
+    )
+    employee_id: Mapped[int | None] = mapped_column(
+        ForeignKey("employees.id", ondelete="CASCADE"),
+        nullable=True,
         index=True,
     )
     company_id: Mapped[int] = mapped_column(

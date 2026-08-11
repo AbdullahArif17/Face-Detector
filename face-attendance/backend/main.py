@@ -23,6 +23,7 @@ from app.routers import (
     companies,
     employees,
     face,
+    staff_attendance,
     students,
     users,
     webhooks,
@@ -253,6 +254,7 @@ app.include_router(employees.router)
 app.include_router(students.router)
 app.include_router(attendance.router)
 app.include_router(face.router)
+app.include_router(staff_attendance.router)
 app.include_router(users.router)
 app.include_router(whatsapp.router)
 app.include_router(webhooks.router)

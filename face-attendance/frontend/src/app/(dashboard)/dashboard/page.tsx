@@ -6,17 +6,27 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ApiError } from "@/components/api-error";
 import { StudentAvatar } from "@/components/students/StudentAvatar";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
 import {
   getAttendanceToday,
   getSchoolSettings,
   getStudents,
+  updateSchoolSettings,
   type AttendanceDashboardRecord,
   type SchoolSettings,
   type Student,
 } from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/errors";
 import { canManageKiosk } from "@/lib/permissions";
+
+function isValidSchoolPhone(phone: string): boolean {
+  const normalized = phone.trim().replace(/[\s\-()+]/g, "");
+  return /^92\d{10}$/.test(normalized) || /^03\d{9}$/.test(normalized);
+}
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -29,6 +39,11 @@ export default function DashboardPage() {
   );
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [schoolPhoneInput, setSchoolPhoneInput] = useState("");
+  const [isSavingSchoolPhone, setIsSavingSchoolPhone] = useState(false);
+  const [schoolPhoneError, setSchoolPhoneError] = useState<string | null>(
+    null,
+  );
   const hasAdminAccess = canManageKiosk(user);
 
   const loadDashboard = useCallback(async (): Promise<void> => {
@@ -48,6 +63,7 @@ export default function DashboardPage() {
       setStudents(studentRecords);
       setTodayRecords(attendanceRecords);
       setSchoolSettings(settingsResponse);
+      setSchoolPhoneInput(settingsResponse?.school_phone ?? "");
       setHasError(false);
     } catch {
       setHasError(true);
@@ -136,6 +152,34 @@ export default function DashboardPage() {
       ? "Checking configuration..."
       : "Admin-only configuration";
 
+  async function handleSaveSchoolPhone(): Promise<void> {
+    const trimmed = schoolPhoneInput.trim();
+    if (trimmed && !isValidSchoolPhone(trimmed)) {
+      setSchoolPhoneError(
+        "School WhatsApp number format: 923001234567 or 03001234567.",
+      );
+      return;
+    }
+    if (!user) {
+      return;
+    }
+    setIsSavingSchoolPhone(true);
+    setSchoolPhoneError(null);
+    try {
+      const updated = await updateSchoolSettings(user.company_id, {
+        school_phone: trimmed || null,
+      });
+      setSchoolSettings(updated);
+      setSchoolPhoneInput(updated.school_phone ?? "");
+    } catch (error) {
+      setSchoolPhoneError(
+        getApiErrorMessage(error, "Unable to save school WhatsApp number."),
+      );
+    } finally {
+      setIsSavingSchoolPhone(false);
+    }
+  }
+
   return (
     <section className="space-y-6">
       <div>
@@ -213,6 +257,45 @@ export default function DashboardPage() {
             <p className="mt-1 text-xs text-muted-foreground">
               Admin test messages use school credentials first, then default backend credentials.
             </p>
+            {hasAdminAccess ? (
+              <form
+                className="mt-3 grid gap-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void handleSaveSchoolPhone();
+                }}
+              >
+                <Label htmlFor="school-phone">
+                  School WhatsApp number (staff alerts)
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="school-phone"
+                    value={schoolPhoneInput}
+                    disabled={isSavingSchoolPhone}
+                    placeholder="923001234567"
+                    onChange={(event) => {
+                      setSchoolPhoneInput(event.target.value);
+                      setSchoolPhoneError(null);
+                    }}
+                  />
+                  <Button
+                    type="submit"
+                    disabled={isSavingSchoolPhone}
+                    className="shrink-0"
+                  >
+                    {isSavingSchoolPhone ? "Saving..." : "Save"}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Teachers and staff check-in/check-out alerts are sent here.
+                  Format: 923001234567 or 03001234567. Leave empty to disable.
+                </p>
+                {schoolPhoneError ? (
+                  <p className="text-xs text-red-700">{schoolPhoneError}</p>
+                ) : null}
+              </form>
+            ) : null}
           </CardContent>
         </Card>
       </div>

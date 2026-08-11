@@ -11,6 +11,7 @@ from app.core.biometrics import BiometricConfigurationError, prepare_embedding_s
 from app.core.database import get_db
 from app.core.images import make_profile_thumbnail, normalize_base64_image
 from app.dependencies import require_role
+from app.models.employee import Employee
 from app.models.face_embedding import FaceEmbedding
 from app.models.student import Student
 from app.models.user import User
@@ -44,6 +45,18 @@ async def get_school_student(
     return student
 
 
+async def get_school_employee(
+    session: AsyncSession,
+    *,
+    employee_id: int,
+    current_user: User,
+) -> Employee:
+    employee = await session.get(Employee, employee_id)
+    if employee is None or employee.company_id != current_user.company_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
+    return employee
+
+
 def extract_ai_error(payload: Any) -> str:
     if isinstance(payload, dict):
         detail = payload.get("detail")
@@ -64,30 +77,19 @@ def should_update_profile_image(
     return current_profile_image is None
 
 
-@router.post("/enroll/{student_id}", response_model=FaceEnrollResponse)
-async def enroll_face(
+async def _call_ai_enroll(
     request: Request,
-    student_id: int,
-    payload: FaceEnrollRequest,
-    session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role("super_admin", "admin", "hr")),
-) -> FaceEnrollResponse:
-    student = await get_school_student(
-        session,
-        student_id=student_id,
-        current_user=current_user,
-    )
-    normalized_images = [
-        normalize_base64_image(image) for image in payload.resolved_images()
-    ]
-    headshot_url = normalized_images[0]
-
+    *,
+    subject_ref: str,
+    normalized_images: list[str],
+) -> tuple[list[float], str]:
+    """POST images to the AI service; returns (embedding, model_name)."""
     try:
         client: httpx.AsyncClient = request.app.state.http_client
         response = await client.post(
             f"{settings.ai_service_url}/enroll",
             json={
-                "student_id": student_id,
+                "employee_id": subject_ref,
                 "images": normalized_images,
             },
             headers=ai_service_headers(),
@@ -127,8 +129,29 @@ async def enroll_face(
                 "check AI_MODEL_NAME"
             ),
         )
+    return [float(value) for value in embedding], model_name
 
-    normalized_embedding = [float(value) for value in embedding]
+
+async def _enroll_subject(
+    session: AsyncSession,
+    request: Request,
+    *,
+    subject_ref: str,
+    payload: FaceEnrollRequest,
+    student: Student | None = None,
+    employee: Employee | None = None,
+) -> FaceEnrollResponse:
+    """Enroll or re-enroll one face subject against the AI service."""
+    normalized_images = [
+        normalize_base64_image(image) for image in payload.resolved_images()
+    ]
+    headshot_url = normalized_images[0]
+
+    normalized_embedding, model_name = await _call_ai_enroll(
+        request,
+        subject_ref=subject_ref,
+        normalized_images=normalized_images,
+    )
     try:
         ciphertext, legacy_vector = prepare_embedding_storage(normalized_embedding)
     except BiometricConfigurationError as exc:
@@ -138,12 +161,16 @@ async def enroll_face(
         ) from exc
 
     existing_embedding = await session.scalar(
-        select(FaceEmbedding).where(FaceEmbedding.student_id == student_id),
+        select(FaceEmbedding).where(
+            (FaceEmbedding.student_id == (student.id if student is not None else None))
+            | (FaceEmbedding.employee_id == (employee.id if employee is not None else None))
+        ),
     )
     if existing_embedding is None:
         session.add(
             FaceEmbedding(
-                student_id=student_id,
+                student_id=student.id if student is not None else None,
+                employee_id=employee.id if employee is not None else None,
                 embedding_vector=legacy_vector,
                 embedding_ciphertext=ciphertext,
                 model_name=model_name,
@@ -155,21 +182,76 @@ async def enroll_face(
         existing_embedding.model_name = model_name
         existing_embedding.updated_at = datetime.now(timezone.utc)
 
+    profile_image = (
+        student.profile_image if student is not None else employee.headshot_url
+    )
     if should_update_profile_image(
         requested=payload.update_profile_image,
-        current_profile_image=student.profile_image,
+        current_profile_image=profile_image,
     ):
-        student.profile_image = make_profile_thumbnail(headshot_url)
+        thumbnail = make_profile_thumbnail(headshot_url)
+        if student is not None:
+            student.profile_image = thumbnail
+        else:
+            employee.headshot_url = thumbnail
+        profile_image = thumbnail
     await session.commit()
     return FaceEnrollResponse(
         success=True,
-        student_id=student_id,
+        student_id=student.id if student is not None else None,
+        employee_id=employee.id if employee is not None else None,
         message=(
             "Face enrolled successfully"
             if len(normalized_images) == 1
             else f"Face enrolled from {len(normalized_images)} photos"
         ),
-        profile_image=student.profile_image,
+        profile_image=profile_image,
+    )
+
+
+@router.post("/enroll/{student_id}", response_model=FaceEnrollResponse)
+async def enroll_face(
+    request: Request,
+    student_id: int,
+    payload: FaceEnrollRequest,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("super_admin", "admin", "hr")),
+) -> FaceEnrollResponse:
+    student = await get_school_student(
+        session,
+        student_id=student_id,
+        current_user=current_user,
+    )
+    return await _enroll_subject(
+        session,
+        request,
+        subject_ref=str(student_id),
+        payload=payload,
+        student=student,
+    )
+
+
+@router.post("/employee-enroll/{employee_id}", response_model=FaceEnrollResponse)
+async def enroll_employee_face(
+    request: Request,
+    employee_id: int,
+    payload: FaceEnrollRequest,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("super_admin", "admin", "hr")),
+) -> FaceEnrollResponse:
+    employee = await get_school_employee(
+        session,
+        employee_id=employee_id,
+        current_user=current_user,
+    )
+    # Prefix keeps employee subjects distinct from students in the AI service
+    # ("e5" vs "5"); the kiosk router maps the prefix back after recognition.
+    return await _enroll_subject(
+        session,
+        request,
+        subject_ref=f"e{employee_id}",
+        payload=payload,
+        employee=employee,
     )
 
 
@@ -194,6 +276,59 @@ async def get_enrollment_status(
         student_id=student_id,
         has_face_enrolled=embedding is not None,
         enrollment_date=embedding.created_at if embedding is not None else None,
+    )
+
+
+@router.get(
+    "/employee-enrollment-status/{employee_id}",
+    response_model=FaceEnrollmentStatusResponse,
+)
+async def get_employee_enrollment_status(
+    employee_id: int,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("super_admin", "admin", "hr")),
+) -> FaceEnrollmentStatusResponse:
+    await get_school_employee(
+        session,
+        employee_id=employee_id,
+        current_user=current_user,
+    )
+    embedding = await session.scalar(
+        select(FaceEmbedding).where(FaceEmbedding.employee_id == employee_id),
+    )
+    return FaceEnrollmentStatusResponse(
+        employee_id=employee_id,
+        has_face_enrolled=embedding is not None,
+        enrollment_date=embedding.created_at if embedding is not None else None,
+    )
+
+
+@router.delete("/employee-unenroll/{employee_id}", response_model=FaceEnrollResponse)
+async def unenroll_employee_face(
+    employee_id: int,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("super_admin", "admin", "hr")),
+) -> FaceEnrollResponse:
+    await get_school_employee(
+        session,
+        employee_id=employee_id,
+        current_user=current_user,
+    )
+    embedding = await session.scalar(
+        select(FaceEmbedding).where(FaceEmbedding.employee_id == employee_id),
+    )
+    if embedding is not None:
+        await session.delete(embedding)
+
+    employee = await session.get(Employee, employee_id)
+
+    await session.commit()
+
+    return FaceEnrollResponse(
+        success=True,
+        employee_id=employee_id,
+        message="Face unenrolled successfully; profile photo retained",
+        profile_image=employee.headshot_url if employee is not None else None,
     )
 
 

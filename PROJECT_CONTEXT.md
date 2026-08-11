@@ -1,13 +1,13 @@
 # Project Context
 
-Last updated: 2026-07-17
+Last updated: 2026-08-11
 
 ## Product
 
 - Name: Face Attendance
-- Objective: Multi-tenant school attendance SaaS using class-scoped face-recognition sessions and parent WhatsApp notifications.
-- Active domain model: organizations/schools, portal users, classes, students, attendance sessions, attendance marks, face embeddings, and WhatsApp logs.
-- Legacy employee routes remain for migration compatibility but are not part of the active school workflow.
+- Objective: Multi-tenant school attendance SaaS using class-scoped face-recognition sessions, parent WhatsApp notifications for students, and school-number WhatsApp alerts for teachers and staff.
+- Active domain model: organizations/schools, portal users, classes, students, employees (teachers and staff), attendance sessions, attendance marks, face embeddings, and WhatsApp logs.
+- Teachers and staff mirror the student experience: face enrollment (AI key `e{employee_id}`), kiosk check-in/check-out, and a Staff Attendance page (today, history, manual edit, CSV export). Their check-in/check-out alerts are free-form WhatsApp text messages to `company.school_phone` (normalized `92...`; unset/invalid means no notification, attendance still marked). Staff absences are not auto-created or notified; the attendance session is shared with students.
 
 ## Architecture
 
@@ -27,7 +27,8 @@ The browser calls the same-origin Next.js route `/api/backend/*`; that route pro
 - Organization admins manage admin/HR/branch-manager/viewer accounts. Deactivation is reversible; permanent deletion is separate and preserves historical foreign-key integrity.
 - Attendance is class/session based. Staff explicitly turn a class session ON/OFF. A kiosk scan can create one `present` mark per student per active session; repeat scans are idempotent and never check a student out.
 - There is no time-triggered attendance, 9 AM rule, absent cron, or automatic absent-row creation. Manual attendance corrections support present, absent, and excused for admin/HR/branch-manager roles; viewers are read-only.
-- Latest Alembic head is `c1d4e7f9a620_one_attendance_mark_per_session`. It adds a partial unique index on `(session_id, student_id)` after removing historical duplicates. The Neon database was verified at this head on 2026-07-17.
+- Latest Alembic head is `8b0ac05d29be_add_employee_attendance`. It adds nullable `employee_id` foreign keys to `attendance`, `face_embeddings`, and `whatsapp_logs` and makes `student_id` nullable in those tables. The prior head `c1d4e7f9a620` added the partial unique index on `(session_id, student_id)`.
+- The school WhatsApp number is editable from the Dashboard WhatsApp card by admin/super-admin users (`PUT /companies/{id}/settings` with `school_phone`); WhatsApp credentials remain platform-managed environment variables.
 - New face embeddings are encrypted at rest with `BIOMETRIC_ENCRYPTION_KEY`. Recognition excludes embeddings created by another model. Run `python -m app.encrypt_face_embeddings` only after confirming the deployment key matches existing encrypted data.
 - WhatsApp credentials are platform-managed backend environment variables (`META_WHATSAPP_TOKEN` and `META_PHONE_NUMBER_ID`) shared by every organization. Organization settings cannot read, select, or override them; legacy company credential columns are ignored.
 - WhatsApp webhook POSTs require Meta HMAC signatures in production. Inbound IDs are deduplicated. With the shared number, parent lookup resolves an organization only when the parent/student relationship is unambiguous and otherwise fails closed.
@@ -44,7 +45,7 @@ The browser calls the same-origin Next.js route `/api/backend/*`; that route pro
 - User listing, activation, deactivation, role changes, permanent deletion, company settings, API keys, and class access are always constrained by the authenticated `company_id`, including for `super_admin` accounts. Cross-organization identifiers return `404` to limit tenant enumeration.
 - Organization admins cannot manage a `super_admin`, cannot alter their own role/status, and cannot delete themselves. User input schemas reject unknown privilege-bearing fields.
 - Dashboard workflows now use accessible confirmation dialogs, retryable API errors, safer destructive-action labels, responsive mobile cards, clearer empty states, camera/upload guidance, and non-localhost production API defaults.
-- Settings is intentionally kiosk-only: it contains the class-scoped kiosk workflow, link generator, open/copy actions, and key-rotation warning. WhatsApp diagnostics, school-phone fields, test-message controls, and raw kiosk-key display do not belong on the organization Settings page.
+- Settings is intentionally kiosk-only: it contains the class-scoped kiosk workflow, link generator, open/copy actions, and key-rotation warning. The school phone used for staff alerts is editable from the Dashboard WhatsApp card, not the Settings page; WhatsApp diagnostics, test-message controls, and raw kiosk-key display do not belong on the organization Settings page.
 - Login uses a project-owned generated school-kiosk illustration at `frontend/public/images/login-attendance-hero.png`. The page is a responsive split layout on desktop and a compact visual banner plus form on mobile, with phone-specific hero height, typography, input spacing, and footer wrapping plus accessible password visibility, loading, error, security, and legal controls.
 - The project logo is stored at `frontend/public/images/face-attendance-logo.png`. A shared responsive `BrandLogo` component is used on authentication, navigation, kiosk, and legal screens; Next.js serves matching browser and Apple icons from `frontend/src/app/icon.png` and `frontend/src/app/apple-icon.png`.
 - Verification: 26 backend tests pass, frontend strict TypeScript and ESLint pass, the optimized Next.js production build succeeds, and `git diff --check` reports no patch errors.
@@ -71,8 +72,10 @@ The browser calls the same-origin Next.js route `/api/backend/*`; that route pro
 ## Release Order
 
 1. Confirm Vercel uses the same `BIOMETRIC_ENCRYPTION_KEY` that encrypted the Neon record; preserve that key in a secure backup.
-2. Start one class session and perform one real kiosk scan plus a repeat-scan idempotency check. Re-enroll with two or three clear photos if recognition quality is weak.
-3. When WhatsApp work resumes, send one real inbound `STATUS` message and verify inbound, reply, and delivery/read callback rows.
+2. Apply migration `8b0ac05d29be` to Neon before deploying the new backend code.
+3. Start one class session and perform one real kiosk scan plus a repeat-scan idempotency check. Re-enroll with two or three clear photos if recognition quality is weak.
+4. Enroll one teacher/staff face, scan at the kiosk, and confirm a staff check-in row plus a WhatsApp text to the school number from the Dashboard card.
+5. When WhatsApp work resumes, send one real inbound `STATUS` message and verify inbound, reply, and delivery/read callback rows.
 
 ## External Acceptance / Production Limits
 

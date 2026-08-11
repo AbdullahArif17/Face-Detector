@@ -7,6 +7,7 @@ from app.core.database import get_db
 from app.dependencies import require_role
 from app.models.branch import Branch
 from app.models.employee import Employee
+from app.models.face_embedding import FaceEmbedding
 from app.models.user import User
 from app.schemas.employee import EmployeeCreate, EmployeeResponse, EmployeeUpdate
 
@@ -78,31 +79,46 @@ async def employee_has_face_embedding(
     session: AsyncSession,
     employee_id: int,
 ) -> bool:
-    # Legacy employee face enrollment was superseded by student enrollment in Phase 5.
-    return False
+    embedding_id = await session.scalar(
+        select(FaceEmbedding.id).where(FaceEmbedding.employee_id == employee_id),
+    )
+    return embedding_id is not None
 
 
 @router.get("", response_model=list[EmployeeResponse])
 async def list_employees(
     page: int = Query(1, ge=1),
     per_page: int = Query(25, ge=1, le=100),
+    designation: str | None = Query(default=None),
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("super_admin", "admin", "hr")),
 ) -> list[EmployeeResponse]:
     offset = (page - 1) * per_page
+    query = select(Employee).where(Employee.company_id == current_user.company_id)
+    if designation:
+        query = query.where(
+            func.lower(Employee.designation).contains(designation.strip().lower()),
+        )
     result = await session.execute(
-        select(Employee)
-        .where(Employee.company_id == current_user.company_id)
-        .order_by(Employee.id)
-        .offset(offset)
-        .limit(per_page),
+        query.order_by(Employee.id).offset(offset).limit(per_page),
+    )
+    employees = list(result.scalars().all())
+    if not employees:
+        return []
+
+    enrolled_ids = set(
+        await session.scalars(
+            select(FaceEmbedding.employee_id).where(
+                FaceEmbedding.employee_id.in_([employee.id for employee in employees]),
+            ),
+        ),
     )
     return [
         employee_to_response(
             employee,
-            has_face_enrolled=False,
+            has_face_enrolled=employee.id in enrolled_ids,
         )
-        for employee in result.scalars().all()
+        for employee in employees
     ]
 
 

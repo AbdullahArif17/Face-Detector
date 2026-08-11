@@ -130,7 +130,11 @@ function ResultOverlay({
 
   const student = result.student ?? result.employee;
   const studentName = student?.name ?? "Student";
-  const classText = student ? `${student.grade}-${student.section}` : null;
+  const classText = student
+    ? result.employee
+      ? student.designation ?? "Staff member"
+      : `${student.grade}-${student.section}`
+    : null;
   const isSuccessfulAction =
     result.matched &&
     (result.action === "check_in" ||

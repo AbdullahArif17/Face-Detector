@@ -29,6 +29,7 @@ from app.models.attendance import Attendance
 from app.models.attendance_session import AttendanceSession
 from app.models.branch import Branch
 from app.models.company import Company
+from app.models.employee import Employee
 from app.models.face_embedding import FaceEmbedding
 from app.models.student import Student
 from app.models.user import User
@@ -51,10 +52,15 @@ from app.services.whatsapp import (
     checkout_message_body,
     get_whatsapp_credentials,
     log_whatsapp_message,
+    school_notification_phone,
+    school_phone_or_default,
     send_absent_message,
     send_checkin_message,
     send_checkout_message,
-    school_phone_or_default,
+    send_staff_checkin_message,
+    send_staff_checkout_message,
+    staff_checkin_message_body,
+    staff_checkout_message_body,
 )
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
@@ -202,6 +208,58 @@ async def get_today_attendance_for_student(
         .where(
             Attendance.company_id == company_id,
             Attendance.student_id == student_id,
+            Attendance.check_in >= day_start,
+            Attendance.check_in < day_end,
+        )
+        .order_by(Attendance.check_in.desc()),
+    )
+
+
+def parse_recognition_subject(raw: str) -> tuple[str, int] | None:
+    """Map an AI recognition id to (kind, id): "e5" -> ("employee", 5), "5" -> ("student", 5)."""
+    if not raw:
+        return None
+    if raw.startswith("e"):
+        subject_id = raw[1:]
+        if subject_id.isdigit():
+            return "employee", int(subject_id)
+        return None
+    if raw.isdigit():
+        return "student", int(raw)
+    return None
+
+
+async def get_session_attendance_for_employee(
+    session: AsyncSession,
+    *,
+    company_id: int,
+    attendance_session_id: int,
+    employee_id: int,
+) -> Attendance | None:
+    return await session.scalar(
+        select(Attendance)
+        .where(
+            Attendance.company_id == company_id,
+            Attendance.session_id == attendance_session_id,
+            Attendance.employee_id == employee_id,
+        )
+        .order_by(Attendance.id.asc()),
+    )
+
+
+async def get_today_attendance_for_employee(
+    session: AsyncSession,
+    *,
+    company_id: int,
+    employee_id: int,
+) -> Attendance | None:
+    """Find any attendance record for an employee today (across all sessions)."""
+    day_start, day_end = today_bounds()
+    return await session.scalar(
+        select(Attendance)
+        .where(
+            Attendance.company_id == company_id,
+            Attendance.employee_id == employee_id,
             Attendance.check_in >= day_start,
             Attendance.check_in < day_end,
         )
@@ -439,6 +497,96 @@ async def send_absent_notification(
         student_id=student.id,
         parent_phone=student.parent_phone,
         message_type="absent",
+        message_body=message_body,
+        status=notification_status,
+        meta_message_id=result["message_id"] if isinstance(result["message_id"], str) else None,
+        error_message=result["error"] if isinstance(result["error"], str) else None,
+    )
+
+
+async def send_staff_checkin_notification(
+    *,
+    session: AsyncSession,
+    attendance: Attendance,
+    employee: Employee,
+    school: Company,
+    event_time: datetime,
+) -> None:
+    access_token, phone_number_id = get_whatsapp_credentials(school)
+    school_phone = school_notification_phone(school)
+    if not access_token or not phone_number_id or school_phone is None:
+        attendance.notification_sent = False
+        attendance.notification_status = None
+        return
+
+    check_time = display_time(event_time)
+    date_str = display_date(event_time)
+    message_body = staff_checkin_message_body(employee, school, check_time, date_str)
+    result = await send_staff_checkin_message(
+        phone_number_id,
+        access_token,
+        school_phone,
+        employee.name,
+        employee.designation or "",
+        school.name,
+        check_time,
+        date_str,
+    )
+
+    notification_status = "sent" if result["success"] else "failed"
+    attendance.notification_sent = result["success"] is True
+    attendance.notification_status = notification_status
+    await log_whatsapp_message(
+        session,
+        school_id=school.id,
+        employee_id=employee.id,
+        parent_phone=school_phone,
+        message_type="staff_check_in",
+        message_body=message_body,
+        status=notification_status,
+        meta_message_id=result["message_id"] if isinstance(result["message_id"], str) else None,
+        error_message=result["error"] if isinstance(result["error"], str) else None,
+    )
+
+
+async def send_staff_checkout_notification(
+    *,
+    session: AsyncSession,
+    attendance: Attendance,
+    employee: Employee,
+    school: Company,
+    event_time: datetime,
+) -> None:
+    access_token, phone_number_id = get_whatsapp_credentials(school)
+    school_phone = school_notification_phone(school)
+    if not access_token or not phone_number_id or school_phone is None:
+        attendance.notification_sent = False
+        attendance.notification_status = None
+        return
+
+    check_time = display_time(event_time)
+    date_str = display_date(event_time)
+    message_body = staff_checkout_message_body(employee, school, check_time, date_str)
+    result = await send_staff_checkout_message(
+        phone_number_id,
+        access_token,
+        school_phone,
+        employee.name,
+        employee.designation or "",
+        school.name,
+        check_time,
+        date_str,
+    )
+
+    notification_status = "sent" if result["success"] else "failed"
+    attendance.notification_sent = result["success"] is True
+    attendance.notification_status = notification_status
+    await log_whatsapp_message(
+        session,
+        school_id=school.id,
+        employee_id=employee.id,
+        parent_phone=school_phone,
+        message_type="staff_check_out",
         message_body=message_body,
         status=notification_status,
         meta_message_id=result["message_id"] if isinstance(result["message_id"], str) else None,
@@ -745,8 +893,18 @@ async def auto_mark_attendance(
             func.lower(FaceEmbedding.model_name) == settings.ai_model_name.lower(),
         ),
     )
+    employee_candidates_result = await session.execute(
+        select(Employee, FaceEmbedding)
+        .join(FaceEmbedding, FaceEmbedding.employee_id == Employee.id)
+        .where(
+            Employee.company_id == company.id,
+            Employee.status == "active",
+            func.lower(FaceEmbedding.model_name) == settings.ai_model_name.lower(),
+        ),
+    )
     candidates = candidates_result.all()
-    if not candidates:
+    employee_candidates = employee_candidates_result.all()
+    if not candidates and not employee_candidates:
         return AttendanceAutoMarkResponse(
             matched=False,
             message=(
@@ -767,6 +925,19 @@ async def auto_mark_attendance(
             continue
         embeddings.append({"student_id": student.id, "vector": vector})
         usable_candidates.append((student, face_embedding))
+
+    # Employees use a prefixed AI id ("e5") so they never collide with students ("5").
+    usable_employees: list[tuple[Employee, FaceEmbedding]] = []
+    for employee, face_embedding in employee_candidates:
+        try:
+            vector = read_embedding(
+                ciphertext=face_embedding.embedding_ciphertext,
+                legacy_vector=face_embedding.embedding_vector,
+            )
+        except (BiometricConfigurationError, TypeError, ValueError):
+            continue
+        embeddings.append({"employee_id": f"e{employee.id}", "vector": vector})
+        usable_employees.append((employee, face_embedding))
 
     if not embeddings:
         raise HTTPException(
@@ -811,16 +982,25 @@ async def auto_mark_attendance(
             message=message,
         )
 
-    try:
-        student_id = int(recognition.get("employee_id"))
-    except (TypeError, ValueError) as exc:
+    parsed_subject = parse_recognition_subject(recognition.get("employee_id") or "")
+    if parsed_subject is None:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="AI service returned an invalid student match",
-        ) from exc
+            detail="AI service returned an invalid subject match",
+        )
+    kind, subject_id = parsed_subject
+    if kind == "employee":
+        return await _auto_mark_employee(
+            session=session,
+            company=company,
+            active_session=active_session,
+            recognition=recognition,
+            usable_employees=usable_employees,
+            subject_id=subject_id,
+        )
 
     students_by_id = {student.id: student for student, _ in usable_candidates}
-    student = students_by_id.get(student_id)
+    student = students_by_id.get(subject_id)
     if student is None:
         return AttendanceAutoMarkResponse(
             matched=False,
@@ -977,6 +1157,169 @@ async def auto_mark_attendance(
         confidence_score=confidence,
         notification_status=attendance.notification_status,
         message=f"Welcome {student.student_name}! Attendance recorded.",
+    )
+
+
+async def _auto_mark_employee(
+    *,
+    session: AsyncSession,
+    company: Company,
+    active_session: AttendanceSession,
+    recognition: dict[str, Any],
+    usable_employees: list[tuple[Employee, FaceEmbedding]],
+    subject_id: int,
+) -> AttendanceAutoMarkResponse:
+    employees_by_id = {employee.id: employee for employee, _ in usable_employees}
+    employee = employees_by_id.get(subject_id)
+    if employee is None:
+        return AttendanceAutoMarkResponse(
+            matched=False,
+            message="Face not recognized for this class",
+        )
+
+    confidence_score = recognition.get("confidence")
+    confidence = float(confidence_score) if confidence_score is not None else None
+    now = datetime.now(timezone.utc)
+    existing_attendance = await get_session_attendance_for_employee(
+        session,
+        company_id=company.id,
+        attendance_session_id=active_session.id,
+        employee_id=employee.id,
+    )
+    response_employee = AttendanceAutoStudent(
+        id=employee.id,
+        name=employee.name,
+        designation=employee.designation or "",
+    )
+    should_notify = has_whatsapp_config(company)
+
+    if active_session.session_type == "check_out":
+        today_attendance = await get_today_attendance_for_employee(
+            session,
+            company_id=company.id,
+            employee_id=employee.id,
+        )
+        if today_attendance is None:
+            return AttendanceAutoMarkResponse(
+                matched=True,
+                employee=response_employee,
+                action="already_done",
+                message=f"{employee.name} hasn’t checked in yet.",
+            )
+
+        if today_attendance.check_out is not None:
+            return AttendanceAutoMarkResponse(
+                matched=True,
+                employee=response_employee,
+                action="already_done",
+                time=display_time(today_attendance.check_out),
+                message=f"{employee.name} has already checked out.",
+            )
+
+        today_attendance.check_out = now
+
+        if should_notify:
+            try:
+                await send_staff_checkout_notification(
+                    session=session,
+                    attendance=today_attendance,
+                    employee=employee,
+                    school=company,
+                    event_time=now,
+                )
+            except Exception:
+                logger.exception("Failed to send staff checkout WhatsApp notification")
+
+        await session.commit()
+        return AttendanceAutoMarkResponse(
+            matched=True,
+            employee=response_employee,
+            action="check_out",
+            time=display_time(now),
+            confidence_score=confidence,
+            message=f"Goodbye {employee.name}! Check-out recorded.",
+        )
+
+    if existing_attendance is not None:
+        return AttendanceAutoMarkResponse(
+            matched=True,
+            employee=response_employee,
+            action="already_done",
+            time=display_time(existing_attendance.check_in),
+            confidence_score=confidence,
+            notification_status=existing_attendance.notification_status,
+            message=f"{employee.name} is already marked for this session.",
+        )
+
+    attendance = Attendance(
+        employee_id=employee.id,
+        company_id=company.id,
+        session_id=active_session.id,
+        check_in=now,
+        check_out=None,
+        status="present",
+        confidence_score=confidence,
+        notification_sent=False,
+        notification_status="pending" if should_notify else None,
+    )
+    session.add(attendance)
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        existing_attendance = await get_session_attendance_for_employee(
+            session,
+            company_id=company.id,
+            attendance_session_id=active_session.id,
+            employee_id=employee.id,
+        )
+        if existing_attendance is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Attendance could not be recorded",
+            ) from exc
+        return AttendanceAutoMarkResponse(
+            matched=True,
+            employee=response_employee,
+            action="already_done",
+            time=display_time(existing_attendance.check_in),
+            confidence_score=confidence,
+            notification_status=existing_attendance.notification_status,
+            message=f"{employee.name} is already marked for this session.",
+        )
+
+    await session.refresh(attendance)
+    if should_notify:
+        attendance_id = attendance.id
+        try:
+            await send_staff_checkin_notification(
+                session=session,
+                attendance=attendance,
+                employee=employee,
+                school=company,
+                event_time=now,
+            )
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            logger.exception(
+                "Staff check-in notification failed for attendance_id=%s",
+                attendance_id,
+            )
+            persisted_attendance = await session.get(Attendance, attendance_id)
+            if persisted_attendance is not None:
+                persisted_attendance.notification_sent = False
+                persisted_attendance.notification_status = "failed"
+                await session.commit()
+                attendance = persisted_attendance
+    return AttendanceAutoMarkResponse(
+        matched=True,
+        employee=response_employee,
+        action="check_in",
+        time=display_time(now),
+        confidence_score=confidence,
+        notification_status=attendance.notification_status,
+        message=f"Welcome {employee.name}! Attendance recorded.",
     )
 
 

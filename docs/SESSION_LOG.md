@@ -463,6 +463,12 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Added: Backend test coverage for exact attendance template parameter order to prevent future drift.
 - Verified: Full backend pytest passes 29/29. Pytest still reports a Windows permission warning for `.pytest_cache`, but tests complete successfully.
 
+## 2026-08-11 — Teachers and staff attendance with school-number alerts
+- Completed: Added Teachers and Staff sections mirroring the student experience: employee management pages, face enrollment through the AI service, kiosk recognition of employees alongside students, and a dedicated Staff Attendance page with today's view, history, manual edit, and CSV export.
+- Changed: Added migration `8b0ac05d29be` (employee_id FKs on attendance/face_embeddings/whatsapp_logs, student_id nullable), prefixed employee AI enrollment IDs (`e{id}`) with `parse_recognition_subject`, staff check-in/check-out WhatsApp text messages to `company.school_phone`, `/attendance/staff/*` endpoints, employee face enroll/unenroll/status routes, `school_phone` editing on the dashboard WhatsApp card, sidebar Teachers/Staff/Staff Attendance links, and kiosk designation display for staff matches.
+- Verified: Migration round-trip (upgrade/downgrade/upgrade) and `alembic check` clean on the dev DB; backend pytest 41/41; frontend typecheck, ESLint, and production build pass with the new `/teachers`, `/staff`, and `/staff-attendance` routes.
+- Pending: Enroll a real employee face and run one live kiosk scan to see the staff check-in row and a WhatsApp text to the school number from Settings.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

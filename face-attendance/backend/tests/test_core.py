@@ -28,10 +28,13 @@ from app.core.time import local_day_bounds, to_local
 from app.routers.attendance import (
     csv_safe,
     expire_stale_attendance_sessions,
+    parse_recognition_subject,
 )
+from app.routers.employees import employee_has_face_embedding
 from app.routers.face import should_update_profile_image, unenroll_face
 from app.routers.companies import ensure_company_access
 from app.routers.users import ensure_can_manage_user, resolve_user_company_id
+from app.schemas.attendance import AttendanceManualUpdate
 from app.schemas.whatsapp import WhatsappTestRequest
 from app.schemas.face import FaceEnrollRequest
 from app.schemas.auth import SignupRequest
@@ -516,3 +519,125 @@ def test_credential_encryption_can_use_domain_derived_biometric_key(
     assert encrypted is not None
     assert encrypted.startswith(credentials.DERIVED_KEY_PREFIX)
     assert credentials.decrypt_credential(encrypted) == "meta-secret-token"
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("e5", ("employee", 5)),
+        ("5", ("student", 5)),
+        ("", None),
+        ("abc", None),
+        ("e", None),
+    ],
+)
+def test_parse_recognition_subject_maps_prefixed_ids(
+    raw: str,
+    expected: tuple[str, int] | None,
+) -> None:
+    assert parse_recognition_subject(raw) == expected
+
+
+def test_school_notification_phone_normalizes_valid_number() -> None:
+    school = SimpleNamespace(school_phone="0300-1234567")
+
+    assert whatsapp.school_notification_phone(school) == "923001234567"  # type: ignore[arg-type]
+
+
+def test_school_notification_phone_returns_none_when_unset_or_invalid() -> None:
+    assert whatsapp.school_notification_phone(SimpleNamespace(school_phone=None)) is None  # type: ignore[arg-type]
+    assert whatsapp.school_notification_phone(SimpleNamespace(school_phone="not-a-phone")) is None  # type: ignore[arg-type]
+
+
+def test_staff_message_bodies_include_employee_and_school_details() -> None:
+    checkin = whatsapp.build_staff_checkin_message(
+        employee_name="Ayesha Khan",
+        designation="Teacher",
+        school_name="Demo School",
+        school_phone="923001234567",
+        check_time="08:15 AM",
+        date_str="11 August 2026",
+    )
+    checkout = whatsapp.build_staff_checkout_message(
+        employee_name="Ayesha Khan",
+        designation="Teacher",
+        school_name="Demo School",
+        checkout_time="01:30 PM",
+        date_str="11 August 2026",
+    )
+
+    assert "Ayesha Khan" in checkin
+    assert "Teacher" in checkin
+    assert "923001234567" in checkin
+    assert "Ayesha Khan" in checkout
+    assert "Teacher" in checkout
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("present", [True, False])
+async def test_employee_face_embedding_lookup(present: bool) -> None:
+    class FakeSession:
+        async def scalar(self, _query: object) -> int | None:
+            return 11 if present else None
+
+    session = FakeSession()
+    assert (
+        await employee_has_face_embedding(  # type: ignore[arg-type]
+            session,
+            5,
+        )
+        is present
+    )
+
+
+@pytest.mark.asyncio
+async def test_whatsapp_log_accepts_employee_without_student() -> None:
+    class FakeSession:
+        added: object | None = None
+
+        def add(self, record: object) -> None:
+            self.added = record
+
+    session = FakeSession()
+    log = await whatsapp.log_whatsapp_message(
+        session,  # type: ignore[arg-type]
+        school_id=2,
+        employee_id=5,
+        parent_phone="923001234567",
+        message_type="staff_check_in",
+        message_body="✅ Staff Check-in",
+        status="sent",
+        meta_message_id="wamid.test",
+    )
+
+    assert log.employee_id == 5
+    assert log.student_id is None
+    assert log.message_type == "staff_check_in"
+    assert session.added is log
+
+
+def test_manual_attendance_requires_exactly_one_subject() -> None:
+    payload = AttendanceManualUpdate(
+        employee_id=3,
+        attendance_date=date(2026, 8, 11),
+        status="present",
+        check_in_time="08:00",
+    )
+
+    assert payload.employee_id == 3
+    assert payload.student_id is None
+
+    with pytest.raises(ValidationError):
+        AttendanceManualUpdate(
+            student_id=3,
+            employee_id=3,
+            attendance_date=date(2026, 8, 11),
+            status="present",
+            check_in_time="08:00",
+        )
+    with pytest.raises(ValidationError):
+        AttendanceManualUpdate(
+            attendance_date=date(2026, 8, 11),
+            status="present",
+            check_in_time="08:00",
+        )
