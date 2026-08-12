@@ -11,26 +11,26 @@ import { cn } from "@/lib/utils";
 import { getApiErrorMessage } from "@/lib/errors";
 import { canManageAttendanceSessions } from "@/lib/permissions";
 import {
-  exportAttendanceHistory,
-  getAttendanceHistory,
-  getStudents,
-  updateManualAttendance,
-  type AttendanceDashboardRecord,
-  type Student,
+  exportStaffAttendanceHistory,
+  getAllEmployees,
+  getStaffAttendanceHistory,
+  updateStaffManualAttendance,
+  type AttendanceManualUpdateInput,
+  type Employee,
+  type StaffAttendanceRecord,
 } from "@/lib/api";
 
 type AttendanceEditableStatus = "present" | "absent" | "excused";
 
-interface AttendanceEditState {
-  record: AttendanceDashboardRecord;
+interface StaffEditState {
+  record: StaffAttendanceRecord;
   status: AttendanceEditableStatus;
   checkInTime: string;
   checkOutTime: string;
   error: string;
 }
 
-const grades = Array.from({ length: 12 }, (_, index) => `Class ${index + 1}`);
-const sections = ["A", "B", "C", "D"];
+type DesignationFilter = "" | "Teacher" | "staff-only";
 
 const timeFormatter = new Intl.DateTimeFormat("en-US", {
   timeStyle: "short",
@@ -86,6 +86,22 @@ function StatusBadge({ status }: Readonly<{ status: string }>) {
   );
 }
 
+function DesignationBadge({ designation }: Readonly<{ designation: string | null }>) {
+  const isTeacher = designation?.toLowerCase() === "teacher";
+  return (
+    <span
+      className={cn(
+        "inline-flex rounded-full px-2 py-1 text-xs font-medium",
+        isTeacher
+          ? "bg-purple-50 text-purple-700"
+          : "bg-sky-50 text-sky-700",
+      )}
+    >
+      {designation ?? "—"}
+    </span>
+  );
+}
+
 function StatCard({
   label,
   value,
@@ -93,7 +109,7 @@ function StatCard({
 }: Readonly<{
   label: string;
   value: string | number;
-  color: "green" | "red" | "blue" | "amber" | "slate";
+  color: "green" | "red" | "blue" | "amber" | "slate" | "purple";
 }>) {
   const colorMap = {
     green: "border-green-200 bg-green-50 text-green-700",
@@ -101,6 +117,7 @@ function StatCard({
     blue: "border-blue-200 bg-blue-50 text-blue-700",
     amber: "border-amber-200 bg-amber-50 text-amber-700",
     slate: "border-slate-200 bg-slate-50 text-slate-700",
+    purple: "border-purple-200 bg-purple-50 text-purple-700",
   };
   return (
     <div
@@ -117,32 +134,31 @@ function StatCard({
   );
 }
 
-export default function StudentReportsPage() {
+export default function StaffReportsPage() {
   const { user } = useAuth();
   const canEditAttendance = canManageAttendanceSessions(user);
 
-  const [historyRecords, setHistoryRecords] = useState<AttendanceDashboardRecord[]>([]);
-  const [students, setStudents] = useState<Student[]>([]);
-  const [selectedStudentId, setSelectedStudentId] = useState("");
-  const [gradeFilter, setGradeFilter] = useState("");
-  const [sectionFilter, setSectionFilter] = useState("");
+  const [historyRecords, setHistoryRecords] = useState<StaffAttendanceRecord[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
+  const [designationFilter, setDesignationFilter] = useState<DesignationFilter>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [startDate, setStartDate] = useState(daysAgoInputValue(7));
   const [endDate, setEndDate] = useState(todayInputValue());
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [hasError, setHasError] = useState(false);
 
-  const [editState, setEditState] = useState<AttendanceEditState | null>(null);
+  const [editState, setEditState] = useState<StaffEditState | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const loadHistory = useCallback(async (): Promise<void> => {
     setIsHistoryLoading(true);
     try {
-      const records = await getAttendanceHistory({
+      const records = await getStaffAttendanceHistory({
         startDate,
         endDate,
-        studentId: selectedStudentId
-          ? Number.parseInt(selectedStudentId, 10)
+        employeeId: selectedEmployeeId
+          ? Number.parseInt(selectedEmployeeId, 10)
           : undefined,
       });
       setHistoryRecords(records);
@@ -152,16 +168,16 @@ export default function StudentReportsPage() {
     } finally {
       setIsHistoryLoading(false);
     }
-  }, [endDate, selectedStudentId, startDate]);
+  }, [endDate, selectedEmployeeId, startDate]);
 
   useEffect(() => {
     let isCancelled = false;
 
     void Promise.resolve().then(async () => {
       try {
-        const studentRecords = await getStudents({ status: "active" });
+        const employeeRecords = await getAllEmployees();
         if (!isCancelled) {
-          setStudents(studentRecords);
+          setEmployees(employeeRecords);
         }
       } catch {
         if (!isCancelled) {
@@ -179,23 +195,32 @@ export default function StudentReportsPage() {
     void Promise.resolve().then(loadHistory);
   }, [loadHistory]);
 
-  // Filter records by grade, section, and search term
+  // Filter records by designation and search term
   const filteredRecords = useMemo(() => {
     return historyRecords.filter((record) => {
-      if (gradeFilter && record.grade !== gradeFilter) {
-        return false;
+      // Designation filter
+      if (designationFilter === "Teacher") {
+        if (record.designation?.toLowerCase() !== "teacher") {
+          return false;
+        }
+      } else if (designationFilter === "staff-only") {
+        if (record.designation?.toLowerCase() === "teacher") {
+          return false;
+        }
       }
-      if (sectionFilter && record.section !== sectionFilter) {
-        return false;
-      }
+
+      // Name search
       if (searchTerm.trim()) {
         const term = searchTerm.trim().toLowerCase();
-        const nameMatch = record.student_name.toLowerCase().includes(term);
-        return nameMatch;
+        const nameMatch = record.employee_name.toLowerCase().includes(term);
+        const designationMatch = record.designation?.toLowerCase().includes(term) ?? false;
+        if (!nameMatch && !designationMatch) {
+          return false;
+        }
       }
       return true;
     });
-  }, [historyRecords, gradeFilter, sectionFilter, searchTerm]);
+  }, [historyRecords, designationFilter, searchTerm]);
 
   // Summary statistics
   const stats = useMemo(() => {
@@ -206,23 +231,36 @@ export default function StudentReportsPage() {
     const absent = filteredRecords.filter((r) => r.status === "absent").length;
     const excused = filteredRecords.filter((r) => r.status === "excused").length;
     const rate = total > 0 ? ((present / total) * 100).toFixed(1) : "0.0";
-    return { total, present, absent, excused, rate };
+
+    // Unique employees
+    const uniqueIds = new Set(filteredRecords.map((r) => r.employee_id));
+    return { total, present, absent, excused, rate, uniqueCount: uniqueIds.size };
   }, [filteredRecords]);
 
-  // Unique students for the dropdown filtered by grade/section
-  const filteredStudents = useMemo(() => {
-    return students.filter((student) => {
-      if (gradeFilter && student.grade !== gradeFilter) {
-        return false;
+  // Filtered employees for the dropdown
+  const filteredEmployees = useMemo(() => {
+    return employees.filter((emp) => {
+      if (designationFilter === "Teacher") {
+        return emp.designation?.toLowerCase() === "teacher";
       }
-      if (sectionFilter && student.section !== sectionFilter) {
-        return false;
+      if (designationFilter === "staff-only") {
+        return emp.designation?.toLowerCase() !== "teacher";
       }
       return true;
     });
-  }, [students, gradeFilter, sectionFilter]);
+  }, [employees, designationFilter]);
 
-  function handleEditRecord(record: AttendanceDashboardRecord): void {
+  // Unique designations for display
+  const uniqueDesignations = useMemo(() => {
+    const designations = new Set(
+      employees
+        .map((emp) => emp.designation)
+        .filter((d): d is string => d !== null && d !== undefined),
+    );
+    return Array.from(designations).sort();
+  }, [employees]);
+
+  function handleEditRecord(record: StaffAttendanceRecord): void {
     const normalizedStatus = ["present", "absent", "excused"].includes(record.status)
       ? (record.status as AttendanceEditableStatus)
       : "present";
@@ -249,9 +287,9 @@ export default function StudentReportsPage() {
 
     setIsSavingEdit(true);
     try {
-      await updateManualAttendance({
+      const payload: AttendanceManualUpdateInput = {
         attendance_id: editState.record.attendance_id,
-        student_id: editState.record.student_id,
+        employee_id: editState.record.employee_id,
         attendance_date: editState.record.attendance_date,
         status: editState.status,
         check_in_time: editState.status === "present" ? editState.checkInTime : null,
@@ -259,7 +297,8 @@ export default function StudentReportsPage() {
           editState.status === "present" && editState.checkOutTime
             ? editState.checkOutTime
             : null,
-      });
+      };
+      await updateStaffManualAttendance(payload);
       setEditState(null);
       await loadHistory();
     } catch (error) {
@@ -274,17 +313,22 @@ export default function StudentReportsPage() {
 
   async function handleExport(): Promise<void> {
     try {
-      const blob = await exportAttendanceHistory({
+      const blob = await exportStaffAttendanceHistory({
         startDate,
         endDate,
-        studentId: selectedStudentId
-          ? Number.parseInt(selectedStudentId, 10)
+        employeeId: selectedEmployeeId
+          ? Number.parseInt(selectedEmployeeId, 10)
           : undefined,
       });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `student-attendance-${startDate}-to-${endDate}.csv`;
+      const suffix = designationFilter === "Teacher"
+        ? "teacher"
+        : designationFilter === "staff-only"
+          ? "staff"
+          : "staff-teacher";
+      link.download = `${suffix}-attendance-${startDate}-to-${endDate}.csv`;
       link.click();
       window.URL.revokeObjectURL(url);
     } catch {
@@ -292,19 +336,24 @@ export default function StudentReportsPage() {
     }
   }
 
-  const hasActiveFilters = Boolean(gradeFilter || sectionFilter || searchTerm.trim());
+  const hasActiveFilters = Boolean(designationFilter || searchTerm.trim());
 
   return (
     <section className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-balance sm:text-3xl">
-            Student Reports
+            Staff &amp; Teacher Reports
           </h1>
           <p className="mt-2 text-muted-foreground text-pretty">
-            View, filter, and export student attendance history by date range, class, or individual student.
+            View, filter, and export attendance reports for teachers and non-teaching staff.
           </p>
         </div>
+        {uniqueDesignations.length > 0 ? (
+          <p className="text-xs text-muted-foreground">
+            {uniqueDesignations.length} designation{uniqueDesignations.length !== 1 ? "s" : ""}: {uniqueDesignations.join(", ")}
+          </p>
+        ) : null}
       </div>
 
       {/* Filters */}
@@ -314,104 +363,85 @@ export default function StudentReportsPage() {
         </h2>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <div className="grid gap-1.5">
-            <label className="text-sm font-medium" htmlFor="report-start-date">
+            <label className="text-sm font-medium" htmlFor="staff-report-start-date">
               Start Date
             </label>
             <Input
-              id="report-start-date"
+              id="staff-report-start-date"
               type="date"
               value={startDate}
               onChange={(event) => setStartDate(event.target.value)}
             />
           </div>
           <div className="grid gap-1.5">
-            <label className="text-sm font-medium" htmlFor="report-end-date">
+            <label className="text-sm font-medium" htmlFor="staff-report-end-date">
               End Date
             </label>
             <Input
-              id="report-end-date"
+              id="staff-report-end-date"
               type="date"
               value={endDate}
               onChange={(event) => setEndDate(event.target.value)}
             />
           </div>
           <div className="grid gap-1.5">
-            <label className="text-sm font-medium" htmlFor="report-grade-filter">
-              Class / Grade
+            <label className="text-sm font-medium" htmlFor="staff-report-designation">
+              Category
             </label>
             <select
-              id="report-grade-filter"
-              value={gradeFilter}
+              id="staff-report-designation"
+              value={designationFilter}
               onChange={(event) => {
-                setGradeFilter(event.target.value);
-                setSelectedStudentId("");
+                setDesignationFilter(event.target.value as DesignationFilter);
+                setSelectedEmployeeId("");
               }}
               className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <option value="">All Classes</option>
-              {grades.map((grade) => (
-                <option key={grade} value={grade}>
-                  {grade}
+              <option value="">All (Teachers &amp; Staff)</option>
+              <option value="Teacher">Teachers Only</option>
+              <option value="staff-only">Staff Only (Non-Teaching)</option>
+            </select>
+          </div>
+          <div className="grid gap-1.5">
+            <label className="text-sm font-medium" htmlFor="staff-report-employee">
+              Employee
+            </label>
+            <select
+              id="staff-report-employee"
+              value={selectedEmployeeId}
+              onChange={(event) => setSelectedEmployeeId(event.target.value)}
+              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="">All Employees</option>
+              {filteredEmployees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.name} {emp.designation ? `(${emp.designation})` : ""}
                 </option>
               ))}
             </select>
           </div>
           <div className="grid gap-1.5">
-            <label className="text-sm font-medium" htmlFor="report-section-filter">
-              Section
+            <label className="text-sm font-medium" htmlFor="staff-report-search">
+              Search
             </label>
-            <select
-              id="report-section-filter"
-              value={sectionFilter}
-              onChange={(event) => {
-                setSectionFilter(event.target.value);
-                setSelectedStudentId("");
-              }}
-              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <option value="">All Sections</option>
-              {sections.map((section) => (
-                <option key={section} value={section}>
-                  Section {section}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="grid gap-1.5">
-            <label className="text-sm font-medium" htmlFor="report-student-filter">
-              Student
-            </label>
-            <select
-              id="report-student-filter"
-              value={selectedStudentId}
-              onChange={(event) => setSelectedStudentId(event.target.value)}
-              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <option value="">All Students</option>
-              {filteredStudents.map((student) => (
-                <option key={student.id} value={student.id}>
-                  {student.student_name} ({student.grade}-{student.section})
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <Search
+                aria-hidden="true"
+                className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              />
+              <Input
+                id="staff-report-search"
+                className="pl-9"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Name or designation..."
+              />
+            </div>
           </div>
         </div>
 
-        {/* Search and action buttons */}
+        {/* Action buttons */}
         <div className="flex flex-col gap-2 sm:flex-row">
-          <div className="relative flex-1">
-            <Search
-              aria-hidden="true"
-              className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            />
-            <Input
-              aria-label="Search by student name"
-              className="pl-9"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search by student name..."
-            />
-          </div>
           <Button
             type="button"
             className="gap-2"
@@ -434,10 +464,9 @@ export default function StudentReportsPage() {
               variant="ghost"
               className="gap-2 text-muted-foreground"
               onClick={() => {
-                setGradeFilter("");
-                setSectionFilter("");
+                setDesignationFilter("");
                 setSearchTerm("");
-                setSelectedStudentId("");
+                setSelectedEmployeeId("");
               }}
             >
               <X aria-hidden="true" className="size-4" />
@@ -449,7 +478,8 @@ export default function StudentReportsPage() {
 
       {/* Summary statistics */}
       {!isHistoryLoading && filteredRecords.length > 0 ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+          <StatCard label="Employees" value={stats.uniqueCount} color="purple" />
           <StatCard label="Total Records" value={stats.total} color="slate" />
           <StatCard label="Present" value={stats.present} color="green" />
           <StatCard label="Absent" value={stats.absent} color="red" />
@@ -467,12 +497,13 @@ export default function StudentReportsPage() {
 
       {/* Data table */}
       <div className="overflow-x-auto rounded-lg border bg-card">
-        <table className="min-w-[960px] w-full text-left text-sm">
+        <table className="min-w-[1050px] w-full text-left text-sm">
           <thead className="border-b bg-muted/50 text-muted-foreground">
             <tr>
               <th className="px-4 py-3 font-medium">Date</th>
-              <th className="px-4 py-3 font-medium">Student Name</th>
-              <th className="px-4 py-3 font-medium">Class</th>
+              <th className="px-4 py-3 font-medium">Name</th>
+              <th className="px-4 py-3 font-medium">Designation</th>
+              <th className="px-4 py-3 font-medium">Department</th>
               <th className="px-4 py-3 font-medium">Check-in</th>
               <th className="px-4 py-3 font-medium">Check-out</th>
               <th className="px-4 py-3 font-medium">Status</th>
@@ -485,7 +516,7 @@ export default function StudentReportsPage() {
           <tbody>
             {isHistoryLoading ? (
               <tr>
-                <td className="px-4 py-6 text-muted-foreground" colSpan={canEditAttendance ? 8 : 7}>
+                <td className="px-4 py-6 text-muted-foreground" colSpan={canEditAttendance ? 9 : 8}>
                   Loading attendance history...
                 </td>
               </tr>
@@ -493,16 +524,16 @@ export default function StudentReportsPage() {
 
             {!isHistoryLoading && filteredRecords.length === 0 ? (
               <tr>
-                <td className="px-4 py-10 text-center text-muted-foreground" colSpan={canEditAttendance ? 8 : 7}>
+                <td className="px-4 py-10 text-center text-muted-foreground" colSpan={canEditAttendance ? 9 : 8}>
                   <p className="font-medium">
                     {hasActiveFilters
                       ? "No records match the current filters"
-                      : "No attendance records found"}
+                      : "No staff attendance records found"}
                   </p>
                   <p className="mt-1 text-xs">
                     {hasActiveFilters
-                      ? "Try adjusting the date range, class, or student filter."
-                      : "Records will appear once attendance sessions are completed."}
+                      ? "Try adjusting the date range, category, or employee filter."
+                      : "Records will appear once staff attendance sessions are completed."}
                   </p>
                 </td>
               </tr>
@@ -511,14 +542,17 @@ export default function StudentReportsPage() {
             {filteredRecords.map((record) => (
               <tr
                 className="border-b last:border-0 hover:bg-muted/30 transition-colors"
-                key={`${record.student_id}-${record.attendance_date}-${record.attendance_id ?? "absent"}`}
+                key={`${record.employee_id}-${record.attendance_date}-${record.attendance_id ?? "absent"}`}
               >
                 <td className="px-4 py-3 tabular-nums">
                   {record.attendance_date}
                 </td>
-                <td className="px-4 py-3 font-medium">{record.student_name}</td>
+                <td className="px-4 py-3 font-medium">{record.employee_name}</td>
                 <td className="px-4 py-3">
-                  {record.grade}-{record.section}
+                  <DesignationBadge designation={record.designation} />
+                </td>
+                <td className="px-4 py-3 text-muted-foreground">
+                  {record.department ?? "—"}
                 </td>
                 <td className="px-4 py-3 tabular-nums">
                   {formatTime(record.check_in)}
@@ -558,17 +592,17 @@ export default function StudentReportsPage() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
           role="dialog"
           aria-modal="true"
-          aria-labelledby="edit-attendance-title"
+          aria-labelledby="staff-edit-attendance-title"
         >
           <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-lg border bg-background p-5 shadow-lg">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold" id="edit-attendance-title">
+                <h2 className="text-lg font-semibold" id="staff-edit-attendance-title">
                   Edit Attendance
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {editState.record.student_name} · {editState.record.grade}-
-                  {editState.record.section}
+                  {editState.record.employee_name}
+                  {editState.record.designation ? ` · ${editState.record.designation}` : ""}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   Date: {editState.record.attendance_date}
@@ -587,11 +621,11 @@ export default function StudentReportsPage() {
 
             <div className="mt-5 grid gap-4">
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="attendance-status">
+                <label className="text-sm font-medium" htmlFor="staff-attendance-status">
                   Status
                 </label>
                 <select
-                  id="attendance-status"
+                  id="staff-attendance-status"
                   value={editState.status}
                   onChange={(event) => {
                     const nextStatus = event.target.value as AttendanceEditableStatus;
@@ -618,11 +652,11 @@ export default function StudentReportsPage() {
               {editState.status === "present" ? (
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="grid gap-2">
-                    <label className="text-sm font-medium" htmlFor="check-in-time">
+                    <label className="text-sm font-medium" htmlFor="staff-check-in-time">
                       Check-in
                     </label>
                     <Input
-                      id="check-in-time"
+                      id="staff-check-in-time"
                       type="time"
                       value={editState.checkInTime}
                       onChange={(event) =>
@@ -635,11 +669,11 @@ export default function StudentReportsPage() {
                     />
                   </div>
                   <div className="grid gap-2">
-                    <label className="text-sm font-medium" htmlFor="check-out-time">
+                    <label className="text-sm font-medium" htmlFor="staff-check-out-time">
                       Check-out
                     </label>
                     <Input
-                      id="check-out-time"
+                      id="staff-check-out-time"
                       type="time"
                       value={editState.checkOutTime}
                       onChange={(event) =>

@@ -336,12 +336,21 @@ export function AddEmployeeModal({
                 list="employee-designation-suggestions"
               />
               <datalist id="employee-designation-suggestions">
-                <option value="Teacher" />
-                <option value="Staff" />
+                {variant !== "staff" ? <option value="Teacher" /> : null}
+                <option value="Admin" />
+                <option value="Accountant" />
+                <option value="Clerk" />
+                <option value="Peon" />
+                <option value="Guard" />
+                <option value="Librarian" />
+                <option value="IT Support" />
               </datalist>
               <p className="text-xs text-muted-foreground">
-                Use &quot;Teacher&quot; so they appear on the Teachers page;
-                anything else appears on the Staff page.
+                {variant === "teachers"
+                  ? "Locked to \"Teacher\" in the Teachers section."
+                  : variant === "staff"
+                    ? "Teachers must be added from the Teachers page."
+                    : "Use \"Teacher\" so they appear on the Teachers page; anything else appears on the Staff page."}
               </p>
             </div>
             <div className="grid gap-2">

@@ -252,6 +252,12 @@ export function KioskSettings() {
                 <Button asChild variant="outline" className="w-full sm:w-auto">
                   <Link href="/students">Manage student faces</Link>
                 </Button>
+                <Button asChild variant="outline" className="w-full sm:w-auto">
+                  <Link href="/teachers">Manage teacher faces</Link>
+                </Button>
+                <Button asChild variant="outline" className="w-full sm:w-auto">
+                  <Link href="/staff">Manage staff faces</Link>
+                </Button>
               </div>
             </div>
 
