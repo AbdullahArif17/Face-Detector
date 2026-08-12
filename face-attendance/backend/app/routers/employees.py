@@ -91,7 +91,7 @@ async def list_employees(
     per_page: int = Query(25, ge=1, le=100),
     designation: str | None = Query(default=None),
     session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role("super_admin", "admin", "hr")),
+    current_user: User = Depends(require_role("super_admin", "admin", "hr", "branch_manager", "viewer")),
 ) -> list[EmployeeResponse]:
     offset = (page - 1) * per_page
     query = select(Employee).where(Employee.company_id == current_user.company_id)

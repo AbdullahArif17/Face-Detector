@@ -261,6 +261,7 @@ async def send_checkin_message(
                 date_str,
                 f"{grade}-{section}",
                 school_name,
+                school_phone,
             ],
         )
 
@@ -310,6 +311,7 @@ async def send_checkout_message(
                 date_str,
                 f"{grade}-{section}",
                 school_name,
+                school_phone,
             ],
         )
 
@@ -356,6 +358,7 @@ async def send_absent_message(
                 date_str,
                 f"{grade}-{section}",
                 school_name,
+                school_phone,
             ],
         )
 
@@ -481,7 +484,8 @@ Have a safe journey home! 🤲
 async def send_staff_checkin_message(
     phone_number_id: str,
     access_token: str,
-    school_phone: str,
+    admin_phone: str,
+    school_contact: str,
     employee_name: str,
     designation: str,
     school_name: str,
@@ -493,7 +497,7 @@ async def send_staff_checkin_message(
         return await send_template_message(
             phone_number_id=phone_number_id,
             access_token=access_token,
-            parent_phone=school_phone,
+            parent_phone=admin_phone,
             template_name=template_name.strip(),
             body_parameters=[
                 "check-in",
@@ -503,6 +507,7 @@ async def send_staff_checkin_message(
                 date_str,
                 designation or "Staff",
                 school_name,
+                school_contact,
             ],
         )
 
@@ -510,14 +515,14 @@ async def send_staff_checkin_message(
         employee_name=employee_name,
         designation=designation,
         school_name=school_name,
-        school_phone=school_phone,
+        school_phone=school_contact,
         check_time=check_time,
         date_str=date_str,
     )
     return await send_text_message(
         phone_number_id=phone_number_id,
         access_token=access_token,
-        parent_phone=school_phone,
+        parent_phone=admin_phone,
         message=message,
     )
 
@@ -525,7 +530,8 @@ async def send_staff_checkin_message(
 async def send_staff_checkout_message(
     phone_number_id: str,
     access_token: str,
-    school_phone: str,
+    admin_phone: str,
+    school_contact: str,
     employee_name: str,
     designation: str,
     school_name: str,
@@ -537,7 +543,7 @@ async def send_staff_checkout_message(
         return await send_template_message(
             phone_number_id=phone_number_id,
             access_token=access_token,
-            parent_phone=school_phone,
+            parent_phone=admin_phone,
             template_name=template_name.strip(),
             body_parameters=[
                 "check-out",
@@ -547,6 +553,7 @@ async def send_staff_checkout_message(
                 date_str,
                 designation or "Staff",
                 school_name,
+                school_contact,
             ],
         )
 
@@ -560,7 +567,7 @@ async def send_staff_checkout_message(
     return await send_text_message(
         phone_number_id=phone_number_id,
         access_token=access_token,
-        parent_phone=school_phone,
+        parent_phone=admin_phone,
         message=message,
     )
 
