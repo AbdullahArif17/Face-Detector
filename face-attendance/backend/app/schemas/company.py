@@ -11,6 +11,7 @@ class CompanyBase(BaseModel):
     employee_limit: int = Field(default=10, ge=1)
     status: str = Field(default="active", max_length=50)
     school_phone: str | None = Field(default=None, max_length=50)
+    school_contact: str | None = Field(default=None, max_length=50)
     school_logo: str | None = Field(default=None, max_length=500)
 
 
@@ -47,6 +48,7 @@ class SchoolClassResponse(BaseModel):
 class SchoolSettingsResponse(BaseModel):
     company_id: int
     school_phone: str | None
+    school_contact: str | None
     school_logo: str | None
     whatsapp_token_configured: bool
     whatsapp_webhook_secure: bool = False
@@ -62,4 +64,5 @@ class SchoolSettingsUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     school_phone: str | None = Field(default=None, max_length=50)
+    school_contact: str | None = Field(default=None, max_length=50)
     school_logo: str | None = Field(default=None, max_length=500)

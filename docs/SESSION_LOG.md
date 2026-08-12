@@ -469,6 +469,12 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: Migration round-trip (upgrade/downgrade/upgrade) and `alembic check` clean on the dev DB; backend pytest 41/41; frontend typecheck, ESLint, and production build pass with the new `/teachers`, `/staff`, and `/staff-attendance` routes.
 - Pending: Enroll a real employee face and run one live kiosk scan to see the staff check-in row and a WhatsApp text to the school number from Settings.
 
+## 2026-08-12 - Hardening Staff Attendance Notifications and Adding School Contact
+- Completed: Debugged and fixed the WhatsApp notification dispatch for staff members; it now sends alerts to the individual employee's phone number (`employee.phone`) instead of the school notification number.
+- Added: Introduced an optional `school_contact` field to the `Company` model and dashboard UI, enabling organizations to override the default system contact number embedded in automated WhatsApp alerts.
+- Verified: Created Alembic migration `9a909ac05d29` for the database schema update. Frontend UI correctly renders and updates the new contact field via settings endpoints.
+- Pending: Execute `alembic upgrade head` on the target database, and verify end-to-end staff notification via WhatsApp.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

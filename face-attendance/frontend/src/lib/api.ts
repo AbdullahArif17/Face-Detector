@@ -289,6 +289,7 @@ export interface SchoolClass {
 export interface SchoolSettings {
   company_id: number;
   school_phone: string | null;
+  school_contact: string | null;
   school_logo: string | null;
   whatsapp_token_configured: boolean;
   whatsapp_webhook_secure: boolean;
@@ -895,7 +896,7 @@ export async function getSchoolSettings(
 
 export async function updateSchoolSettings(
   companyId: number,
-  input: { school_phone: string | null },
+  input: { school_phone: string | null; school_contact?: string | null },
 ): Promise<SchoolSettings> {
   const response = await api.put<SchoolSettings>(
     `/companies/${companyId}/settings`,

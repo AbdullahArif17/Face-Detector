@@ -52,6 +52,7 @@ def build_school_settings_response(company: Company) -> SchoolSettingsResponse:
     return SchoolSettingsResponse(
         company_id=company.id,
         school_phone=company.school_phone,
+        school_contact=company.school_contact,
         school_logo=company.school_logo,
         whatsapp_token_configured=credentials_ready,
         whatsapp_webhook_secure=webhook_secure,

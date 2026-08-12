@@ -16,6 +16,7 @@ class Company(Base):
     employee_limit: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
     status: Mapped[str] = mapped_column(String(50), default="active", nullable=False)
     school_phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    school_contact: Mapped[str | None] = mapped_column(String(50), nullable=True)
     school_logo: Mapped[str | None] = mapped_column(String(500), nullable=True)
     # Retained for zero-downtime compatibility with older deployments. Runtime
     # attendance is session-driven and does not read these legacy values.

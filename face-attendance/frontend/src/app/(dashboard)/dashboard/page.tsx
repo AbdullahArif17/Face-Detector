@@ -40,6 +40,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [schoolPhoneInput, setSchoolPhoneInput] = useState("");
+  const [schoolContactInput, setSchoolContactInput] = useState("");
   const [isSavingSchoolPhone, setIsSavingSchoolPhone] = useState(false);
   const [schoolPhoneError, setSchoolPhoneError] = useState<string | null>(
     null,
@@ -64,6 +65,7 @@ export default function DashboardPage() {
       setTodayRecords(attendanceRecords);
       setSchoolSettings(settingsResponse);
       setSchoolPhoneInput(settingsResponse?.school_phone ?? "");
+      setSchoolContactInput(settingsResponse?.school_contact ?? "");
       setHasError(false);
     } catch {
       setHasError(true);
@@ -153,10 +155,17 @@ export default function DashboardPage() {
       : "Admin-only configuration";
 
   async function handleSaveSchoolPhone(): Promise<void> {
-    const trimmed = schoolPhoneInput.trim();
-    if (trimmed && !isValidSchoolPhone(trimmed)) {
+    const phoneTrimmed = schoolPhoneInput.trim();
+    const contactTrimmed = schoolContactInput.trim();
+    if (phoneTrimmed && !isValidSchoolPhone(phoneTrimmed)) {
       setSchoolPhoneError(
-        "School WhatsApp number format: 923001234567 or 03001234567.",
+        "School notification number format: 923001234567 or 03001234567.",
+      );
+      return;
+    }
+    if (contactTrimmed && !isValidSchoolPhone(contactTrimmed)) {
+      setSchoolPhoneError(
+        "School display contact format: 923001234567 or 03001234567.",
       );
       return;
     }
@@ -167,10 +176,12 @@ export default function DashboardPage() {
     setSchoolPhoneError(null);
     try {
       const updated = await updateSchoolSettings(user.company_id, {
-        school_phone: trimmed || null,
+        school_phone: phoneTrimmed || null,
+        school_contact: contactTrimmed || null,
       });
       setSchoolSettings(updated);
       setSchoolPhoneInput(updated.school_phone ?? "");
+      setSchoolContactInput(updated.school_contact ?? "");
     } catch (error) {
       setSchoolPhoneError(
         getApiErrorMessage(error, "Unable to save school WhatsApp number."),
@@ -266,8 +277,11 @@ export default function DashboardPage() {
                 }}
               >
                 <Label htmlFor="school-phone">
-                  School WhatsApp number (staff alerts)
+                  Administrator WhatsApp Number
                 </Label>
+                <p className="text-xs text-muted-foreground mb-1">
+                  Staff and teacher check-in/check-out alerts will be sent to this number.
+                </p>
                 <div className="flex gap-2">
                   <Input
                     id="school-phone"
@@ -279,6 +293,29 @@ export default function DashboardPage() {
                       setSchoolPhoneError(null);
                     }}
                   />
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Format: 923001234567 or 03001234567. Leave empty to disable notifications.
+                </p>
+
+                <Label htmlFor="school-contact">
+                  School Contact Number (optional)
+                </Label>
+                <p className="text-xs text-muted-foreground mb-1">
+                  Displayed inside WhatsApp messages as the school&apos;s contact number.
+                  If empty, the administrator number above is shown instead.
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    id="school-contact"
+                    value={schoolContactInput}
+                    disabled={isSavingSchoolPhone}
+                    placeholder="923001234567"
+                    onChange={(event) => {
+                      setSchoolContactInput(event.target.value);
+                      setSchoolPhoneError(null);
+                    }}
+                  />
                   <Button
                     type="submit"
                     disabled={isSavingSchoolPhone}
@@ -287,10 +324,6 @@ export default function DashboardPage() {
                     {isSavingSchoolPhone ? "Saving..." : "Save"}
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Teachers and staff check-in/check-out alerts are sent here.
-                  Format: 923001234567 or 03001234567. Leave empty to disable.
-                </p>
                 {schoolPhoneError ? (
                   <p className="text-xs text-red-700">{schoolPhoneError}</p>
                 ) : null}

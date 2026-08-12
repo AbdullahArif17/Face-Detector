@@ -404,7 +404,7 @@ async def log_whatsapp_message(
 
 
 def school_phone_or_default(school: Company) -> str:
-    return school.school_phone or "School office"
+    return school.school_contact or school.school_phone or "School office"
 
 
 def school_notification_phone(school: Company) -> str | None:
@@ -417,6 +417,15 @@ def school_notification_phone(school: Company) -> str | None:
         return None
     try:
         return normalize_pakistan_phone(school.school_phone)
+    except ValueError:
+        return None
+
+
+def employee_notification_phone(employee: Employee) -> str | None:
+    if not employee.phone:
+        return None
+    try:
+        return normalize_pakistan_phone(employee.phone)
     except ValueError:
         return None
 

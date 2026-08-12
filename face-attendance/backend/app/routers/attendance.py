@@ -61,6 +61,7 @@ from app.services.whatsapp import (
     send_staff_checkout_message,
     staff_checkin_message_body,
     staff_checkout_message_body,
+    employee_notification_phone,
 )
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
@@ -513,8 +514,8 @@ async def send_staff_checkin_notification(
     event_time: datetime,
 ) -> None:
     access_token, phone_number_id = get_whatsapp_credentials(school)
-    school_phone = school_notification_phone(school)
-    if not access_token or not phone_number_id or school_phone is None:
+    admin_phone = school_notification_phone(school)
+    if not access_token or not phone_number_id or admin_phone is None:
         attendance.notification_sent = False
         attendance.notification_status = None
         return
@@ -525,7 +526,7 @@ async def send_staff_checkin_notification(
     result = await send_staff_checkin_message(
         phone_number_id,
         access_token,
-        school_phone,
+        admin_phone,
         employee.name,
         employee.designation or "",
         school.name,
@@ -540,7 +541,7 @@ async def send_staff_checkin_notification(
         session,
         school_id=school.id,
         employee_id=employee.id,
-        parent_phone=school_phone,
+        parent_phone=admin_phone,
         message_type="staff_check_in",
         message_body=message_body,
         status=notification_status,
@@ -558,8 +559,8 @@ async def send_staff_checkout_notification(
     event_time: datetime,
 ) -> None:
     access_token, phone_number_id = get_whatsapp_credentials(school)
-    school_phone = school_notification_phone(school)
-    if not access_token or not phone_number_id or school_phone is None:
+    admin_phone = school_notification_phone(school)
+    if not access_token or not phone_number_id or admin_phone is None:
         attendance.notification_sent = False
         attendance.notification_status = None
         return
@@ -570,7 +571,7 @@ async def send_staff_checkout_notification(
     result = await send_staff_checkout_message(
         phone_number_id,
         access_token,
-        school_phone,
+        admin_phone,
         employee.name,
         employee.designation or "",
         school.name,
@@ -585,7 +586,7 @@ async def send_staff_checkout_notification(
         session,
         school_id=school.id,
         employee_id=employee.id,
-        parent_phone=school_phone,
+        parent_phone=admin_phone,
         message_type="staff_check_out",
         message_body=message_body,
         status=notification_status,
