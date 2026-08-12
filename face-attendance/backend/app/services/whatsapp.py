@@ -479,18 +479,37 @@ async def send_staff_checkin_message(
     check_time: str,
     date_str: str,
 ) -> dict[str, str | bool | None]:
+    template_name = settings.meta_checkin_template_name
+    if is_configured_value(template_name):
+        return await send_template_message(
+            phone_number_id=phone_number_id,
+            access_token=access_token,
+            parent_phone=school_phone,
+            template_name=template_name.strip(),
+            body_parameters=[
+                "check-in",
+                "Admin",
+                employee_name,
+                check_time,
+                date_str,
+                designation or "Staff",
+                school_name,
+            ],
+        )
+
+    message = build_staff_checkin_message(
+        employee_name=employee_name,
+        designation=designation,
+        school_name=school_name,
+        school_phone=school_phone,
+        check_time=check_time,
+        date_str=date_str,
+    )
     return await send_text_message(
         phone_number_id=phone_number_id,
         access_token=access_token,
         parent_phone=school_phone,
-        message=build_staff_checkin_message(
-            employee_name=employee_name,
-            designation=designation,
-            school_name=school_name,
-            school_phone=school_phone,
-            check_time=check_time,
-            date_str=date_str,
-        ),
+        message=message,
     )
 
 
@@ -504,17 +523,36 @@ async def send_staff_checkout_message(
     checkout_time: str,
     date_str: str,
 ) -> dict[str, str | bool | None]:
+    template_name = settings.meta_checkout_template_name
+    if is_configured_value(template_name):
+        return await send_template_message(
+            phone_number_id=phone_number_id,
+            access_token=access_token,
+            parent_phone=school_phone,
+            template_name=template_name.strip(),
+            body_parameters=[
+                "check-out",
+                "Admin",
+                employee_name,
+                checkout_time,
+                date_str,
+                designation or "Staff",
+                school_name,
+            ],
+        )
+
+    message = build_staff_checkout_message(
+        employee_name=employee_name,
+        designation=designation,
+        school_name=school_name,
+        checkout_time=checkout_time,
+        date_str=date_str,
+    )
     return await send_text_message(
         phone_number_id=phone_number_id,
         access_token=access_token,
         parent_phone=school_phone,
-        message=build_staff_checkout_message(
-            employee_name=employee_name,
-            designation=designation,
-            school_name=school_name,
-            checkout_time=checkout_time,
-            date_str=date_str,
-        ),
+        message=message,
     )
 
 

@@ -229,6 +229,6 @@ async def delete_employee(
     if employee is None or employee.company_id != current_user.company_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
 
-    employee.status = "inactive"
+    await session.delete(employee)
     await session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

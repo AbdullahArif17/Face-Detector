@@ -252,9 +252,6 @@ export function KioskSettings() {
                 <Button asChild variant="outline" className="w-full sm:w-auto">
                   <Link href="/students">Manage student faces</Link>
                 </Button>
-                <Button asChild variant="outline" className="w-full sm:w-auto">
-                  <Link href="/attendance">Open Attendance</Link>
-                </Button>
               </div>
             </div>
 

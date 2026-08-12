@@ -192,13 +192,9 @@ export function EmployeeDirectory({
     try {
       await deleteEmployee(employee.id);
       setEmployees((currentEmployees) =>
-        currentEmployees.map((currentEmployee) =>
-          currentEmployee.id === employee.id
-            ? { ...currentEmployee, status: "inactive" }
-            : currentEmployee,
-        ),
+        currentEmployees.filter((currentEmployee) => currentEmployee.id !== employee.id)
       );
-      setToastMessage("Marked inactive");
+      setToastMessage("Permanently removed");
     } catch {
       setHasError(true);
     } finally {
@@ -388,6 +384,7 @@ export function EmployeeDirectory({
           key={editingEmployee?.id ?? "new-employee"}
           open
           employee={editingEmployee}
+          variant={variant}
           onOpenChange={(open) => {
             setIsAddModalOpen(open);
             if (!open) {

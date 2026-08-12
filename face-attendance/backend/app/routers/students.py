@@ -312,7 +312,7 @@ async def delete_student(
         student_id=student_id,
         school_id=current_user.company_id,
     )
-    student.status = "inactive"
+    await session.delete(student)
     await session.commit()
 
 

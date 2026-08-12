@@ -138,7 +138,7 @@ function StudentActions({
   onEdit,
   onEnroll,
   onViewLogs,
-  onDeactivate,
+  onRemove,
 }: Readonly<{
   student: Student;
   isDeactivating: boolean;
@@ -146,7 +146,7 @@ function StudentActions({
   onEdit: () => void;
   onEnroll: () => void;
   onViewLogs: () => void;
-  onDeactivate: () => void;
+  onRemove: () => void;
 }>) {
   return (
     <div className={cn("flex flex-wrap gap-2", className)}>
@@ -187,7 +187,7 @@ function StudentActions({
         variant="ghost"
         className="gap-1 text-red-600 hover:text-red-700"
         disabled={isDeactivating}
-        onClick={onDeactivate}
+        onClick={onRemove}
       >
         <Trash2 aria-hidden="true" className="size-3" />
         {isDeactivating ? "Deactivating..." : "Deactivate"}
@@ -211,9 +211,9 @@ export default function StudentsPage() {
   const [enrollingStudent, setEnrollingStudent] = useState<Student | null>(null);
   const [logsStudent, setLogsStudent] = useState<Student | null>(null);
   const [logs, setLogs] = useState<WhatsappLog[]>([]);
-  const [pendingDeactivateStudent, setPendingDeactivateStudent] =
+  const [pendingRemoveStudent, setPendingRemoveStudent] =
     useState<Student | null>(null);
-  const [deactivatingStudentId, setDeactivatingStudentId] = useState<
+  const [removingStudentId, setRemovingStudentId] = useState<
     number | null
   >(null);
 
@@ -275,27 +275,27 @@ export default function StudentsPage() {
     setToastMessage(mode === "created" ? "Student added" : "Student updated");
   }
 
-  async function handleDeactivateStudent(): Promise<void> {
-    const student = pendingDeactivateStudent;
-    if (!student || deactivatingStudentId !== null) {
+  async function handleRemoveStudent(): Promise<void> {
+    const student = pendingRemoveStudent;
+    if (!student || removingStudentId !== null) {
       return;
     }
 
-    setDeactivatingStudentId(student.id);
+    setRemovingStudentId(student.id);
     setActionError(null);
     try {
       await deleteStudent(student.id);
       setStudents((currentStudents) =>
         currentStudents.filter((record) => record.id !== student.id),
       );
-      setToastMessage("Student deactivated. Attendance history was preserved.");
-      setPendingDeactivateStudent(null);
+      setToastMessage("Student permanently removed.");
+      setPendingRemoveStudent(null);
     } catch (deleteError) {
       setActionError(
-        getApiErrorMessage(deleteError, "Unable to deactivate this student."),
+        getApiErrorMessage(deleteError, "Unable to remove this student."),
       );
     } finally {
-      setDeactivatingStudentId(null);
+      setRemovingStudentId(null);
     }
   }
 
@@ -512,13 +512,13 @@ export default function StudentsPage() {
             <StudentActions
               student={student}
               className="mt-4 grid grid-cols-2"
-              isDeactivating={deactivatingStudentId === student.id}
+              isDeactivating={removingStudentId === student.id}
               onEdit={() => setEditingStudent(student)}
               onEnroll={() => setEnrollingStudent(student)}
               onViewLogs={() => void handleViewLogs(student)}
-              onDeactivate={() => {
+              onRemove={() => {
                 setActionError(null);
-                setPendingDeactivateStudent(student);
+                setPendingRemoveStudent(student);
               }}
             />
           </article>
@@ -574,13 +574,13 @@ export default function StudentsPage() {
                 <td className="px-4 py-3">
                   <StudentActions
                     student={student}
-                    isDeactivating={deactivatingStudentId === student.id}
+                    isDeactivating={removingStudentId === student.id}
                     onEdit={() => setEditingStudent(student)}
                     onEnroll={() => setEnrollingStudent(student)}
                     onViewLogs={() => void handleViewLogs(student)}
-                    onDeactivate={() => {
+                    onRemove={() => {
                       setActionError(null);
-                      setPendingDeactivateStudent(student);
+                      setPendingRemoveStudent(student);
                     }}
                   />
                 </td>
@@ -631,23 +631,23 @@ export default function StudentsPage() {
       />
 
       <ConfirmDialog
-        open={pendingDeactivateStudent !== null}
-        title="Deactivate student?"
+        open={pendingRemoveStudent !== null}
+        title="Remove student permanently?"
         description={
-          pendingDeactivateStudent
-            ? `${pendingDeactivateStudent.student_name} will no longer appear in active student lists or new attendance sessions. Their attendance history will be preserved.`
-            : "This student will be removed from active lists."
+          pendingRemoveStudent
+            ? `${pendingRemoveStudent.student_name} will be permanently removed. This will also remove their face enrollment and attendance history.`
+            : "This student will be permanently removed."
         }
-        confirmLabel="Deactivate student"
-        busyLabel="Deactivating..."
+        confirmLabel="Remove student"
+        busyLabel="Removing..."
         destructive
-        isConfirming={deactivatingStudentId !== null}
+        isConfirming={removingStudentId !== null}
         onOpenChange={(nextOpen) => {
           if (!nextOpen) {
-            setPendingDeactivateStudent(null);
+            setPendingRemoveStudent(null);
           }
         }}
-        onConfirm={() => void handleDeactivateStudent()}
+        onConfirm={() => void handleRemoveStudent()}
       />
     </section>
   );

@@ -24,6 +24,7 @@ import { getApiErrorMessage } from "@/lib/errors";
 interface AddEmployeeModalProps {
   open: boolean;
   employee: Employee | null;
+  variant?: "teachers" | "staff";
   onOpenChange: (open: boolean) => void;
   onSaved: (
     employee: Employee,
@@ -64,6 +65,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
 export function AddEmployeeModal({
   open,
   employee,
+  variant,
   onOpenChange,
   onSaved,
 }: AddEmployeeModalProps) {
@@ -71,7 +73,9 @@ export function AddEmployeeModal({
   const [name, setName] = useState(employee?.name ?? "");
   const [email, setEmail] = useState(employee?.email ?? "");
   const [phone, setPhone] = useState(employee?.phone ?? "");
-  const [designation, setDesignation] = useState(employee?.designation ?? "");
+  const [designation, setDesignation] = useState(
+    employee?.designation ?? (variant === "teachers" ? "Teacher" : "")
+  );
   const [department, setDepartment] = useState(employee?.department ?? "");
   const [branch, setBranch] = useState(
     employee?.branch_id ? String(employee.branch_id) : "",
@@ -177,6 +181,16 @@ export function AddEmployeeModal({
 
     if (!name.trim() || !email.trim()) {
       setError("Full name and email are required.");
+      return;
+    }
+
+    if (variant === "teachers" && designation.trim().toLowerCase() !== "teacher") {
+      setError("Designation must be 'Teacher' in the Teachers section.");
+      return;
+    }
+    
+    if (variant === "staff" && designation.trim().toLowerCase() === "teacher") {
+      setError("Teachers should be added in the Teachers section.");
       return;
     }
 
@@ -316,9 +330,9 @@ export function AddEmployeeModal({
               <Input
                 id="employee-designation"
                 value={designation}
-                disabled={isProfileLocked}
+                disabled={isProfileLocked || variant === "teachers"}
                 onChange={(event) => setDesignation(event.target.value)}
-                placeholder="Teacher or Staff"
+                placeholder={variant === "teachers" ? "Teacher" : "Staff"}
                 list="employee-designation-suggestions"
               />
               <datalist id="employee-designation-suggestions">
