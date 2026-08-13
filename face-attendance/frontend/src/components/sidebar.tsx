@@ -66,13 +66,19 @@ export function Sidebar() {
           href={item.href}
           onClick={() => setIsMobileOpen(false)}
           className={cn(
-            "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium",
+            "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
             isActive
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+              ? "bg-sidebar-accent/10 text-sidebar-accent"
+              : "text-sidebar-muted-fg hover:bg-sidebar-muted hover:text-sidebar-fg",
           )}
         >
-          <Icon aria-hidden="true" className="size-4" />
+          <Icon
+            aria-hidden="true"
+            className={cn(
+              "size-5 transition-colors duration-200",
+              isActive ? "text-sidebar-accent" : "text-sidebar-muted-fg group-hover:text-sidebar-fg",
+            )}
+          />
           {item.name}
         </Link>
       );
@@ -81,13 +87,20 @@ export function Sidebar() {
 
   function renderAccountPanel() {
     return (
-      <div className="border-t p-4">
-        <p className="truncate px-3 text-sm font-medium">{user?.name}</p>
-        <p className="truncate px-3 text-xs text-muted-foreground">
-          {user?.email}
-        </p>
+      <div className="border-t border-sidebar-border bg-sidebar-bg p-4">
+        <div className="flex items-center gap-3 px-1">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-sidebar-muted text-sidebar-fg font-semibold shadow-inner">
+            {user?.name?.[0]?.toUpperCase() ?? "U"}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-sidebar-fg">{user?.name}</p>
+            <p className="truncate text-xs text-sidebar-muted-fg">
+              {user?.email}
+            </p>
+          </div>
+        </div>
         <Button
-          className="mt-3 w-full justify-start gap-3"
+          className="mt-4 w-full justify-start gap-3 bg-sidebar-muted/50 text-sidebar-muted-fg hover:bg-sidebar-muted hover:text-sidebar-fg border border-transparent hover:border-sidebar-border shadow-none"
           type="button"
           variant="ghost"
           onClick={() => {
@@ -104,7 +117,8 @@ export function Sidebar() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur lg:hidden">
+      {/* Mobile Header */}
+      <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur lg:hidden shadow-sm">
         <Link
           href="/dashboard"
           className="min-w-0"
@@ -113,7 +127,7 @@ export function Sidebar() {
         >
           <BrandLogo
             markClassName="size-9"
-            nameClassName="hidden text-base min-[360px]:inline"
+            nameClassName="hidden text-base min-[360px]:inline text-foreground"
           />
         </Link>
         <Button
@@ -123,35 +137,38 @@ export function Sidebar() {
           aria-label="Open navigation menu"
           aria-expanded={isMobileOpen}
           onClick={() => setIsMobileOpen(true)}
+          className="rounded-full shadow-sm"
         >
           <Menu aria-hidden="true" className="size-4" />
         </Button>
       </header>
 
+      {/* Mobile Sidebar */}
       {isMobileOpen ? (
         <div className="fixed inset-0 z-50 lg:hidden">
           <button
             type="button"
             aria-label="Close navigation menu"
-            className="absolute inset-0 bg-black/50"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
             onClick={() => setIsMobileOpen(false)}
           />
-          <aside className="relative flex h-full w-72 max-w-[85vw] flex-col border-r bg-card shadow-xl">
-            <div className="flex h-16 items-center justify-between border-b px-4">
-              <BrandLogo markClassName="size-9" nameClassName="text-base" />
+          <aside className="animate-slide-in-right relative flex h-full w-[280px] max-w-[85vw] flex-col border-r border-sidebar-border bg-sidebar-bg text-sidebar-fg shadow-2xl">
+            <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
+              <BrandLogo markClassName="size-9" nameClassName="text-base text-sidebar-fg" />
               <Button
                 type="button"
                 size="icon"
                 variant="ghost"
+                className="text-sidebar-muted-fg hover:bg-sidebar-muted hover:text-sidebar-fg rounded-full"
                 aria-label="Close navigation menu"
                 onClick={() => setIsMobileOpen(false)}
               >
-                <X aria-hidden="true" className="size-4" />
+                <X aria-hidden="true" className="size-5" />
               </Button>
             </div>
             <nav
               aria-label="Mobile dashboard navigation"
-              className="flex-1 space-y-1 p-4"
+              className="scrollbar-thin flex-1 overflow-y-auto space-y-1 p-4"
             >
               {renderNavLinks()}
             </nav>
@@ -160,11 +177,15 @@ export function Sidebar() {
         </div>
       ) : null}
 
-      <aside className="hidden w-64 shrink-0 flex-col border-r bg-card lg:flex">
-        <div className="flex h-16 items-center border-b px-6">
-          <BrandLogo markClassName="size-10" nameClassName="text-lg" />
+      {/* Desktop Sidebar */}
+      <aside className="hidden w-[var(--sidebar-width)] shrink-0 flex-col border-r border-sidebar-border bg-sidebar-bg text-sidebar-fg lg:flex shadow-xl">
+        <div className="flex h-16 items-center border-b border-sidebar-border px-6">
+          <BrandLogo markClassName="size-9" nameClassName="text-base font-bold text-sidebar-fg" />
         </div>
-        <nav aria-label="Dashboard navigation" className="flex-1 space-y-1 p-4">
+        <nav aria-label="Dashboard navigation" className="scrollbar-thin flex-1 overflow-y-auto space-y-1 p-4">
+          <div className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-sidebar-muted-fg/70">
+            Main Menu
+          </div>
           {renderNavLinks()}
         </nav>
         {renderAccountPanel()}

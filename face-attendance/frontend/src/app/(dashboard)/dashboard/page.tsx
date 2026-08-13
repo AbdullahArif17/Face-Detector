@@ -1,13 +1,30 @@
 "use client";
 
-import { Clock3, MessageCircle, ShieldCheck, UserCheck, Users, UserX } from "lucide-react";
+import {
+  Clock3,
+  MessageCircle,
+  ShieldCheck,
+  UserCheck,
+  Users,
+  UserX,
+  TrendingUp,
+  Activity,
+  ScanFace
+} from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ApiError } from "@/components/api-error";
 import { StudentAvatar } from "@/components/students/StudentAvatar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
@@ -91,33 +108,43 @@ export default function DashboardPage() {
     () =>
       [
         {
-          title: "Total Students",
+          title: "Total Enrolled",
           value: students.length,
           icon: Users,
+          color: "text-blue-500",
+          bgColor: "bg-blue-500/10",
         },
         {
           title: "Present Today",
           value: attendanceSummary.present,
           icon: UserCheck,
+          color: "text-emerald-500",
+          bgColor: "bg-emerald-500/10",
         },
         {
           title: "Absent Today",
           value: attendanceSummary.absent,
           icon: UserX,
+          color: "text-rose-500",
+          bgColor: "bg-rose-500/10",
         },
         {
-          title: "Late Today",
+          title: "Late Arrivals",
           value: attendanceSummary.late,
           icon: Clock3,
+          color: "text-amber-500",
+          bgColor: "bg-amber-500/10",
         },
       ] as const,
     [attendanceSummary, students],
   );
+
   const visibleStudents = students.slice(0, 12);
   const enrolledCount = students.filter((student) => student.has_face_enrolled).length;
   const enrollmentPercentage = students.length
     ? Math.round((enrolledCount / students.length) * 100)
     : 0;
+
   const classSummaries = useMemo(() => {
     const summaries = new Map<
       number,
@@ -144,266 +171,359 @@ export default function DashboardPage() {
       first[1].label.localeCompare(second[1].label),
     );
   }, [todayRecords]);
+
   const whatsappStatusText = schoolSettings
     ? schoolSettings.whatsapp_token_configured
       ? schoolSettings.whatsapp_chatbot_ready
-        ? "Alerts and parent chatbot ready"
-        : "Alerts ready; chatbot security incomplete"
+        ? "Active (Alerts & Chatbot)"
+        : "Alerts Only"
       : "Not configured"
-    : hasAdminAccess
-      ? "Checking configuration..."
-      : "Admin-only configuration";
+    : "Unknown";
+  const isWhatsappActive = schoolSettings?.whatsapp_token_configured;
 
   async function handleSaveSchoolPhone(): Promise<void> {
+    if (!user) return;
+    setSchoolPhoneError(null);
     const phoneTrimmed = schoolPhoneInput.trim();
     const contactTrimmed = schoolContactInput.trim();
+    
     if (phoneTrimmed && !isValidSchoolPhone(phoneTrimmed)) {
       setSchoolPhoneError(
-        "School notification number format: 923001234567 or 03001234567.",
+        "Invalid admin phone format. Must be 923001234567 or 03001234567.",
       );
       return;
     }
     if (contactTrimmed && !isValidSchoolPhone(contactTrimmed)) {
       setSchoolPhoneError(
-        "School display contact format: 923001234567 or 03001234567.",
+        "Invalid contact phone format. Must be 923001234567 or 03001234567.",
       );
       return;
     }
-    if (!user) {
-      return;
-    }
+
     setIsSavingSchoolPhone(true);
-    setSchoolPhoneError(null);
     try {
-      const updated = await updateSchoolSettings(user.company_id, {
+      await updateSchoolSettings(user.company_id, {
         school_phone: phoneTrimmed || null,
         school_contact: contactTrimmed || null,
       });
-      setSchoolSettings(updated);
-      setSchoolPhoneInput(updated.school_phone ?? "");
-      setSchoolContactInput(updated.school_contact ?? "");
+      setSchoolPhoneInput(phoneTrimmed);
+      setSchoolContactInput(contactTrimmed);
     } catch (error) {
       setSchoolPhoneError(
-        getApiErrorMessage(error, "Unable to save school WhatsApp number."),
+        getApiErrorMessage(error, "Failed to save the phone number."),
       );
     } finally {
       setIsSavingSchoolPhone(false);
     }
   }
 
+  if (hasError) {
+    return (
+      <div className="mx-auto max-w-4xl p-6">
+        <ApiError onRetry={() => void loadDashboard()} isRetrying={isLoading} />
+      </div>
+    );
+  }
+
   return (
-    <section className="space-y-6">
-      <div>
-          <h1 className="text-2xl font-bold text-balance sm:text-3xl">
+    <section className="mx-auto max-w-7xl animate-fade-in space-y-8">
+      {/* Header Section */}
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             Dashboard
           </h1>
-        <p className="mt-2 text-muted-foreground text-pretty">
-          Today&apos;s attendance, enrollment, and WhatsApp readiness for your school.
-        </p>
-      </div>
-
-      {hasError ? (
-        <ApiError
-          onRetry={() => void loadDashboard()}
-          isRetrying={isLoading}
-        />
-      ) : null}
-
-      <div className="grid gap-3 sm:grid-cols-2 lg:gap-4 xl:grid-cols-4">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <Card key={stat.title}>
-              <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  {stat.title}
-                </CardTitle>
-                <Icon
-                  aria-hidden="true"
-                  className="size-4 text-muted-foreground"
-                />
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold tabular-nums">
-                  {isLoading ? "—" : stat.value}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Live school data
-                </p>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      <div className="grid gap-3 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Face Enrollment</CardTitle>
-            <ShieldCheck aria-hidden="true" className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold tabular-nums">
-              {isLoading ? "—" : `${enrolledCount}/${students.length}`}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {enrollmentPercentage}% of active students can use face attendance
-            </p>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-blue-600 transition-[width]"
-                style={{ width: `${enrollmentPercentage}%` }}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">WhatsApp</CardTitle>
-            <MessageCircle aria-hidden="true" className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-base font-semibold">{whatsappStatusText}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Admin test messages use school credentials first, then default backend credentials.
-            </p>
-            {hasAdminAccess ? (
-              <form
-                className="mt-3 grid gap-2"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void handleSaveSchoolPhone();
-                }}
-              >
-                <Label htmlFor="school-phone">
-                  Administrator WhatsApp Number
-                </Label>
-                <p className="text-xs text-muted-foreground mb-1">
-                  Staff and teacher check-in/check-out alerts will be sent to this number.
-                </p>
-                <div className="flex gap-2">
-                  <Input
-                    id="school-phone"
-                    value={schoolPhoneInput}
-                    disabled={isSavingSchoolPhone}
-                    placeholder="923001234567"
-                    onChange={(event) => {
-                      setSchoolPhoneInput(event.target.value);
-                      setSchoolPhoneError(null);
-                    }}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground mb-3">
-                  Format: 923001234567 or 03001234567. Leave empty to disable notifications.
-                </p>
-
-                <Label htmlFor="school-contact">
-                  School Contact Number (optional)
-                </Label>
-                <p className="text-xs text-muted-foreground mb-1">
-                  Displayed inside WhatsApp messages as the school&apos;s contact number.
-                  If empty, the administrator number above is shown instead.
-                </p>
-                <div className="flex gap-2">
-                  <Input
-                    id="school-contact"
-                    value={schoolContactInput}
-                    disabled={isSavingSchoolPhone}
-                    placeholder="923001234567"
-                    onChange={(event) => {
-                      setSchoolContactInput(event.target.value);
-                      setSchoolPhoneError(null);
-                    }}
-                  />
-                  <Button
-                    type="submit"
-                    disabled={isSavingSchoolPhone}
-                    className="shrink-0"
-                  >
-                    {isSavingSchoolPhone ? "Saving..." : "Save"}
-                  </Button>
-                </div>
-                {schoolPhoneError ? (
-                  <p className="text-xs text-red-700">{schoolPhoneError}</p>
-                ) : null}
-              </form>
-            ) : null}
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
-          <div>
-            <CardTitle>Class attendance today</CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Class-wise attendance uses each student&apos;s assigned grade and section.
-            </p>
-          </div>
-          <Link
-            href="/attendance"
-            className="rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted"
-          >
-            Manage sessions
-          </Link>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading classes...</p>
-          ) : classSummaries.length ? (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {classSummaries.map(([classId, summary]) => (
-                <div key={classId} className="rounded-lg border p-4">
-                  <p className="font-semibold">{summary.label}</p>
-                  <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
-                    <span className="text-green-700">{summary.present} present</span>
-                    <span className="text-red-700">{summary.absent} absent</span>
-                    <span className="text-amber-700">{summary.late} late</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">No active classes found.</p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Student photos</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Recent student profiles from your school.
+          <p className="mt-2 text-sm text-muted-foreground sm:text-base">
+            Welcome back, <span className="font-medium text-foreground">{user?.name}</span>. Here is your overview for today.
           </p>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading student photos...</p>
-          ) : visibleStudents.length > 0 ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {visibleStudents.map((student) => (
-                <div
-                  key={student.id}
-                  className="flex items-center gap-3 rounded-lg border bg-background p-3"
-                >
-                  <StudentAvatar student={student} className="size-12" />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">
-                      {student.student_name}
+        </div>
+        <div className="mt-4 flex items-center gap-3 md:mt-0">
+          <Button asChild variant="outline" className="shadow-sm">
+            <Link href="/reports">View Reports</Link>
+          </Button>
+          <Button asChild className="shadow-sm bg-primary text-primary-foreground">
+            <Link href="/attendance">Launch Kiosk</Link>
+          </Button>
+        </div>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        {stats.map(({ title, value, icon: Icon, color, bgColor }) => (
+          <Card key={title} className="card-hover stat-stripe border-none shadow-md overflow-hidden bg-card">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+              <div className={`rounded-lg p-2 ${bgColor}`}>
+                <Icon aria-hidden="true" className={`size-5 ${color}`} />
+              </div>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="h-8 w-20 skeleton mt-1" />
+              ) : (
+                <div className="text-3xl font-bold animate-count-up">{value}</div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[1fr_400px]">
+        {/* Main Content Area */}
+        <div className="space-y-6">
+          <Card className="card-hover overflow-hidden">
+            <CardHeader className="border-b bg-muted/20 pb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="size-5 text-primary" />
+                    Class Attendance Today
+                  </CardTitle>
+                  <CardDescription className="mt-1.5">
+                    Real-time overview of student presence across all active classes.
+                  </CardDescription>
+                </div>
+                <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+                  <Link href="/attendance">Manage sessions</Link>
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {isLoading ? (
+                <div className="p-6">
+                  <div className="skeleton h-32 w-full" />
+                </div>
+              ) : classSummaries.length ? (
+                <div className="grid divide-y sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+                  {classSummaries.map(([classId, summary]) => (
+                    <div key={classId} className="p-6 transition-colors hover:bg-muted/10">
+                      <div className="flex items-center justify-between">
+                        <p className="font-semibold text-lg">{summary.label}</p>
+                        <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10 dark:bg-blue-500/10 dark:text-blue-400 dark:ring-blue-500/20">
+                          {summary.present + summary.absent} total
+                        </span>
+                      </div>
+                      <div className="mt-4 flex gap-4 text-sm font-medium">
+                        <div className="flex flex-col">
+                          <span className="text-muted-foreground text-xs uppercase tracking-wider">Present</span>
+                          <span className="text-emerald-600 text-lg">{summary.present}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-muted-foreground text-xs uppercase tracking-wider">Absent</span>
+                          <span className="text-rose-600 text-lg">{summary.absent}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-muted-foreground text-xs uppercase tracking-wider">Late</span>
+                          <span className="text-amber-600 text-lg">{summary.late}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-12 text-center">
+                  <div className="rounded-full bg-muted p-3">
+                    <Users className="size-6 text-muted-foreground" />
+                  </div>
+                  <p className="mt-4 text-sm font-medium text-foreground">No active classes</p>
+                  <p className="text-sm text-muted-foreground">Class data will appear here once students check in.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="card-hover">
+            <CardHeader>
+              <CardTitle>Recent Students</CardTitle>
+              <CardDescription>
+                Recently enrolled or active student profiles.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="skeleton h-16 w-full rounded-lg" />
+                  ))}
+                </div>
+              ) : visibleStudents.length > 0 ? (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {visibleStudents.map((student) => (
+                    <div
+                      key={student.id}
+                      className="group flex items-center gap-3 rounded-lg border bg-card p-3 transition-all hover:border-primary/30 hover:shadow-sm"
+                    >
+                      <StudentAvatar student={student} className="size-12 ring-2 ring-transparent transition-all group-hover:ring-primary/20" />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium transition-colors group-hover:text-primary">
+                          {student.student_name}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {student.grade}-{student.section}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-8">No students found in the system.</p>
+              )}
+            </CardContent>
+            {visibleStudents.length > 0 && (
+              <CardFooter className="justify-center border-t pt-4">
+                <Button variant="link" asChild className="text-sm">
+                  <Link href="/students">View all students</Link>
+                </Button>
+              </CardFooter>
+            )}
+          </Card>
+        </div>
+
+        {/* Sidebar / Configuration Area */}
+        <div className="space-y-6">
+          <Card className="card-hover border-primary/20 bg-gradient-to-b from-primary/5 to-transparent relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10">
+              <ShieldCheck className="size-24" />
+            </div>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ScanFace className="size-5 text-primary" />
+                AI Enrollment Status
+              </CardTitle>
+              <CardDescription>
+                System readiness for automated facial recognition.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="space-y-3">
+                  <div className="skeleton h-4 w-3/4" />
+                  <div className="skeleton h-2 w-full rounded-full" />
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-end justify-between mb-2">
+                    <p className="text-2xl font-bold text-foreground">
+                      {enrollmentPercentage}%
                     </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {student.grade}-{student.section}
+                    <p className="text-sm text-muted-foreground mb-1">
+                      {enrolledCount} of {students.length} students
                     </p>
                   </div>
+                  <div className="h-2.5 overflow-hidden rounded-full bg-muted/60 ring-1 ring-inset ring-muted">
+                    <div
+                      className="h-full rounded-full bg-gradient-brand transition-all duration-1000 ease-out relative"
+                      style={{ width: `${enrollmentPercentage}%` }}
+                    >
+                      <div className="absolute inset-0 bg-white/20 w-full animate-[shimmer_2s_infinite]" />
+                    </div>
+                  </div>
+                  <p className="mt-4 text-xs text-muted-foreground">
+                    Students must be enrolled to use kiosk mode. Go to the Students page to enroll missing profiles.
+                  </p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="card-hover">
+            <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageCircle className="size-5 text-[#25D366]" />
+                  WhatsApp Integration
+                </CardTitle>
+                <CardDescription className="mt-1">
+                  Messaging and notification settings.
+                </CardDescription>
+              </div>
+              <div className={`flex size-2 rounded-full ${isWhatsappActive ? 'bg-emerald-500 pulse-ring' : 'bg-muted-foreground'}`} />
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="skeleton h-10 w-full" />
+              ) : (
+                <div className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium ${isWhatsappActive ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20' : 'bg-muted text-muted-foreground'}`}>
+                  {isWhatsappActive ? <ShieldCheck className="size-3.5" /> : null}
+                  {whatsappStatusText}
                 </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">No students found.</p>
-          )}
-        </CardContent>
-      </Card>
+              )}
+              
+              <div className="mt-6 space-y-4">
+                <div className="border-t pt-4">
+                  <p className="text-sm font-medium mb-1 text-foreground">Test Messages</p>
+                  <p className="text-xs text-muted-foreground">
+                    Admin test messages use school credentials first, then default backend credentials.
+                  </p>
+                </div>
+
+                {hasAdminAccess ? (
+                  <form
+                    className="grid gap-4 rounded-lg border bg-muted/10 p-4"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void handleSaveSchoolPhone();
+                    }}
+                  >
+                    <div className="space-y-1.5">
+                      <Label htmlFor="school-phone" className="text-xs font-semibold text-foreground">
+                        Admin Dispatch Number
+                      </Label>
+                      <p className="text-[11px] text-muted-foreground leading-tight">
+                        Internal routing number for staff alerts.
+                      </p>
+                      <Input
+                        id="school-phone"
+                        value={schoolPhoneInput}
+                        disabled={isSavingSchoolPhone}
+                        placeholder="923001234567"
+                        className="h-9 text-sm"
+                        onChange={(event) => {
+                          setSchoolPhoneInput(event.target.value);
+                          setSchoolPhoneError(null);
+                        }}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="school-contact" className="text-xs font-semibold text-foreground">
+                        Public School Contact
+                      </Label>
+                      <p className="text-[11px] text-muted-foreground leading-tight">
+                        Display number shown in parent messages.
+                      </p>
+                      <Input
+                        id="school-contact"
+                        value={schoolContactInput}
+                        disabled={isSavingSchoolPhone}
+                        placeholder="Optional"
+                        className="h-9 text-sm"
+                        onChange={(event) => {
+                          setSchoolContactInput(event.target.value);
+                          setSchoolPhoneError(null);
+                        }}
+                      />
+                    </div>
+
+                    {schoolPhoneError ? (
+                      <p className="text-xs font-medium text-destructive bg-destructive/10 p-2 rounded">{schoolPhoneError}</p>
+                    ) : null}
+
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={isSavingSchoolPhone}
+                      className="w-full mt-1 bg-foreground text-background hover:bg-foreground/90"
+                    >
+                      {isSavingSchoolPhone ? "Saving settings..." : "Save Numbers"}
+                    </Button>
+                  </form>
+                ) : null}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </section>
   );
 }
