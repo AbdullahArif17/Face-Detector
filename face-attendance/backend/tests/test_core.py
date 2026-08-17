@@ -430,6 +430,7 @@ async def test_attendance_template_parameter_order(
         "24 July 2026",
         "Class 5-A",
         "Demo School",
+        "923001111111",
     ]
     assert captured["school_checkout_alert"] == [
         "check-out",
@@ -439,6 +440,7 @@ async def test_attendance_template_parameter_order(
         "24 July 2026",
         "Class 5-A",
         "Demo School",
+        "923001111111",
     ]
     assert captured["school_absent_alert"] == [
         "absence",
@@ -447,6 +449,7 @@ async def test_attendance_template_parameter_order(
         "24 July 2026",
         "Class 5-A",
         "Demo School",
+        "923001111111",
     ]
 
 

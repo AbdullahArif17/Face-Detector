@@ -1,4 +1,5 @@
 import csv
+import hmac
 from datetime import date, datetime, time, timedelta, timezone
 from io import StringIO
 import logging
@@ -357,6 +358,7 @@ def build_attendance_session_read(
         stopped_by_id=attendance_session.stopped_by_id,
         started_at=attendance_session.started_at,
         stopped_at=attendance_session.stopped_at,
+        session_end_time=attendance_session.session_end_time,
         created_at=attendance_session.created_at,
     )
 
@@ -775,6 +777,7 @@ async def start_attendance_session(
         started_by_id=current_user.id,
         status="active",
         session_type=payload.session_type,
+        session_end_time=payload.session_end_time,
     )
     session.add(attendance_session)
     try:
@@ -1652,3 +1655,93 @@ async def mark_attendance(
     await session.commit()
     await session.refresh(attendance)
     return attendance
+
+
+@router.post("/cron/end-sessions", status_code=status.HTTP_200_OK)
+async def cron_end_sessions(
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Cron job to end attendance sessions that have passed their end time.
+
+    Protected by CRON_SECRET header. Queries all sessions where status='active'
+    AND session_end_time <= NOW(), marks them as 'ended', and triggers
+    absent-alert logic for students not checked in.
+    """
+    # Verify CRON_SECRET
+    cron_secret = settings.cron_secret
+    if cron_secret:
+        provided_secret = request.headers.get("X-Cron-Secret") or request.headers.get("Authorization", "").removeprefix("Bearer ")
+        if not hmac.compare_digest(provided_secret or "", cron_secret):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid cron secret")
+
+    now = datetime.now(timezone.utc)
+    sessions_to_end_result = await session.execute(
+        select(AttendanceSession).where(
+            AttendanceSession.status == "active",
+            AttendanceSession.session_end_time.is_not(None),
+            AttendanceSession.session_end_time <= now,
+        )
+    )
+    sessions_to_end = sessions_to_end_result.scalars().all()
+
+    ended_count = 0
+    absent_notifications_sent = 0
+
+    for attendance_session in sessions_to_end:
+        attendance_session.status = "ended"
+        attendance_session.stopped_at = now
+        # stopped_by_id remains None for cron-ended sessions
+        ended_count += 1
+
+        # Trigger absent-alert logic for check_in sessions (reuse existing function)
+        if attendance_session.session_type == "check_in":
+            company = await session.get(Company, attendance_session.company_id)
+            if company:
+                # Get students who haven't checked in for this session
+                absent_students_result = await session.execute(
+                    select(Student).where(
+                        Student.school_id == attendance_session.company_id,
+                        Student.status == "active",
+                        ~select(Attendance.id).where(
+                            Attendance.student_id == Student.id,
+                            Attendance.session_id == attendance_session.id
+                        ).exists()
+                    )
+                )
+                absent_students = absent_students_result.scalars().all()
+
+                for student in absent_students:
+                    attendance = Attendance(
+                        student_id=student.id,
+                        company_id=attendance_session.company_id,
+                        session_id=attendance_session.id,
+                        check_in=now,
+                        status="absent",
+                        notification_sent=False,
+                        notification_status="pending",
+                    )
+                    session.add(attendance)
+                    await session.flush()
+
+                    try:
+                        await send_absent_notification(
+                            session=session,
+                            attendance=attendance,
+                            student=student,
+                            school=company,
+                            event_time=attendance_session.started_at,
+                        )
+                        if attendance.notification_sent:
+                            absent_notifications_sent += 1
+                    except Exception:
+                        logger.exception("Failed to send absent WhatsApp notification during cron end-session")
+                        attendance.notification_status = "failed"
+                        attendance.notification_sent = False
+
+    await session.commit()
+    return {
+        "ended_sessions": ended_count,
+        "absent_notifications_sent": absent_notifications_sent,
+        "timestamp": now.isoformat(),
+    }

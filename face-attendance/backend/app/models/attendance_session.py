@@ -21,6 +21,10 @@ class AttendanceSession(Base):
             unique=True,
             postgresql_where=text("status = 'active' AND stopped_at IS NULL"),
         ),
+        Index(
+            "ix_attendance_sessions_end_time",
+            "session_end_time",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -50,6 +54,7 @@ class AttendanceSession(Base):
         nullable=False,
     )
     stopped_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    session_end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

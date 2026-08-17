@@ -5,5 +5,11 @@
       "maxDuration": 120,
       "excludeFiles": "{tests/**,**/__pycache__/**,**/*.pyc}"
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/backend/attendance/cron/end-sessions",
+      "schedule": "*/5 * * * *"
+    }
+  ]
 }

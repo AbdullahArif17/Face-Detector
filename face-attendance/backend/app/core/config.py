@@ -43,6 +43,7 @@ class Settings:
     meta_test_template_name: str | None
     whatsapp_test_mode: bool
     whatsapp_test_recipient: str | None
+    cron_secret: str | None
     app_env: str
 
 
@@ -174,6 +175,7 @@ def get_settings() -> Settings:
         meta_test_template_name=os.getenv("META_TEST_TEMPLATE_NAME"),
         whatsapp_test_mode=whatsapp_test_mode,
         whatsapp_test_recipient=whatsapp_test_recipient,
+        cron_secret=os.getenv("CRON_SECRET"),
         app_env=app_env,
     )
 
