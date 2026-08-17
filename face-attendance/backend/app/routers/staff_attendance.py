@@ -18,7 +18,6 @@ from app.routers.attendance import (
     MANUAL_ATTENDANCE_STATUSES,
     csv_safe,
     date_bounds,
-    display_date,
     display_time,
     parse_local_clock,
     today_bounds,

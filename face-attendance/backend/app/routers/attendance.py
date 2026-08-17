@@ -62,7 +62,6 @@ from app.services.whatsapp import (
     send_staff_checkout_message,
     staff_checkin_message_body,
     staff_checkout_message_body,
-    employee_notification_phone,
 )
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
