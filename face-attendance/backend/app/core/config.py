@@ -41,6 +41,8 @@ class Settings:
     meta_checkout_template_name: str | None
     meta_absent_template_name: str | None
     meta_test_template_name: str | None
+    meta_staff_on_time_template_name: str | None
+    meta_staff_late_template_name: str | None
     whatsapp_test_mode: bool
     whatsapp_test_recipient: str | None
     cron_secret: str | None
@@ -173,6 +175,8 @@ def get_settings() -> Settings:
         meta_checkout_template_name=os.getenv("META_CHECKOUT_TEMPLATE_NAME"),
         meta_absent_template_name=os.getenv("META_ABSENT_TEMPLATE_NAME"),
         meta_test_template_name=os.getenv("META_TEST_TEMPLATE_NAME"),
+        meta_staff_on_time_template_name=os.getenv("META_STAFF_ON_TIME_TEMPLATE_NAME"),
+        meta_staff_late_template_name=os.getenv("META_STAFF_LATE_TEMPLATE_NAME"),
         whatsapp_test_mode=whatsapp_test_mode,
         whatsapp_test_recipient=whatsapp_test_recipient,
         cron_secret=os.getenv("CRON_SECRET"),

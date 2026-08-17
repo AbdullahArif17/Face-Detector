@@ -1,6 +1,6 @@
-from datetime import datetime, timezone
+from datetime import datetime, time, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, Time, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -27,6 +27,7 @@ class Employee(Base):
     department: Mapped[str | None] = mapped_column(String(150), nullable=True)
     headshot_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="active", nullable=False)
+    expected_arrival_time: Mapped[time | None] = mapped_column(Time(), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

@@ -52,6 +52,7 @@ class Attendance(Base):
     confidence_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     notification_sent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     notification_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    checkin_status: Mapped[str | None] = mapped_column(String(20), nullable=True)  # on_time, late, none
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

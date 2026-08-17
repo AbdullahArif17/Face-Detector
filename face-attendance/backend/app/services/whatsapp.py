@@ -479,6 +479,50 @@ Have a safe journey home! 🤲
 {school_name}"""
 
 
+def build_staff_on_time_message(
+    *,
+    employee_name: str,
+    designation: str,
+    school_name: str,
+    check_time: str,
+    date_str: str,
+) -> str:
+    return f"""⏰ Staff On-Time | عملے کی وقت پر حاضری
+
+{employee_name} checked in on time.
+{employee_name} وقت پر حاضر ہوئے۔
+
+👔 Designation | عہدہ: {designation or "Staff"}
+🕐 Time | وقت: {check_time}
+📅 Date | تاریخ: {date_str}
+🏫 School: {school_name}
+
+JazakAllah Khair 🤲"""
+
+
+def build_staff_late_message(
+    *,
+    employee_name: str,
+    designation: str,
+    school_name: str,
+    check_time: str,
+    expected_time: str,
+    date_str: str,
+) -> str:
+    return f"""⚠️ Staff Late | عملے کی دیر سے حاضری
+
+{employee_name} checked in late.
+{employee_name} دیر سے حاضر ہوئے۔
+
+👔 Designation | عہدہ: {designation or "Staff"}
+🕐 Actual Time | اصل وقت: {check_time}
+⏰ Expected Time | متوقع وقت: {expected_time}
+📅 Date | تاریخ: {date_str}
+🏫 School: {school_name}
+
+Please follow up. 🤲"""
+
+
 # ponytail: staff messages use plain text only; switch to school templates
 # when the school asks for branded template messages
 async def send_staff_checkin_message(
@@ -517,6 +561,99 @@ async def send_staff_checkin_message(
         school_name=school_name,
         school_phone=school_contact,
         check_time=check_time,
+        date_str=date_str,
+    )
+    return await send_text_message(
+        phone_number_id=phone_number_id,
+        access_token=access_token,
+        parent_phone=admin_phone,
+        message=message,
+    )
+
+
+async def send_staff_on_time_message(
+    phone_number_id: str,
+    access_token: str,
+    admin_phone: str,
+    school_contact: str,
+    employee_name: str,
+    designation: str,
+    school_name: str,
+    check_time: str,
+    date_str: str,
+) -> dict[str, str | bool | None]:
+    template_name = getattr(settings, "meta_staff_on_time_template_name", None)
+    if is_configured_value(template_name):
+        return await send_template_message(
+            phone_number_id=phone_number_id,
+            access_token=access_token,
+            parent_phone=admin_phone,
+            template_name=template_name.strip(),
+            body_parameters=[
+                "on-time",
+                "Admin",
+                employee_name,
+                check_time,
+                date_str,
+                designation or "Staff",
+                school_name,
+                school_contact,
+            ],
+        )
+
+    message = build_staff_on_time_message(
+        employee_name=employee_name,
+        designation=designation,
+        school_name=school_name,
+        check_time=check_time,
+        date_str=date_str,
+    )
+    return await send_text_message(
+        phone_number_id=phone_number_id,
+        access_token=access_token,
+        parent_phone=admin_phone,
+        message=message,
+    )
+
+
+async def send_staff_late_message(
+    phone_number_id: str,
+    access_token: str,
+    admin_phone: str,
+    school_contact: str,
+    employee_name: str,
+    designation: str,
+    school_name: str,
+    check_time: str,
+    expected_time: str,
+    date_str: str,
+) -> dict[str, str | bool | None]:
+    template_name = getattr(settings, "meta_staff_late_template_name", None)
+    if is_configured_value(template_name):
+        return await send_template_message(
+            phone_number_id=phone_number_id,
+            access_token=access_token,
+            parent_phone=admin_phone,
+            template_name=template_name.strip(),
+            body_parameters=[
+                "late",
+                "Admin",
+                employee_name,
+                check_time,
+                expected_time,
+                date_str,
+                designation or "Staff",
+                school_name,
+                school_contact,
+            ],
+        )
+
+    message = build_staff_late_message(
+        employee_name=employee_name,
+        designation=designation,
+        school_name=school_name,
+        check_time=check_time,
+        expected_time=expected_time,
         date_str=date_str,
     )
     return await send_text_message(

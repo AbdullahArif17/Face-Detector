@@ -60,8 +60,12 @@ from app.services.whatsapp import (
     send_checkout_message,
     send_staff_checkin_message,
     send_staff_checkout_message,
+    send_staff_on_time_message,
+    send_staff_late_message,
     staff_checkin_message_body,
     staff_checkout_message_body,
+    build_staff_on_time_message,
+    build_staff_late_message,
 )
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
@@ -523,18 +527,77 @@ async def send_staff_checkin_notification(
 
     check_time = display_time(event_time)
     date_str = display_date(event_time)
-    message_body = staff_checkin_message_body(employee, school, check_time, date_str)
-    result = await send_staff_checkin_message(
-        phone_number_id,
-        access_token,
-        admin_phone,
-        school_phone_or_default(school),
-        employee.name,
-        employee.designation or "",
-        school.name,
-        check_time,
-        date_str,
-    )
+
+    # Determine check-in status based on expected_arrival_time
+    checkin_status = "none"
+    if employee.expected_arrival_time is not None:
+        # Compare check-in time with expected arrival time (both in local timezone)
+        event_local = to_local(event_time)
+        check_time_only = event_local.time()
+        if check_time_only <= employee.expected_arrival_time:
+            checkin_status = "on_time"
+        else:
+            checkin_status = "late"
+
+    attendance.checkin_status = checkin_status
+
+    # Send appropriate notification
+    if checkin_status == "on_time":
+        message_body = build_staff_on_time_message(
+            employee_name=employee.name,
+            designation=employee.designation or "",
+            school_name=school.name,
+            check_time=check_time,
+            date_str=date_str,
+        )
+        result = await send_staff_on_time_message(
+            phone_number_id,
+            access_token,
+            admin_phone,
+            school_phone_or_default(school),
+            employee.name,
+            employee.designation or "",
+            school.name,
+            check_time,
+            date_str,
+        )
+    elif checkin_status == "late":
+        # employee.expected_arrival_time is guaranteed not None here (checkin_status logic)
+        expected_str = employee.expected_arrival_time.strftime("%I:%M %p")  # type: ignore[union-attr]
+        message_body = build_staff_late_message(
+            employee_name=employee.name,
+            designation=employee.designation or "",
+            school_name=school.name,
+            check_time=check_time,
+            expected_time=expected_str,
+            date_str=date_str,
+        )
+        result = await send_staff_late_message(
+            phone_number_id,
+            access_token,
+            admin_phone,
+            school_phone_or_default(school),
+            employee.name,
+            employee.designation or "",
+            school.name,
+            check_time,
+            expected_str,
+            date_str,
+        )
+    else:
+        # No expected time set - use generic check-in message
+        message_body = staff_checkin_message_body(employee, school, check_time, date_str)
+        result = await send_staff_checkin_message(
+            phone_number_id,
+            access_token,
+            admin_phone,
+            school_phone_or_default(school),
+            employee.name,
+            employee.designation or "",
+            school.name,
+            check_time,
+            date_str,
+        )
 
     notification_status = "sent" if result["success"] else "failed"
     attendance.notification_sent = result["success"] is True

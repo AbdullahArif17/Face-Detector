@@ -1,3 +1,5 @@
+from datetime import time
+
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
@@ -9,6 +11,7 @@ class EmployeeCreate(BaseModel):
     department: str | None = Field(default=None, max_length=150)
     headshot_url: str | None = None
     branch_id: int | None = None
+    expected_arrival_time: time | None = None
 
 
 class EmployeeUpdate(BaseModel):
@@ -20,6 +23,7 @@ class EmployeeUpdate(BaseModel):
     headshot_url: str | None = None
     branch_id: int | None = None
     status: str | None = Field(default=None, max_length=50)
+    expected_arrival_time: time | None = None
 
 
 class EmployeeResponse(BaseModel):
@@ -35,6 +39,7 @@ class EmployeeResponse(BaseModel):
     department: str | None
     headshot_url: str | None
     status: str
+    expected_arrival_time: time | None = None
     has_face_enrolled: bool = False
 
 
