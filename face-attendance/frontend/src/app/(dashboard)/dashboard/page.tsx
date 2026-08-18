@@ -32,11 +32,14 @@ import {
   getAttendanceToday,
   getSchoolSettings,
   getStudents,
+  getEmployees,
+  getAllEmployees,
   launchAttendanceKiosk,
   updateSchoolSettings,
   type AttendanceDashboardRecord,
   type SchoolSettings,
   type Student,
+  type Employee,
 } from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/errors";
 import { canManageKiosk } from "@/lib/permissions";
@@ -60,6 +63,7 @@ function getKioskBaseUrl(): string {
 export default function DashboardPage() {
   const { user } = useAuth();
   const [students, setStudents] = useState<Student[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [todayRecords, setTodayRecords] = useState<AttendanceDashboardRecord[]>(
     [],
   );
@@ -88,14 +92,16 @@ export default function DashboardPage() {
         user && hasAdminAccess
           ? getSchoolSettings(user.company_id).catch(() => null)
           : Promise.resolve(null);
-      const [studentRecords, attendanceRecords, settingsResponse] =
+      const [studentRecords, employeeRecords, attendanceRecords, settingsResponse] =
         await Promise.all([
           getStudents({ status: "active" }),
+          getAllEmployees(),
           getAttendanceToday(),
           settingsRequest,
         ]);
 
       setStudents(studentRecords);
+      setEmployees(employeeRecords);
       setTodayRecords(attendanceRecords);
       setSchoolSettings(settingsResponse);
       setSchoolPhoneInput(settingsResponse?.school_phone ?? "");
@@ -121,15 +127,45 @@ export default function DashboardPage() {
     [todayRecords],
   );
 
+  // Teacher/Staff stats
+  const teachers = useMemo(
+    () =>
+      employees.filter((e) =>
+        e.designation?.toLowerCase().includes("teacher"),
+      ),
+    [employees],
+  );
+  const staff = useMemo(
+    () =>
+      employees.filter(
+        (e) => !e.designation?.toLowerCase().includes("teacher"),
+      ),
+    [employees],
+  );
+
   const stats = useMemo(
     () =>
       [
         {
-          title: "Total Enrolled",
+          title: "Total Students",
           value: students.length,
           icon: Users,
           color: "text-blue-500",
           bgColor: "bg-blue-500/10",
+        },
+        {
+          title: "Teachers",
+          value: teachers.length,
+          icon: UserCheck,
+          color: "text-indigo-500",
+          bgColor: "bg-indigo-500/10",
+        },
+        {
+          title: "Staff",
+          value: staff.length,
+          icon: ShieldCheck,
+          color: "text-violet-500",
+          bgColor: "bg-violet-500/10",
         },
         {
           title: "Present Today",
@@ -153,7 +189,7 @@ export default function DashboardPage() {
           bgColor: "bg-amber-500/10",
         },
       ] as const,
-    [attendanceSummary, students],
+    [attendanceSummary, students, teachers, staff],
   );
 
   const visibleStudents = students.slice(0, 12);
@@ -161,6 +197,9 @@ export default function DashboardPage() {
   const enrollmentPercentage = students.length
     ? Math.round((enrolledCount / students.length) * 100)
     : 0;
+
+  const teachersEnrolled = teachers.filter((t) => t.has_face_enrolled).length;
+  const staffEnrolled = staff.filter((s) => s.has_face_enrolled).length;
 
   const classSummaries = useMemo(() => {
     const summaries = new Map<
@@ -507,6 +546,26 @@ export default function DashboardPage() {
                   <p className="mt-4 text-xs text-muted-foreground">
                     Students must be enrolled to use kiosk mode. Go to the Students page to enroll missing profiles.
                   </p>
+                  <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                    <div className="rounded-lg border bg-muted/10 p-3">
+                      <p className="text-xs text-muted-foreground">Teachers</p>
+                      <p className="text-lg font-bold text-indigo-600">
+                        {teachersEnrolled} / {teachers.length}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border bg-muted/10 p-3">
+                      <p className="text-xs text-muted-foreground">Staff</p>
+                      <p className="text-lg font-bold text-violet-600">
+                        {staffEnrolled} / {staff.length}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border bg-muted/10 p-3">
+                      <p className="text-xs text-muted-foreground">Total Employees</p>
+                      <p className="text-lg font-bold text-foreground">
+                        {teachersEnrolled + staffEnrolled} / {employees.length}
+                      </p>
+                    </div>
+                  </div>
                 </>
               )}
             </CardContent>
