@@ -4,6 +4,15 @@ node_modules/
 dist/
 *.tsbuildinfo
 ai-service/hf-face-attendance-ai/
+frontend/out/
+
+# Capacitor Android build artifacts
+frontend/android/app/build/
+frontend/android/app/.cxx/
+frontend/android/.gradle/
+frontend/android/gradle/
+frontend/android/gradlew
+frontend/android/gradlew.bat
 
 # Python
 __pycache__/

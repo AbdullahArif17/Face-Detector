@@ -1,0 +1,49 @@
+# Build outputs
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+
+# Capacitor build artifacts (keep android/ source, ignore platform build outputs)
+android/app/build/
+android/app/.cxx/
+android/.gradle/
+android/gradle/
+android/gradlew
+android/gradlew.bat
+
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.production.local
+.env.development.local
+.env.test.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# Misc
+*.pem
+.vercel

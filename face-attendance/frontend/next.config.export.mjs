@@ -17,6 +17,7 @@ const contentSecurityPolicy = [
 
 const nextConfig = {
   reactStrictMode: true,
+  output: "export",
   images: { unoptimized: true },
   async headers() {
     return [
