@@ -9,7 +9,7 @@
   "crons": [
     {
       "path": "/api/backend/attendance/cron/end-sessions",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 1 * * *"
     }
   ]
 }

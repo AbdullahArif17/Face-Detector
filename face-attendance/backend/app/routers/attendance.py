@@ -279,6 +279,10 @@ async def get_active_attendance_session(
     session_type: str | None = None,
 ) -> AttendanceSession | None:
     day_start, day_end = today_bounds()
+    # A session is only "active" until its scheduled end time. Once
+    # session_end_time has passed it is treated as ended immediately, so the
+    # kiosk and dashboard reflect it without waiting for the daily cleanup cron.
+    # A NULL session_end_time means the session never auto-ends.
     query = (
         select(AttendanceSession)
         .where(
@@ -287,11 +291,13 @@ async def get_active_attendance_session(
             AttendanceSession.stopped_at.is_(None),
             AttendanceSession.started_at >= day_start,
             AttendanceSession.started_at < day_end,
+            (AttendanceSession.session_end_time.is_(None))
+            | (AttendanceSession.session_end_time > func.now()),
         )
     )
     if session_type:
         query = query.where(AttendanceSession.session_type == session_type)
-        
+
     return await session.scalar(query.order_by(AttendanceSession.started_at.desc()))
 
 
