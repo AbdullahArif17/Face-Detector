@@ -70,8 +70,6 @@ export default function DashboardPage() {
   const [hasError, setHasError] = useState(false);
   const [schoolPhoneInput, setSchoolPhoneInput] = useState("");
   const [schoolContactInput, setSchoolContactInput] = useState("");
-  const [checkInEndInput, setCheckInEndInput] = useState("");
-  const [checkOutEndInput, setCheckOutEndInput] = useState("");
   const [isSavingSchoolPhone, setIsSavingSchoolPhone] = useState(false);
   const [schoolPhoneError, setSchoolPhoneError] = useState<string | null>(
     null,
@@ -102,8 +100,6 @@ export default function DashboardPage() {
       setSchoolSettings(settingsResponse);
       setSchoolPhoneInput(settingsResponse?.school_phone ?? "");
       setSchoolContactInput(settingsResponse?.school_contact ?? "");
-      setCheckInEndInput(settingsResponse?.check_in_end_time ?? "");
-      setCheckOutEndInput(settingsResponse?.check_out_end_time ?? "");
       setHasError(false);
     } catch {
       setHasError(true);
@@ -226,8 +222,6 @@ export default function DashboardPage() {
       await updateSchoolSettings(user.company_id, {
         school_phone: phoneTrimmed || null,
         school_contact: contactTrimmed || null,
-        check_in_end_time: checkInEndInput || null,
-        check_out_end_time: checkOutEndInput || null,
       });
       setSchoolPhoneInput(phoneTrimmed);
       setSchoolContactInput(contactTrimmed);
@@ -597,46 +591,6 @@ export default function DashboardPage() {
                       />
                     </div>
 
-                    <div className="space-y-1.5">
-                      <Label htmlFor="check-in-end" className="text-xs font-semibold text-foreground">
-                        Check-in Session End Time
-                      </Label>
-                      <p className="text-[11px] text-muted-foreground leading-tight">
-                        Kiosk auto-closes the check-in session at this local time. Leave blank to keep it open.
-                      </p>
-                      <Input
-                        id="check-in-end"
-                        type="time"
-                        value={checkInEndInput}
-                        disabled={isSavingSchoolPhone}
-                        className="h-9 text-sm"
-                        onChange={(event) => {
-                          setCheckInEndInput(event.target.value);
-                          setSchoolPhoneError(null);
-                        }}
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label htmlFor="check-out-end" className="text-xs font-semibold text-foreground">
-                        Check-out Session End Time
-                      </Label>
-                      <p className="text-[11px] text-muted-foreground leading-tight">
-                        Kiosk auto-closes the check-out session at this local time. Leave blank to keep it open.
-                      </p>
-                      <Input
-                        id="check-out-end"
-                        type="time"
-                        value={checkOutEndInput}
-                        disabled={isSavingSchoolPhone}
-                        className="h-9 text-sm"
-                        onChange={(event) => {
-                          setCheckOutEndInput(event.target.value);
-                          setSchoolPhoneError(null);
-                        }}
-                      />
-                    </div>
-
                     {schoolPhoneError ? (
                       <p className="text-xs font-medium text-destructive bg-destructive/10 p-2 rounded">{schoolPhoneError}</p>
                     ) : null}
@@ -651,6 +605,52 @@ export default function DashboardPage() {
                     </Button>
                   </form>
                 ) : null}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* APK Download Card */}
+          <Card className="card-hover">
+            <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="size-5 text-primary" />
+                  Mobile App (APK)
+                </CardTitle>
+                <CardDescription className="mt-1">
+                  Download the latest Android app for kiosk and admin access.
+                </CardDescription>
+              </div>
+              <div className="flex size-2 rounded-full bg-primary pulse-ring" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="rounded-lg border bg-muted/10 p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Face Attendance Kiosk</p>
+                      <p className="text-xs text-muted-foreground">
+                        Release APK for Android devices. Install on tablets for kiosk mode.
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      asChild
+                    >
+                      <a
+                        href="https://github.com/AbdullahArif17/Face-Detector/releases/latest"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Download APK
+                      </a>
+                    </Button>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground text-center">
+                  Built automatically on every release tag. Requires Android 8.0+.
+                </p>
               </div>
             </CardContent>
           </Card>

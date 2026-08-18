@@ -15,7 +15,6 @@ import { canManageAttendanceSessions } from "@/lib/permissions";
 import {
   getActiveAttendanceSession,
   getAttendanceToday,
-  getSchoolSettings,
   startAttendanceSession,
   stopAttendanceSession,
   updateManualAttendance,
@@ -250,10 +249,6 @@ export default function AttendancePage() {
   const [editState, setEditState] = useState<AttendanceEditState | null>(null);
   const [pendingStopSession, setPendingStopSession] = useState<AttendanceSession | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
-  const [sessionEndTimes, setSessionEndTimes] = useState<{
-    check_in: string | null;
-    check_out: string | null;
-  }>({ check_in: null, check_out: null });
 
   const loadToday = useCallback(async (): Promise<void> => {
     setIsTodayLoading(true);
@@ -295,23 +290,6 @@ export default function AttendancePage() {
     return () => window.clearInterval(interval);
   }, [loadGlobalSession, loadToday]);
 
-  useEffect(() => {
-    if (!canManageSessions || !user) {
-      return;
-    }
-    void (async () => {
-      try {
-        const settings = await getSchoolSettings(user.company_id);
-        setSessionEndTimes({
-          check_in: settings.check_in_end_time ?? null,
-          check_out: settings.check_out_end_time ?? null,
-        });
-      } catch {
-        // Non-fatal: sessions can still be started without an auto end time.
-      }
-    })();
-  }, [canManageSessions, user]);
-
   const summary = useMemo(
     () => ({
       present: todayRecords.filter((record) => record.status === "present").length,
@@ -330,10 +308,7 @@ export default function AttendancePage() {
     setSessionMessage("");
     setSessionMessageIsError(false);
     try {
-      await startAttendanceSession(
-        sessionType,
-        sessionEndTimes[sessionType],
-      );
+      await startAttendanceSession(sessionType);
       setSessionMessage(`Global ${sessionType.replace("_", "-")} session started.`);
       await Promise.all([loadGlobalSession(), loadToday()]);
     } catch (error) {

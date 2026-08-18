@@ -865,10 +865,14 @@ async def start_attendance_session(
     return build_attendance_session_read(attendance_session, None)
 
 
-def resolve_session_end_time(end_time_str: str | None) -> datetime | None:
-    """Build a UTC session end time from a local ``HH:MM`` setting string."""
+def resolve_session_end_time(end_time_str: str | None) -> datetime:
+    """Build a UTC session end time from a local ``HH:MM`` setting string.
+
+    If no end time is configured, defaults to 1 hour from now.
+    """
     if not end_time_str:
-        return None
+        # Default: session ends 1 hour after start
+        return local_now() + timedelta(hours=1)
     try:
         hours, minutes = end_time_str.split(":")
         local_dt = datetime.combine(
@@ -877,7 +881,7 @@ def resolve_session_end_time(end_time_str: str | None) -> datetime | None:
             tzinfo=school_timezone(),
         )
     except (ValueError, TypeError):
-        return None
+        return local_now() + timedelta(hours=1)
     return local_dt.astimezone(timezone.utc)
 
 
@@ -896,8 +900,8 @@ async def launch_kiosk_session(
     """One-call kiosk launch: start the session and return the company api key.
 
     The session auto-ends at the check-in/check-out end time configured in school
-    settings (local time, converted to UTC). If no end time is configured the
-    session stays open until manually stopped. The returned ``api_key`` lets the
+    settings (local time, converted to UTC). If no end time is configured, the
+    session defaults to 1 hour duration. The returned ``api_key`` lets the
     dashboard open the kiosk link in a single user action.
     """
     company = await session.get(Company, current_user.company_id)
