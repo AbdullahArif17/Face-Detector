@@ -40,6 +40,8 @@ export interface Employee {
   department: string | null;
   headshot_url: string | null;
   status: string;
+  expected_arrival_time: string | null;
+  expected_departure_time: string | null;
   has_face_enrolled: boolean;
 }
 
@@ -103,6 +105,8 @@ export interface EmployeeInput {
   department: string | null;
   headshot_url?: string | null;
   branch_id?: number;
+  expected_arrival_time?: string | null;
+  expected_departure_time?: string | null;
 }
 
 export interface EmployeeUpdateInput {
@@ -114,6 +118,8 @@ export interface EmployeeUpdateInput {
   headshot_url?: string | null;
   branch_id?: number;
   status?: string;
+  expected_arrival_time?: string | null;
+  expected_departure_time?: string | null;
 }
 
 export interface AttendanceRecord {
@@ -291,6 +297,10 @@ export interface SchoolSettings {
   school_phone: string | null;
   school_contact: string | null;
   school_logo: string | null;
+  attendance_start_time: string;
+  check_in_end_time: string | null;
+  check_out_end_time: string | null;
+  late_grace_minutes: number;
   whatsapp_token_configured: boolean;
   whatsapp_webhook_secure: boolean;
   whatsapp_chatbot_ready: boolean;
@@ -661,9 +671,25 @@ export async function getAttendanceClassSessionStatuses(): Promise<
 
 export async function startAttendanceSession(
   sessionType: "check_in" | "check_out" = "check_in",
+  sessionEndTimeLocal?: string | null,
 ): Promise<AttendanceSession> {
   const response = await api.post<AttendanceSession>(
     "/attendance/sessions/start",
+    { session_type: sessionType, session_end_time_local: sessionEndTimeLocal ?? null },
+  );
+  return response.data;
+}
+
+export interface AttendanceSessionLaunchResponse {
+  session: AttendanceSession;
+  api_key: string;
+}
+
+export async function launchAttendanceKiosk(
+  sessionType: "check_in" | "check_out",
+): Promise<AttendanceSessionLaunchResponse> {
+  const response = await api.post<AttendanceSessionLaunchResponse>(
+    "/attendance/sessions/launch",
     { session_type: sessionType },
   );
   return response.data;
@@ -896,7 +922,12 @@ export async function getSchoolSettings(
 
 export async function updateSchoolSettings(
   companyId: number,
-  input: { school_phone: string | null; school_contact?: string | null },
+  input: {
+    school_phone?: string | null;
+    school_contact?: string | null;
+    check_in_end_time?: string | null;
+    check_out_end_time?: string | null;
+  },
 ): Promise<SchoolSettings> {
   const response = await api.put<SchoolSettings>(
     `/companies/${companyId}/settings`,

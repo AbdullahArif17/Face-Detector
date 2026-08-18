@@ -12,6 +12,7 @@ class EmployeeCreate(BaseModel):
     headshot_url: str | None = None
     branch_id: int | None = None
     expected_arrival_time: time | None = None
+    expected_departure_time: time | None = None
 
 
 class EmployeeUpdate(BaseModel):
@@ -24,6 +25,7 @@ class EmployeeUpdate(BaseModel):
     branch_id: int | None = None
     status: str | None = Field(default=None, max_length=50)
     expected_arrival_time: time | None = None
+    expected_departure_time: time | None = None
 
 
 class EmployeeResponse(BaseModel):
@@ -40,6 +42,7 @@ class EmployeeResponse(BaseModel):
     headshot_url: str | None
     status: str
     expected_arrival_time: time | None = None
+    expected_departure_time: time | None = None
     has_face_enrolled: bool = False
 
 

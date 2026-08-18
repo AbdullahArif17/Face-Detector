@@ -77,6 +77,12 @@ export function AddEmployeeModal({
     employee?.designation ?? (variant === "teachers" ? "Teacher" : "")
   );
   const [department, setDepartment] = useState(employee?.department ?? "");
+  const [expectedArrivalTime, setExpectedArrivalTime] = useState(
+    employee?.expected_arrival_time ?? "",
+  );
+  const [expectedDepartureTime, setExpectedDepartureTime] = useState(
+    employee?.expected_departure_time ?? "",
+  );
   const [branch, setBranch] = useState(
     employee?.branch_id ? String(employee.branch_id) : "",
   );
@@ -211,6 +217,8 @@ export function AddEmployeeModal({
       phone: optionalValue(phone),
       designation: optionalValue(designation),
       department: optionalValue(department),
+      expected_arrival_time: optionalValue(expectedArrivalTime),
+      expected_departure_time: optionalValue(expectedDepartureTime),
       ...(branchId !== undefined ? { branch_id: branchId } : {}),
     };
 
@@ -362,6 +370,35 @@ export function AddEmployeeModal({
                 onChange={(event) => setDepartment(event.target.value)}
                 placeholder="Human Resources"
               />
+            </div>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="employee-arrival">Expected Arrival Time</Label>
+              <Input
+                id="employee-arrival"
+                type="time"
+                value={expectedArrivalTime}
+                disabled={isProfileLocked}
+                onChange={(event) => setExpectedArrivalTime(event.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Employee&apos;s expected check-in time. Used for late/on-time alerts.
+              </p>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="employee-departure">Expected Departure Time</Label>
+              <Input
+                id="employee-departure"
+                type="time"
+                value={expectedDepartureTime}
+                disabled={isProfileLocked}
+                onChange={(event) => setExpectedDepartureTime(event.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Employee&apos;s expected check-out time.
+              </p>
             </div>
           </div>
 

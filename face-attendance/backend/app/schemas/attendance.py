@@ -62,6 +62,11 @@ class ClassScopedRequest(BaseModel):
 class AttendanceSessionStart(ClassScopedRequest):
     session_type: str = Field(default="check_in", max_length=20)
     session_end_time: datetime | None = Field(default=None, description="Optional end time for the session (UTC). If not provided, must be configured at school/branch level.")
+    session_end_time_local: str | None = Field(default=None, description="Optional local HH:MM end time; converted to UTC. Ignored if session_end_time is set.")
+
+
+class AttendanceSessionLaunch(ClassScopedRequest):
+    session_type: str = Field(default="check_in", max_length=20)
 
 
 class AttendanceSessionStop(BaseModel):
@@ -83,6 +88,11 @@ class AttendanceSessionRead(BaseModel):
     stopped_at: datetime | None = None
     session_end_time: datetime | None = None
     created_at: datetime
+
+
+class AttendanceSessionLaunchResponse(BaseModel):
+    session: AttendanceSessionRead
+    api_key: str
 
 
 class AttendanceSessionStatus(BaseModel):

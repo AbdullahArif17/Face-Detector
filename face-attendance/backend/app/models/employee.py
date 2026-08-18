@@ -28,6 +28,7 @@ class Employee(Base):
     headshot_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="active", nullable=False)
     expected_arrival_time: Mapped[time | None] = mapped_column(Time(), nullable=True)
+    expected_departure_time: Mapped[time | None] = mapped_column(Time(), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

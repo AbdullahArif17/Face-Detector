@@ -45,6 +45,8 @@ from app.schemas.attendance import (
     AttendanceRead,
     AttendanceSessionRead,
     AttendanceSessionStart,
+    AttendanceSessionLaunch,
+    AttendanceSessionLaunchResponse,
     AttendanceSessionStatus,
 )
 from app.services.whatsapp import (
@@ -839,13 +841,16 @@ async def start_attendance_session(
             detail=f"Attendance {payload.session_type} session is already active",
         )
 
+    session_end_time = payload.session_end_time or resolve_session_end_time(
+        payload.session_end_time_local,
+    )
     attendance_session = AttendanceSession(
         company_id=current_user.company_id,
         branch_id=None,
         started_by_id=current_user.id,
         status="active",
         session_type=payload.session_type,
-        session_end_time=payload.session_end_time,
+        session_end_time=session_end_time,
     )
     session.add(attendance_session)
     try:
@@ -858,6 +863,95 @@ async def start_attendance_session(
         ) from exc
     await session.refresh(attendance_session)
     return build_attendance_session_read(attendance_session, None)
+
+
+def resolve_session_end_time(end_time_str: str | None) -> datetime | None:
+    """Build a UTC session end time from a local ``HH:MM`` setting string."""
+    if not end_time_str:
+        return None
+    try:
+        hours, minutes = end_time_str.split(":")
+        local_dt = datetime.combine(
+            local_now().date(),
+            time(int(hours), int(minutes)),
+            tzinfo=school_timezone(),
+        )
+    except (ValueError, TypeError):
+        return None
+    return local_dt.astimezone(timezone.utc)
+
+
+@router.post(
+    "/sessions/launch",
+    response_model=AttendanceSessionLaunchResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def launch_kiosk_session(
+    payload: AttendanceSessionLaunch,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        require_role("super_admin", "admin", "hr", "branch_manager"),
+    ),
+) -> AttendanceSessionLaunchResponse:
+    """One-call kiosk launch: start the session and return the company api key.
+
+    The session auto-ends at the check-in/check-out end time configured in school
+    settings (local time, converted to UTC). If no end time is configured the
+    session stays open until manually stopped. The returned ``api_key`` lets the
+    dashboard open the kiosk link in a single user action.
+    """
+    company = await session.get(Company, current_user.company_id)
+    if company is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Company not found",
+        )
+
+    end_time_str = (
+        company.check_in_end_time
+        if payload.session_type == "check_in"
+        else company.check_out_end_time
+    )
+    session_end_time = resolve_session_end_time(end_time_str)
+
+    await expire_stale_attendance_sessions(
+        session,
+        company_id=company.id,
+        stopped_by_id=current_user.id,
+    )
+    existing_session = await get_active_attendance_session(
+        session,
+        company_id=company.id,
+        session_type=payload.session_type,
+    )
+    if existing_session is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Attendance {payload.session_type} session is already active",
+        )
+
+    attendance_session = AttendanceSession(
+        company_id=company.id,
+        branch_id=None,
+        started_by_id=current_user.id,
+        status="active",
+        session_type=payload.session_type,
+        session_end_time=session_end_time,
+    )
+    session.add(attendance_session)
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Attendance {payload.session_type} session is already active",
+        ) from exc
+    await session.refresh(attendance_session)
+    return AttendanceSessionLaunchResponse(
+        session=build_attendance_session_read(attendance_session, None),
+        api_key=company.api_key,
+    )
 
 
 @router.post("/sessions/{session_id}/stop", response_model=AttendanceSessionRead)

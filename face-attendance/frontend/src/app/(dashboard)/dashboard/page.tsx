@@ -32,6 +32,7 @@ import {
   getAttendanceToday,
   getSchoolSettings,
   getStudents,
+  launchAttendanceKiosk,
   updateSchoolSettings,
   type AttendanceDashboardRecord,
   type SchoolSettings,
@@ -43,6 +44,17 @@ import { canManageKiosk } from "@/lib/permissions";
 function isValidSchoolPhone(phone: string): boolean {
   const normalized = phone.trim().replace(/[\s\-()+]/g, "");
   return /^92\d{10}$/.test(normalized) || /^03\d{9}$/.test(normalized);
+}
+
+function getKioskBaseUrl(): string {
+  const configuredBaseUrl = process.env.NEXT_PUBLIC_KIOSK_BASE_URL?.trim();
+  if (configuredBaseUrl) {
+    return configuredBaseUrl.replace(/\/$/, "");
+  }
+  if (typeof window === "undefined") {
+    return "";
+  }
+  return window.location.origin;
 }
 
 export default function DashboardPage() {
@@ -58,10 +70,17 @@ export default function DashboardPage() {
   const [hasError, setHasError] = useState(false);
   const [schoolPhoneInput, setSchoolPhoneInput] = useState("");
   const [schoolContactInput, setSchoolContactInput] = useState("");
+  const [checkInEndInput, setCheckInEndInput] = useState("");
+  const [checkOutEndInput, setCheckOutEndInput] = useState("");
   const [isSavingSchoolPhone, setIsSavingSchoolPhone] = useState(false);
   const [schoolPhoneError, setSchoolPhoneError] = useState<string | null>(
     null,
   );
+  const [launchingSession, setLaunchingSession] = useState<
+    "check_in" | "check_out" | null
+  >(null);
+  const [launchMessage, setLaunchMessage] = useState<string | null>(null);
+  const [launchError, setLaunchError] = useState<string | null>(null);
   const hasAdminAccess = canManageKiosk(user);
 
   const loadDashboard = useCallback(async (): Promise<void> => {
@@ -83,6 +102,8 @@ export default function DashboardPage() {
       setSchoolSettings(settingsResponse);
       setSchoolPhoneInput(settingsResponse?.school_phone ?? "");
       setSchoolContactInput(settingsResponse?.school_contact ?? "");
+      setCheckInEndInput(settingsResponse?.check_in_end_time ?? "");
+      setCheckOutEndInput(settingsResponse?.check_out_end_time ?? "");
       setHasError(false);
     } catch {
       setHasError(true);
@@ -205,15 +226,45 @@ export default function DashboardPage() {
       await updateSchoolSettings(user.company_id, {
         school_phone: phoneTrimmed || null,
         school_contact: contactTrimmed || null,
+        check_in_end_time: checkInEndInput || null,
+        check_out_end_time: checkOutEndInput || null,
       });
       setSchoolPhoneInput(phoneTrimmed);
       setSchoolContactInput(contactTrimmed);
     } catch (error) {
       setSchoolPhoneError(
-        getApiErrorMessage(error, "Failed to save the phone number."),
+        getApiErrorMessage(error, "Failed to save the settings."),
       );
     } finally {
       setIsSavingSchoolPhone(false);
+    }
+  }
+
+  async function handleLaunchKiosk(
+    sessionType: "check_in" | "check_out",
+  ): Promise<void> {
+    if (!user) {
+      return;
+    }
+    setLaunchingSession(sessionType);
+    setLaunchError(null);
+    setLaunchMessage(null);
+    try {
+      const { api_key } = await launchAttendanceKiosk(sessionType);
+      const baseUrl = getKioskBaseUrl();
+      const kioskUrl = `${baseUrl}/kiosk?key=${encodeURIComponent(
+        api_key,
+      )}&action=${sessionType}`;
+      window.open(kioskUrl, "_blank", "noopener,noreferrer");
+      setLaunchMessage(
+        sessionType === "check_in"
+          ? "Check-in session started and the kiosk opened in a new tab."
+          : "Check-out session started and the kiosk opened in a new tab.",
+      );
+    } catch (error) {
+      setLaunchError(getApiErrorMessage(error, "Could not launch the kiosk."));
+    } finally {
+      setLaunchingSession(null);
     }
   }
 
@@ -237,15 +288,56 @@ export default function DashboardPage() {
             Welcome back, <span className="font-medium text-foreground">{user?.name}</span>. Here is your overview for today.
           </p>
         </div>
-        <div className="mt-4 flex items-center gap-3 md:mt-0">
+        <div className="mt-4 flex flex-wrap items-center gap-3 md:mt-0">
           <Button asChild variant="outline" className="shadow-sm">
             <Link href="/reports">View Reports</Link>
           </Button>
-          <Button asChild className="shadow-sm bg-primary text-primary-foreground">
-            <Link href="/attendance">Launch Kiosk</Link>
-          </Button>
+          {hasAdminAccess ? (
+            <>
+              <Button
+                type="button"
+                disabled={launchingSession !== null}
+                onClick={() => void handleLaunchKiosk("check_in")}
+                className="shadow-sm bg-primary text-primary-foreground"
+              >
+                {launchingSession === "check_in" ? "Launching..." : "Launch Check-in Kiosk"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={launchingSession !== null}
+                onClick={() => void handleLaunchKiosk("check_out")}
+                className="shadow-sm"
+              >
+                {launchingSession === "check_out"
+                  ? "Launching..."
+                  : "Launch Check-out Kiosk"}
+              </Button>
+            </>
+          ) : (
+            <Button asChild className="shadow-sm bg-primary text-primary-foreground">
+              <Link href="/attendance">Open Attendance</Link>
+            </Button>
+          )}
         </div>
       </div>
+
+      {launchMessage ? (
+        <p
+          className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-700"
+          role="status"
+        >
+          {launchMessage}
+        </p>
+      ) : null}
+      {launchError ? (
+        <p
+          className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700"
+          role="alert"
+        >
+          {launchError}
+        </p>
+      ) : null}
 
       {/* Stats Grid */}
       <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -505,6 +597,46 @@ export default function DashboardPage() {
                       />
                     </div>
 
+                    <div className="space-y-1.5">
+                      <Label htmlFor="check-in-end" className="text-xs font-semibold text-foreground">
+                        Check-in Session End Time
+                      </Label>
+                      <p className="text-[11px] text-muted-foreground leading-tight">
+                        Kiosk auto-closes the check-in session at this local time. Leave blank to keep it open.
+                      </p>
+                      <Input
+                        id="check-in-end"
+                        type="time"
+                        value={checkInEndInput}
+                        disabled={isSavingSchoolPhone}
+                        className="h-9 text-sm"
+                        onChange={(event) => {
+                          setCheckInEndInput(event.target.value);
+                          setSchoolPhoneError(null);
+                        }}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="check-out-end" className="text-xs font-semibold text-foreground">
+                        Check-out Session End Time
+                      </Label>
+                      <p className="text-[11px] text-muted-foreground leading-tight">
+                        Kiosk auto-closes the check-out session at this local time. Leave blank to keep it open.
+                      </p>
+                      <Input
+                        id="check-out-end"
+                        type="time"
+                        value={checkOutEndInput}
+                        disabled={isSavingSchoolPhone}
+                        className="h-9 text-sm"
+                        onChange={(event) => {
+                          setCheckOutEndInput(event.target.value);
+                          setSchoolPhoneError(null);
+                        }}
+                      />
+                    </div>
+
                     {schoolPhoneError ? (
                       <p className="text-xs font-medium text-destructive bg-destructive/10 p-2 rounded">{schoolPhoneError}</p>
                     ) : null}
@@ -515,7 +647,7 @@ export default function DashboardPage() {
                       disabled={isSavingSchoolPhone}
                       className="w-full mt-1 bg-foreground text-background hover:bg-foreground/90"
                     >
-                      {isSavingSchoolPhone ? "Saving settings..." : "Save Numbers"}
+                      {isSavingSchoolPhone ? "Saving settings..." : "Save Settings"}
                     </Button>
                   </form>
                 ) : null}

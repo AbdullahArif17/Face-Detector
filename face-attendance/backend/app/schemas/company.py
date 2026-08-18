@@ -50,6 +50,10 @@ class SchoolSettingsResponse(BaseModel):
     school_phone: str | None
     school_contact: str | None
     school_logo: str | None
+    attendance_start_time: str = "09:00"
+    check_in_end_time: str | None = None
+    check_out_end_time: str | None = None
+    late_grace_minutes: int = 15
     whatsapp_token_configured: bool
     whatsapp_webhook_secure: bool = False
     whatsapp_chatbot_ready: bool = False
@@ -66,3 +70,13 @@ class SchoolSettingsUpdate(BaseModel):
     school_phone: str | None = Field(default=None, max_length=50)
     school_contact: str | None = Field(default=None, max_length=50)
     school_logo: str | None = Field(default=None, max_length=500)
+    check_in_end_time: str | None = Field(
+        default=None,
+        pattern=r"^([01]\d|2[0-3]):[0-5]\d$",
+        description="Local check-in session end time as HH:MM. Blank = no auto-end.",
+    )
+    check_out_end_time: str | None = Field(
+        default=None,
+        pattern=r"^([01]\d|2[0-3]):[0-5]\d$",
+        description="Local check-out session end time as HH:MM. Blank = no auto-end.",
+    )
