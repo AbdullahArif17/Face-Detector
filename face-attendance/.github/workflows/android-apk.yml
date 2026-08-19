@@ -63,13 +63,20 @@ jobs:
         run: |
           # Use export config for static build
           cp next.config.export.mjs next.config.mjs
+
           # Temporarily remove API route (incompatible with static export)
-          echo "Removing API route..."
+          echo "=== Removing API route ==="
+          ls -la src/app/api/ || true
           rm -rf src/app/api/backend
+          echo "=== After removal ==="
+          ls -la src/app/api/ || true
+
           npm run build
+
           # Restore API route
-          echo "Restoring API route..."
+          echo "=== Restoring API route ==="
           git checkout HEAD -- src/app/api/backend
+          ls -la src/app/api/ || true
 
       - name: Sync Capacitor Android
         working-directory: frontend
@@ -156,13 +163,20 @@ jobs:
           NEXT_TELEMETRY_DISABLED: 1
         run: |
           cp next.config.export.mjs next.config.mjs
+
           # Temporarily remove API route (incompatible with static export)
-          echo "Removing API route..."
+          echo "=== Removing API route ==="
+          ls -la src/app/api/ || true
           rm -rf src/app/api/backend
+          echo "=== After removal ==="
+          ls -la src/app/api/ || true
+
           npm run build
+
           # Restore API route
-          echo "Restoring API route..."
+          echo "=== Restoring API route ==="
           git checkout HEAD -- src/app/api/backend
+          ls -la src/app/api/ || true
 
       - name: Sync Capacitor Android
         working-directory: frontend
