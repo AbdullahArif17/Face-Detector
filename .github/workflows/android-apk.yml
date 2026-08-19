@@ -39,7 +39,6 @@ jobs:
         uses: android-actions/setup-android@v3
         with:
           packages: 'platforms;android-34,build-tools;34.0.0,ndk;27.0.12077973'
-          cache: 'gradle'
 
       - name: Cache Gradle packages
         uses: actions/cache@v4
@@ -141,7 +140,6 @@ jobs:
         uses: android-actions/setup-android@v3
         with:
           packages: 'platforms;android-34,build-tools;34.0.0,ndk;27.0.12077973'
-          cache: 'gradle'
 
       - name: Cache Gradle packages
         uses: actions/cache@v4
