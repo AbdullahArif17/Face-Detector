@@ -7,9 +7,9 @@ import {
   UserCheck,
   Users,
   UserX,
-  TrendingUp,
   Activity,
-  ScanFace
+  ScanFace,
+  Download
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -32,7 +32,6 @@ import {
   getAttendanceToday,
   getSchoolSettings,
   getStudents,
-  getEmployees,
   getAllEmployees,
   launchAttendanceKiosk,
   updateSchoolSettings,
@@ -43,6 +42,19 @@ import {
 } from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/errors";
 import { canManageKiosk } from "@/lib/permissions";
+
+interface GitHubReleaseAsset {
+  name: string;
+  browser_download_url: string;
+  size: number;
+}
+
+interface GitHubRelease {
+  tag_name: string;
+  name: string;
+  assets: GitHubReleaseAsset[];
+  published_at: string;
+}
 
 function isValidSchoolPhone(phone: string): boolean {
   const normalized = phone.trim().replace(/[\s\-()+]/g, "");
@@ -83,6 +95,14 @@ export default function DashboardPage() {
   >(null);
   const [launchMessage, setLaunchMessage] = useState<string | null>(null);
   const [launchError, setLaunchError] = useState<string | null>(null);
+
+  // APK Download state
+  const [apkDownloadUrl, setApkDownloadUrl] = useState<string | null>(null);
+  const [apkVersion, setApkVersion] = useState<string | null>(null);
+  const [apkSize, setApkSize] = useState<number | null>(null);
+  const [isLoadingApk, setIsLoadingApk] = useState(true);
+  const [apkError, setApkError] = useState<string | null>(null);
+
   const hasAdminAccess = canManageKiosk(user);
 
   const loadDashboard = useCallback(async (): Promise<void> => {
@@ -117,6 +137,62 @@ export default function DashboardPage() {
   useEffect(() => {
     void Promise.resolve().then(loadDashboard);
   }, [loadDashboard]);
+
+  // Fetch latest APK release from GitHub
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchLatestRelease(): Promise<void> {
+      setIsLoadingApk(true);
+      setApkError(null);
+
+      try {
+        const response = await fetch(
+          "https://api.github.com/repos/AbdullahArif17/Face-Detector/releases/latest",
+          {
+            headers: {
+              Accept: "application/vnd.github.v3+json",
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`GitHub API error: ${response.status}`);
+        }
+
+        const release: GitHubRelease = await response.json();
+
+        if (cancelled) return;
+
+        // Find the APK asset
+        const apkAsset = release.assets.find(
+          (asset) => asset.name.endsWith(".apk")
+        );
+
+        if (apkAsset) {
+          setApkDownloadUrl(apkAsset.browser_download_url);
+          setApkVersion(release.tag_name);
+          setApkSize(apkAsset.size);
+        } else {
+          setApkError("No APK found in the latest release");
+        }
+      } catch {
+        if (!cancelled) {
+          setApkError("Could not load release info");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingApk(false);
+        }
+      }
+    }
+
+    void fetchLatestRelease();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const attendanceSummary = useMemo(
     () => ({
@@ -684,29 +760,72 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                <div className="rounded-lg border bg-muted/10 p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">Face Attendance Kiosk</p>
-                      <p className="text-xs text-muted-foreground">
-                        Release APK for Android devices. Install on tablets for kiosk mode.
-                      </p>
+                {isLoadingApk ? (
+                  <div className="rounded-lg border bg-muted/10 p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="skeleton h-4 w-40 mb-1" />
+                        <div className="skeleton h-3 w-56" />
+                      </div>
+                      <div className="skeleton h-8 w-24" />
                     </div>
+                  </div>
+                ) : apkError ? (
+                  <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4">
+                    <p className="text-sm text-destructive">{apkError}</p>
                     <Button
                       variant="outline"
                       size="sm"
-                      asChild
+                      onClick={() => window.open("https://github.com/AbdullahArif17/Face-Detector/releases/latest", "_blank")}
+                      className="mt-2"
                     >
-                      <a
-                        href="https://github.com/AbdullahArif17/Face-Detector/releases/latest"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        Download APK
-                      </a>
+                      View on GitHub
                     </Button>
                   </div>
-                </div>
+                ) : apkDownloadUrl ? (
+                  <div className="rounded-lg border bg-muted/10 p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-sm font-medium text-foreground">Face Attendance Kiosk</p>
+                          {apkVersion && (
+                            <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                              {apkVersion}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Release APK for Android devices. Install on tablets for kiosk mode.
+                          {apkSize && ` • ${(apkSize / 1024 / 1024).toFixed(1)} MB`}
+                        </p>
+                      </div>
+                      <a
+                        href={apkDownloadUrl}
+                        download
+                      >
+                        <Button
+                          size="sm"
+                          className="gap-2"
+                        >
+                          <Download className="size-4" />
+                          Download APK
+                        </Button>
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border bg-muted/10 p-4 text-center">
+                    <p className="text-sm text-muted-foreground">No release found</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open("https://github.com/AbdullahArif17/Face-Detector/releases/latest", "_blank")}
+                      className="mt-2"
+                    >
+                      View on GitHub
+                    </Button>
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground text-center">
                   Built automatically on every release tag. Requires Android 8.0+.
                 </p>
