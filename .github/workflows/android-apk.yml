@@ -84,7 +84,9 @@ jobs:
 
       - name: Build Release APK
         working-directory: face-attendance/frontend/android
-        run: ./gradlew assembleRelease --no-daemon
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
 
       - name: Verify APK
         working-directory: face-attendance/frontend/android
@@ -185,7 +187,9 @@ jobs:
 
       - name: Build Debug APK
         working-directory: face-attendance/frontend/android
-        run: ./gradlew assembleDebug --no-daemon
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
