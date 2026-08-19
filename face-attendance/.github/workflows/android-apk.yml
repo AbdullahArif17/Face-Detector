@@ -61,7 +61,7 @@ jobs:
         env:
           NEXT_TELEMETRY_DISABLED: 1
         run: |
-          # Use export config for static build
+          # Use export config for static build (Capacitor APK)
           cp next.config.export.mjs next.config.mjs
 
           # Temporarily remove API route (incompatible with static export)
@@ -162,6 +162,7 @@ jobs:
         env:
           NEXT_TELEMETRY_DISABLED: 1
         run: |
+          # Use export config for static build (Capacitor APK)
           cp next.config.export.mjs next.config.mjs
 
           # Temporarily remove API route (incompatible with static export)
