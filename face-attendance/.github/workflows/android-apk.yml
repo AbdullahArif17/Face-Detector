@@ -63,7 +63,11 @@ jobs:
         run: |
           # Use export config for static build
           cp next.config.export.mjs next.config.mjs
+          # Temporarily move API route (incompatible with static export)
+          mv src/app/api/backend ../api.backend.bak 2>/dev/null || true
           npm run build
+          # Restore API route
+          mv ../api.backend.bak src/app/api/backend 2>/dev/null || true
 
       - name: Sync Capacitor Android
         working-directory: frontend
@@ -150,7 +154,11 @@ jobs:
           NEXT_TELEMETRY_DISABLED: 1
         run: |
           cp next.config.export.mjs next.config.mjs
+          # Temporarily move API route (incompatible with static export)
+          mv src/app/api/backend ../api.backend.bak 2>/dev/null || true
           npm run build
+          # Restore API route
+          mv ../api.backend.bak src/app/api/backend 2>/dev/null || true
 
       - name: Sync Capacitor Android
         working-directory: frontend
