@@ -87,7 +87,7 @@ jobs:
         run: |
           ls -la app/build/outputs/apk/release/
           APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
-          echo "APK_PATH=$APK_PATH" >> $GITHUB_ENV
+          echo "APK_PATH=face-attendance/frontend/android/$APK_PATH" >> $GITHUB_ENV
 
       - name: Upload APK as artifact
         uses: actions/upload-artifact@v4
