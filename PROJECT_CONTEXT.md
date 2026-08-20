@@ -102,7 +102,7 @@ The browser calls the same-origin Next.js route `/api/backend/*`; that route pro
 | AI dev | `.\\.venv\\Scripts\\python.exe -m uvicorn main:app --reload --port 8001` |
 | AI tests | `.\\.venv\\Scripts\\python.exe -m pytest -q` |
 | AI image | `docker build -t face-attendance-ai .` |
-| Android APK (local) | `cd face-attendance/frontend && cp next.config.export.mjs next.config.mjs && npm run build && npx cap sync android && cd android && ./gradlew assembleRelease` |
+| Android APK (local) | `cd face-attendance/frontend && npm run build:apk` |
 | Android APK (CI) | Push a `v*` tag; `.github/workflows/android-apk.yml` builds and attaches the APK to the GitHub Release |
 
 ## Memory Rules

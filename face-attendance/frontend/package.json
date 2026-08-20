@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "capacitor:build": "next build && npx cap sync android",
-    "capacitor:open": "npx cap open android"
+    "capacitor:open": "npx cap open android",
+    "build:apk": "node build-apk.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",
