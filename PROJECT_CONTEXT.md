@@ -1,13 +1,13 @@
 # Project Context
 
-Last updated: 2026-08-11
+Last updated: 2026-08-20
 
 ## Product
 
 - Name: Face Attendance
 - Objective: Multi-tenant school attendance SaaS using class-scoped face-recognition sessions, parent WhatsApp notifications for students, and school-number WhatsApp alerts for teachers and staff.
 - Active domain model: organizations/schools, portal users, classes, students, employees (teachers and staff), attendance sessions, attendance marks, face embeddings, and WhatsApp logs.
-- Teachers and staff mirror the student experience: face enrollment (AI key `e{employee_id}`), kiosk check-in/check-out, and a Staff Attendance page (today, history, manual edit, CSV export). Their check-in/check-out alerts are free-form WhatsApp text messages to `company.school_phone` (normalized `92...`; unset/invalid means no notification, attendance still marked). Staff absences are not auto-created or notified; the attendance session is shared with students.
+- Teachers and staff mirror the student experience: face enrollment (AI key `e{employee_id}`), kiosk check-in/check-out, and a Staff Attendance page (today, history, manual edit, CSV export). Their check-in/check-out alerts are free-form WhatsApp text messages to `company.school_phone` (normalized `92...`; unset/invalid means no notification, attendance still marked). Staff absences are not auto-created or notified; the attendance session is shared with students. Each employee has an optional `expected_arrival_time` (drives on-time/late check-in classification → late/on-time WhatsApp texts) and an optional `expected_departure_time`.
 
 ## Architecture
 
@@ -16,6 +16,7 @@ Last updated: 2026-08-11
 | `face-attendance/frontend` | Next.js 16, React 19, strict TypeScript, Tailwind | Vercel frontend (`face-detector-seven.vercel.app`) |
 | `face-attendance/backend` | FastAPI, async SQLAlchemy, Alembic, Neon PostgreSQL | Vercel backend (`face-detector-k4dl.vercel.app`) |
 | `face-attendance/ai-service` | Python 3.11, FastAPI, DeepFace ArcFace, RetinaFace/OpenCV, TensorFlow | Hugging Face Docker Space (`abdullah017-face-attendance-ai.hf.space`) |
+| `face-attendance/frontend/android` | Capacitor 6 wrapper + Gradle/Android SDK | GitHub Actions (`android-apk.yml`) builds a Release APK on `v*` tag push; attached to a GitHub Release; downloaded directly from the Dashboard |
 
 The browser calls the same-origin Next.js route `/api/backend/*`; that route proxies to `BACKEND_INTERNAL_URL`. The backend is the only caller of the AI service and authenticates with `X-API-Key`.
 
@@ -25,9 +26,9 @@ The browser calls the same-origin Next.js route `/api/backend/*`; that route pro
 - JWTs validate issuer, audience, expiry, not-before, issued-at, ID, token type, tenant, and subject claims. Login is organization-specific and rate limited. Production public signup and API docs default to disabled.
 - Every protected request reloads the active user and active company and validates tenant membership. Portal emails are unique per organization, so the same email may exist in different organizations as separate tenant user rows.
 - Organization admins manage admin/HR/branch-manager/viewer accounts. Deactivation is reversible; permanent deletion is separate and preserves historical foreign-key integrity.
-- Attendance is class/session based. Staff explicitly turn a class session ON/OFF. A kiosk scan can create one `present` mark per student per active session; repeat scans are idempotent and never check a student out.
-- There is no time-triggered attendance, 9 AM rule, absent cron, or automatic absent-row creation. Manual attendance corrections support present, absent, and excused for admin/HR/branch-manager roles; viewers are read-only.
-- Latest Alembic head is `8b0ac05d29be_add_employee_attendance`. It adds nullable `employee_id` foreign keys to `attendance`, `face_embeddings`, and `whatsapp_logs` and makes `student_id` nullable in those tables. The prior head `c1d4e7f9a620` added the partial unique index on `(session_id, student_id)`.
+- Attendance is class/session based with two global session types per company: `check_in` and `check_out`. Staff explicitly turn a session ON/OFF, or use the one-click Dashboard Launch which starts the session and opens the kiosk in a new tab (returns the company `api_key`). A kiosk scan can create one `present` mark per student/employee per active session; repeat scans are idempotent and never check a subject out.
+- A Vercel cron (`/attendance/cron/end-sessions`, once/day on Hobby) ends sessions past their `session_end_time` and, for `check_in` sessions, creates `absent` rows plus parent absent alerts for students not yet checked in. Staff absences are NOT auto-created or notified. Kiosk queries treat a session as ended immediately once `session_end_time` passes (lazy expiry), so the dashboard reflects it without waiting for the cron. Manual attendance corrections support present, absent, and excused for admin/HR/branch-manager roles; viewers are read-only.
+- Latest Alembic head is `h2i3j4k5l6m7_add_expected_departure_time`. The chain includes `8b0ac05d29be_add_employee_attendance` (nullable `employee_id` FKs on `attendance`, `face_embeddings`, `whatsapp_logs`; `student_id` made nullable), `g1h2i3j4k5l6`/`h2i3j4k5l6m7` (company `check_in_end_time`/`check_out_end_time` and employee `expected_arrival_time`/`expected_departure_time`), and `d1b70a2ff4a5_merge_heads`. `alembic check` reports no schema drift.
 - The school WhatsApp number is editable from the Dashboard WhatsApp card by admin/super-admin users (`PUT /companies/{id}/settings` with `school_phone`); WhatsApp credentials remain platform-managed environment variables.
 - New face embeddings are encrypted at rest with `BIOMETRIC_ENCRYPTION_KEY`. Recognition excludes embeddings created by another model. Run `python -m app.encrypt_face_embeddings` only after confirming the deployment key matches existing encrypted data.
 - WhatsApp credentials are platform-managed backend environment variables (`META_WHATSAPP_TOKEN` and `META_PHONE_NUMBER_ID`) shared by every organization. Organization settings cannot read, select, or override them; legacy company credential columns are ignored.
@@ -48,7 +49,7 @@ The browser calls the same-origin Next.js route `/api/backend/*`; that route pro
 - Settings is intentionally kiosk-only: it contains the class-scoped kiosk workflow, link generator, open/copy actions, and key-rotation warning. The school phone used for staff alerts is editable from the Dashboard WhatsApp card, not the Settings page; WhatsApp diagnostics, test-message controls, and raw kiosk-key display do not belong on the organization Settings page.
 - Login uses a project-owned generated school-kiosk illustration at `frontend/public/images/login-attendance-hero.png`. The page is a responsive split layout on desktop and a compact visual banner plus form on mobile, with phone-specific hero height, typography, input spacing, and footer wrapping plus accessible password visibility, loading, error, security, and legal controls.
 - The project logo is stored at `frontend/public/images/face-attendance-logo.png`. A shared responsive `BrandLogo` component is used on authentication, navigation, kiosk, and legal screens; Next.js serves matching browser and Apple icons from `frontend/src/app/icon.png` and `frontend/src/app/apple-icon.png`.
-- Verification: 26 backend tests pass, frontend strict TypeScript and ESLint pass, the optimized Next.js production build succeeds, and `git diff --check` reports no patch errors.
+- Verification: 41 backend tests pass, frontend strict TypeScript and ESLint pass, the optimized Next.js production build succeeds, and `git diff --check` reports no patch errors.
 
 ## Validation Evidence (2026-07-16)
 
@@ -65,9 +66,9 @@ The browser calls the same-origin Next.js route `/api/backend/*`; that route pro
 
 ## Live Rollout Status (2026-07-17)
 
-- Main commit `7288424` is pushed; GitHub CI passes, Vercel serves the hardened frontend/backend, backend `/ready` reports database/AI/encryption ready, and production cookie login/auth-me/logout passes.
+- Main commit `adbe6c7` is pushed; GitHub CI passes, Vercel serves the hardened frontend/backend, backend `/ready` reports database/AI/encryption ready, and production cookie login/auth-me/logout passes.
 - Hugging Face commit `d20eb84` is running on CPU Basic with the Python 3.11/Keras security fix. Live health reports ArcFace ready, RetinaFace, threshold `0.42`, margin `0.03`, and API-key enforcement.
-- Neon is at Alembic head `c1d4e7f9a620`. The credential conversion found no plaintext company credentials; the one ArcFace embedding was encrypted and its legacy JSON value is null.
+- Neon is at Alembic head `h2i3j4k5l6m7`. The credential conversion found no plaintext company credentials; the one ArcFace embedding was encrypted and its legacy JSON value is null.
 
 ## Release Order
 
@@ -75,7 +76,8 @@ The browser calls the same-origin Next.js route `/api/backend/*`; that route pro
 2. Apply migration `8b0ac05d29be` to Neon before deploying the new backend code.
 3. Start one class session and perform one real kiosk scan plus a repeat-scan idempotency check. Re-enroll with two or three clear photos if recognition quality is weak.
 4. Enroll one teacher/staff face, scan at the kiosk, and confirm a staff check-in row plus a WhatsApp text to the school number from the Dashboard card.
-5. When WhatsApp work resumes, send one real inbound `STATUS` message and verify inbound, reply, and delivery/read callback rows.
+5. For the Android app, push a `v*` tag to trigger `.github/workflows/android-apk.yml`; the workflow builds the static-export frontend, syncs Capacitor, accepts the Android SDK licenses, assembles the Release APK, and attaches it to a GitHub Release. The Dashboard APK card fetches that release's `.apk` asset directly from the GitHub API.
+6. When WhatsApp work resumes, send one real inbound `STATUS` message and verify inbound, reply, and delivery/read callback rows.
 
 ## External Acceptance / Production Limits
 
@@ -100,6 +102,8 @@ The browser calls the same-origin Next.js route `/api/backend/*`; that route pro
 | AI dev | `.\\.venv\\Scripts\\python.exe -m uvicorn main:app --reload --port 8001` |
 | AI tests | `.\\.venv\\Scripts\\python.exe -m pytest -q` |
 | AI image | `docker build -t face-attendance-ai .` |
+| Android APK (local) | `cd face-attendance/frontend && cp next.config.export.mjs next.config.mjs && npm run build && npx cap sync android && cd android && ./gradlew assembleRelease` |
+| Android APK (CI) | Push a `v*` tag; `.github/workflows/android-apk.yml` builds and attaches the APK to the GitHub Release |
 
 ## Memory Rules
 
