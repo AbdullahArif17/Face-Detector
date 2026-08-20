@@ -8,7 +8,10 @@ const __dirname = path.dirname(__filename);
 
 console.log("Preparing for export build...");
 
-// Copy the export configuration
+// Backup original config and copy the export configuration
+if (fs.existsSync('next.config.mjs')) {
+  fs.copyFileSync('next.config.mjs', 'next.config.mjs.backup');
+}
 fs.copyFileSync('next.config.export.mjs', 'next.config.mjs');
 
 const apiPath = path.join(__dirname, 'src/app/api/backend');
@@ -51,5 +54,12 @@ try {
   if (fs.existsSync(backupPath)) {
     console.log(`Restoring API route...`);
     fs.renameSync(backupPath, apiPath);
+  }
+
+  // Restore the original config
+  if (fs.existsSync('next.config.mjs.backup')) {
+    console.log(`Restoring next.config.mjs...`);
+    fs.copyFileSync('next.config.mjs.backup', 'next.config.mjs');
+    fs.unlinkSync('next.config.mjs.backup');
   }
 }
