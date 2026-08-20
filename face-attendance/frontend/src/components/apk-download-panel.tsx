@@ -1,7 +1,8 @@
 "use client";
 
-import { Smartphone, Download, Loader2 } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 
 interface GitHubRelease {
@@ -76,9 +77,7 @@ export function ApkDownloadPanel() {
       <div className="absolute -right-4 -top-4 size-16 rounded-full bg-primary/10 blur-xl"></div>
       
       <div className="relative flex items-center gap-3 mb-3">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary shadow-inner">
-          <Smartphone className="size-5" />
-        </div>
+        <BrandLogo showName={false} markClassName="size-10 shadow-md" />
         <div className="flex-1 min-w-0">
           <h4 className="text-sm font-semibold text-sidebar-fg truncate">
             Android App
@@ -90,7 +89,7 @@ export function ApkDownloadPanel() {
       </div>
       <Button
         asChild
-        className="w-full gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm transition-all hover:scale-[1.02]"
+        className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white shadow-sm transition-all hover:scale-[1.02]"
         size="sm"
       >
         <a href={apkDownloadUrl} download>
