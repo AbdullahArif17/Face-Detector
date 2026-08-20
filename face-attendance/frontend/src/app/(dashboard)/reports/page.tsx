@@ -40,11 +40,6 @@ function todayInputValue(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function daysAgoInputValue(days: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  return date.toISOString().slice(0, 10);
-}
 
 function timeInputValue(value: string | null): string {
   if (!value) {
@@ -135,7 +130,7 @@ export default function StudentReportsPage() {
   const [gradeFilter, setGradeFilter] = useState("");
   const [sectionFilter, setSectionFilter] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [startDate, setStartDate] = useState(daysAgoInputValue(7));
+  const [startDate, setStartDate] = useState(todayInputValue());
   const [endDate, setEndDate] = useState(todayInputValue());
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [hasError, setHasError] = useState(false);
