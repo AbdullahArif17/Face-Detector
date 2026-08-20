@@ -8,6 +8,7 @@ import { ApiError } from "@/components/api-error";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import {
   getCompanyApiKey,
@@ -194,7 +195,7 @@ export function KioskSettings() {
 
       {toastMessage ? (
         <p
-          className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm font-medium text-green-700"
+          className="animate-fade-in rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-700 shadow-sm"
           role="status"
           aria-live="polite"
         >
@@ -202,10 +203,10 @@ export function KioskSettings() {
         </p>
       ) : null}
 
-      <div className="rounded-lg border bg-card p-4 sm:p-6">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+      <div className="rounded-xl border bg-card p-5 sm:p-7 shadow-card">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
-            <h2 className="text-xl font-semibold">Attendance Kiosk</h2>
+            <h2 className="text-xl font-bold tracking-tight">Attendance Kiosk</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               Generate a secure kiosk link for your attendance devices.
             </p>
@@ -217,26 +218,26 @@ export function KioskSettings() {
             disabled={!hasKioskAccess || isRegenerating}
             onClick={() => setIsRegenerateDialogOpen(true)}
           >
-            <RefreshCw aria-hidden="true" className="size-4" />
+            <RefreshCw aria-hidden="true" className={cn("size-4", isRegenerating && "animate-spin")} />
             {isRegenerating ? "Regenerating..." : "Regenerate Access"}
           </Button>
         </div>
 
         {!hasKioskAccess ? (
-          <p className="mt-6 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <p className="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 shadow-sm">
             Only admins can view and manage kiosk links.
           </p>
         ) : (
-          <div className="mt-6 grid gap-5">
-            <div className="rounded-lg border bg-muted/20 p-4 sm:p-5">
-              <h3 className="font-semibold">How to use the attendance kiosk</h3>
+          <div className="mt-6 grid gap-6">
+            <div className="rounded-xl border bg-muted/30 p-5 shadow-sm">
+              <h3 className="font-semibold tracking-tight">How to use the attendance kiosk</h3>
               <ol className="mt-4 grid gap-3 lg:grid-cols-2">
                 {KIOSK_STEPS.map((step, index) => (
                   <li
                     key={step.title}
                     className="flex gap-3 rounded-md bg-background p-3"
                   >
-                    <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary ring-1 ring-primary/20">
                       {index + 1}
                     </span>
                     <div>
@@ -248,28 +249,29 @@ export function KioskSettings() {
                   </li>
                 ))}
               </ol>
-              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                <Button asChild variant="outline" className="w-full sm:w-auto">
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                <Button asChild variant="outline" className="w-full sm:w-auto shadow-sm">
                   <Link href="/students">Manage student faces</Link>
                 </Button>
-                <Button asChild variant="outline" className="w-full sm:w-auto">
+                <Button asChild variant="outline" className="w-full sm:w-auto shadow-sm">
                   <Link href="/teachers">Manage teacher faces</Link>
                 </Button>
-                <Button asChild variant="outline" className="w-full sm:w-auto">
+                <Button asChild variant="outline" className="w-full sm:w-auto shadow-sm">
                   <Link href="/staff">Manage staff faces</Link>
                 </Button>
               </div>
             </div>
 
-            <div className="grid gap-4">
+            <div className="grid gap-6">
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="check-in-kiosk-url">
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" htmlFor="check-in-kiosk-url">
                   Check-in Kiosk URL
                 </label>
-                <div className="flex flex-col gap-2 lg:flex-row">
+                <div className="flex flex-col gap-3 lg:flex-row">
                   <Input
                     id="check-in-kiosk-url"
                     readOnly
+                    className="font-mono text-xs shadow-sm bg-background"
                     value={
                       isLoading
                         ? "Loading kiosk access..."
@@ -279,7 +281,7 @@ export function KioskSettings() {
                   />
                   <Button
                     type="button"
-                    className="gap-2 lg:w-auto"
+                    className="gap-2 shadow-sm lg:w-auto"
                     disabled={!checkInKioskUrl}
                     onClick={() => void handleCopyKioskUrl(checkInKioskUrl)}
                   >
@@ -287,7 +289,7 @@ export function KioskSettings() {
                     Copy URL
                   </Button>
                   {checkInKioskUrl ? (
-                    <Button asChild variant="outline" className="gap-2 lg:w-auto">
+                    <Button asChild variant="outline" className="gap-2 shadow-sm lg:w-auto">
                       <a href={checkInKioskUrl} target="_blank" rel="noreferrer">
                         <ExternalLink aria-hidden="true" className="size-4" />
                         Open Kiosk
@@ -298,7 +300,7 @@ export function KioskSettings() {
                       type="button"
                       variant="outline"
                       disabled
-                      className="gap-2 lg:w-auto"
+                      className="gap-2 shadow-sm lg:w-auto"
                     >
                       <ExternalLink aria-hidden="true" className="size-4" />
                       Open Kiosk
@@ -308,13 +310,14 @@ export function KioskSettings() {
               </div>
 
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="check-out-kiosk-url">
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" htmlFor="check-out-kiosk-url">
                   Check-out Kiosk URL
                 </label>
-                <div className="flex flex-col gap-2 lg:flex-row">
+                <div className="flex flex-col gap-3 lg:flex-row">
                   <Input
                     id="check-out-kiosk-url"
                     readOnly
+                    className="font-mono text-xs shadow-sm bg-background"
                     value={
                       isLoading
                         ? "Loading kiosk access..."
@@ -324,7 +327,7 @@ export function KioskSettings() {
                   />
                   <Button
                     type="button"
-                    className="gap-2 lg:w-auto"
+                    className="gap-2 shadow-sm lg:w-auto"
                     disabled={!checkOutKioskUrl}
                     onClick={() => void handleCopyKioskUrl(checkOutKioskUrl)}
                   >
@@ -332,7 +335,7 @@ export function KioskSettings() {
                     Copy URL
                   </Button>
                   {checkOutKioskUrl ? (
-                    <Button asChild variant="outline" className="gap-2 lg:w-auto">
+                    <Button asChild variant="outline" className="gap-2 shadow-sm lg:w-auto">
                       <a href={checkOutKioskUrl} target="_blank" rel="noreferrer">
                         <ExternalLink aria-hidden="true" className="size-4" />
                         Open Kiosk
@@ -343,7 +346,7 @@ export function KioskSettings() {
                       type="button"
                       variant="outline"
                       disabled
-                      className="gap-2 lg:w-auto"
+                      className="gap-2 shadow-sm lg:w-auto"
                     >
                       <ExternalLink aria-hidden="true" className="size-4" />
                       Open Kiosk
@@ -353,14 +356,14 @@ export function KioskSettings() {
               </div>
             </div>
 
-            <div className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            <div className="flex gap-4 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900 shadow-sm">
               <ShieldCheck
                 aria-hidden="true"
-                className="mt-0.5 size-5 shrink-0"
+                className="mt-0.5 size-6 shrink-0 text-amber-600"
               />
               <div>
-                <p className="font-medium">Keep kiosk links private</p>
-                <p className="mt-1 leading-5">
+                <p className="font-semibold tracking-tight">Keep kiosk links private</p>
+                <p className="mt-1 leading-relaxed text-amber-800">
                   A kiosk URL contains your organization&apos;s access key. Do not
                   post it publicly. Regenerate access immediately if a link is
                   exposed or a kiosk device is lost.

@@ -51,18 +51,18 @@ function FaceBadge({ hasFaceEnrolled }: Readonly<{ hasFaceEnrolled: boolean }>) 
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium",
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold tracking-wide",
         hasFaceEnrolled
-          ? "bg-blue-50 text-blue-700"
-          : "bg-amber-50 text-amber-700",
+          ? "bg-blue-50 text-blue-700 ring-1 ring-blue-600/10"
+          : "bg-amber-50 text-amber-700 ring-1 ring-amber-600/10",
       )}
     >
       {hasFaceEnrolled ? (
-        <ShieldCheck aria-hidden="true" className="size-3" />
+        <ShieldCheck aria-hidden="true" className="size-3.5" />
       ) : (
-        <ShieldX aria-hidden="true" className="size-3" />
+        <ShieldX aria-hidden="true" className="size-3.5" />
       )}
-      {hasFaceEnrolled ? "Enrolled ✓" : "Not Enrolled ✕"}
+      {hasFaceEnrolled ? "Enrolled" : "Not Enrolled"}
     </span>
   );
 }
@@ -340,13 +340,13 @@ export default function StudentsPage() {
   }
 
   return (
-    <section className="space-y-6">
+    <section className="animate-page-enter space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-balance sm:text-3xl">
-            Students
+          <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
+            <span className="text-gradient">Students</span>
           </h1>
-          <p className="mt-2 text-muted-foreground text-pretty">
+          <p className="mt-2 max-w-2xl text-muted-foreground text-pretty">
             Manage student records, parent WhatsApp contacts, and face enrollment.
           </p>
         </div>
@@ -361,7 +361,7 @@ export default function StudentsPage() {
           <Button
             type="button"
             variant="outline"
-            className="w-full gap-2 sm:w-auto"
+            className="w-full gap-2 shadow-sm sm:w-auto"
             onClick={() => fileInputRef.current?.click()}
           >
             <FileUp aria-hidden="true" className="size-4" />
@@ -369,7 +369,7 @@ export default function StudentsPage() {
           </Button>
           <Button
             type="button"
-            className="w-full gap-2 sm:w-auto"
+            className="w-full gap-2 shadow-md sm:w-auto"
             onClick={() => {
               setEditingStudent(null);
               setIsAddModalOpen(true);
@@ -381,7 +381,7 @@ export default function StudentsPage() {
         </div>
       </div>
 
-      <div className="grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-[1fr_auto_auto]">
+      <div className="grid gap-3 rounded-xl border bg-card p-4 shadow-card md:grid-cols-[1fr_auto_auto]">
         <div className="relative">
           <Search
             aria-hidden="true"
@@ -399,7 +399,7 @@ export default function StudentsPage() {
           aria-label="Filter by grade"
           value={gradeFilter}
           onChange={(event) => setGradeFilter(event.target.value)}
-          className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-10 rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
         >
           <option value="">All Grades</option>
           {grades.map((grade) => (
@@ -412,7 +412,7 @@ export default function StudentsPage() {
           aria-label="Filter by section"
           value={sectionFilter}
           onChange={(event) => setSectionFilter(event.target.value)}
-          className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-10 rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
         >
           <option value="">All Sections</option>
           {sections.map((section) => (
@@ -425,11 +425,11 @@ export default function StudentsPage() {
 
       {toastMessage ? (
         <p
-          className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm font-medium text-green-700"
+          className="animate-fade-in rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-700 shadow-sm"
           role="status"
           aria-live="polite"
         >
-          {toastMessage}
+          ✓ {toastMessage}
         </p>
       ) : null}
 
@@ -442,7 +442,7 @@ export default function StudentsPage() {
 
       {actionError ? (
         <p
-          className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700"
+          className="animate-fade-in rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700 shadow-sm"
           role="alert"
         >
           {actionError}
@@ -451,12 +451,20 @@ export default function StudentsPage() {
 
       <div className="grid gap-3 md:hidden">
         {isLoading ? (
-          <div className="rounded-lg border bg-card p-5 text-sm text-muted-foreground">
-            Loading students...
-          </div>
+          Array.from({ length: 3 }).map((_, index) => (
+            <div key={`skeleton-mobile-${index}`} className="rounded-xl border bg-card p-4 shadow-card">
+              <div className="flex items-center gap-3">
+                <div className="skeleton size-10 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <div className="skeleton h-4 w-32 rounded" />
+                  <div className="skeleton h-3 w-24 rounded" />
+                </div>
+              </div>
+            </div>
+          ))
         ) : null}
         {!isLoading && visibleStudents.length === 0 ? (
-          <div className="rounded-lg border bg-card p-5 text-center">
+          <div className="rounded-xl border bg-card p-8 text-center shadow-card">
             <p className="font-medium">
               {hasActiveFilters ? "No matching students" : "No students yet"}
             </p>
@@ -484,7 +492,7 @@ export default function StudentsPage() {
           </div>
         ) : null}
         {visibleStudents.map((student) => (
-          <article className="rounded-lg border bg-card p-4" key={student.id}>
+          <article className="card-hover rounded-xl border bg-card p-4 shadow-card" key={student.id}>
             <div className="flex items-start gap-3">
               <StudentAvatar student={student} />
               <div className="min-w-0 flex-1">
@@ -525,53 +533,57 @@ export default function StudentsPage() {
         ))}
       </div>
 
-      <div className="hidden overflow-x-auto rounded-lg border bg-card md:block">
+      <div className="hidden overflow-x-auto rounded-xl border bg-card shadow-card md:block">
         <table className="min-w-[1050px] w-full text-left text-sm">
-          <thead className="border-b bg-muted/50 text-muted-foreground">
+          <thead className="border-b bg-muted/30">
             <tr>
-              <th className="px-4 py-3 font-medium">Photo</th>
-              <th className="px-4 py-3 font-medium">Name</th>
-              <th className="px-4 py-3 font-medium">Roll No</th>
-              <th className="px-4 py-3 font-medium">Grade & Section</th>
-              <th className="px-4 py-3 font-medium">Parent Name</th>
-              <th className="px-4 py-3 font-medium">Parent Phone</th>
-              <th className="px-4 py-3 font-medium">Face</th>
-              <th className="px-4 py-3 font-medium">Actions</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Photo</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Name</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Roll No</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Grade & Section</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Parent Name</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Parent Phone</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Face</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-border">
             {isLoading ? (
-              <tr>
-                <td className="px-4 py-6 text-muted-foreground" colSpan={8}>
-                  Loading students...
-                </td>
-              </tr>
+              Array.from({ length: 4 }).map((_, index) => (
+                <tr key={`skeleton-${index}`}>
+                  {Array.from({ length: 8 }).map((_, colIndex) => (
+                    <td key={colIndex} className="px-4 py-4">
+                      <div className="skeleton h-4 w-20 rounded" />
+                    </td>
+                  ))}
+                </tr>
+              ))
             ) : null}
             {!isLoading && visibleStudents.length === 0 ? (
               <tr>
-                <td className="px-4 py-6 text-muted-foreground" colSpan={8}>
+                <td className="px-4 py-12 text-center text-muted-foreground" colSpan={8}>
                   No students found.
                 </td>
               </tr>
             ) : null}
             {visibleStudents.map((student) => (
-              <tr className="border-b last:border-0" key={student.id}>
-                <td className="px-4 py-3">
+              <tr className="transition-colors hover:bg-muted/30" key={student.id}>
+                <td className="px-4 py-3.5">
                   <StudentAvatar student={student} />
                 </td>
-                <td className="px-4 py-3 font-medium">{student.student_name}</td>
-                <td className="px-4 py-3">{student.student_code}</td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3.5 font-medium">{student.student_name}</td>
+                <td className="px-4 py-3.5 text-muted-foreground">{student.student_code}</td>
+                <td className="px-4 py-3.5">
                   {student.grade}-{student.section}
                 </td>
-                <td className="px-4 py-3">{student.parent_name}</td>
-                <td className="px-4 py-3 tabular-nums">
+                <td className="px-4 py-3.5">{student.parent_name}</td>
+                <td className="px-4 py-3.5 tabular-nums text-muted-foreground">
                   {maskPhone(student.parent_phone)}
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3.5">
                   <FaceBadge hasFaceEnrolled={student.has_face_enrolled} />
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3.5">
                   <StudentActions
                     student={student}
                     isDeactivating={removingStudentId === student.id}

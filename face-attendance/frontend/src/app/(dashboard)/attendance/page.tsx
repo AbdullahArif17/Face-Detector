@@ -65,16 +65,23 @@ function StatusBadge({ status }: Readonly<{ status: string }>) {
   return (
     <span
       className={cn(
-        "inline-flex rounded-full px-2 py-1 text-xs font-medium capitalize",
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold capitalize tracking-wide",
         status === "present"
-          ? "bg-green-50 text-green-700"
+          ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/10"
           : status === "late"
-            ? "bg-yellow-50 text-yellow-700"
+            ? "bg-yellow-50 text-yellow-700 ring-1 ring-yellow-600/10"
             : status === "absent"
-              ? "bg-red-50 text-red-700"
-              : "bg-slate-100 text-slate-600",
+              ? "bg-red-50 text-red-700 ring-1 ring-red-600/10"
+              : "bg-slate-50 text-slate-500 ring-1 ring-slate-500/10",
       )}
     >
+      <span className={cn(
+        "size-1.5 rounded-full",
+        status === "present" ? "bg-emerald-500"
+          : status === "late" ? "bg-yellow-500"
+          : status === "absent" ? "bg-red-500"
+          : "bg-slate-400",
+      )} />
       {status}
     </span>
   );
@@ -97,13 +104,21 @@ function AttendanceTable({
     <>
       <div className="grid gap-3 md:hidden">
         {isLoading ? (
-          <div className="rounded-lg border bg-card p-5 text-sm text-muted-foreground">
-            Loading attendance...
-          </div>
+          Array.from({ length: 3 }).map((_, index) => (
+            <div key={`skeleton-mobile-${index}`} className="rounded-xl border bg-card p-4 shadow-card">
+              <div className="flex items-center gap-3">
+                <div className="flex-1 space-y-2">
+                  <div className="skeleton h-4 w-32 rounded" />
+                  <div className="skeleton h-3 w-24 rounded" />
+                </div>
+                <div className="skeleton h-5 w-16 rounded-full" />
+              </div>
+            </div>
+          ))
         ) : null}
         {!isLoading && records.length === 0 ? (
-          <div className="rounded-lg border bg-card p-5 text-center">
-            <p className="font-medium">No attendance records</p>
+          <div className="rounded-xl border bg-card p-8 text-center shadow-card">
+            <p className="font-semibold">No attendance records</p>
             <p className="mt-1 text-sm text-muted-foreground">
               Records will appear here after the session receives a scan or a
               staff member adds attendance.
@@ -112,7 +127,7 @@ function AttendanceTable({
         ) : null}
         {records.map((record) => (
           <article
-            className="rounded-lg border bg-card p-4"
+            className="card-hover rounded-xl border bg-card p-4 shadow-card"
             key={`${record.student_id}-${record.attendance_date}-${record.attendance_id ?? "absent"}-mobile`}
           >
             <div className="flex items-start justify-between gap-3">
@@ -154,33 +169,37 @@ function AttendanceTable({
         ))}
       </div>
 
-      <div className="hidden overflow-x-auto rounded-lg border bg-card md:block">
+      <div className="hidden overflow-x-auto rounded-xl border bg-card shadow-card md:block">
       <table className="min-w-[860px] w-full text-left text-sm">
-        <thead className="border-b bg-muted/50 text-muted-foreground">
+        <thead className="border-b bg-muted/30">
           <tr>
-            <th className="px-4 py-3 font-medium">Student Name</th>
-            <th className="px-4 py-3 font-medium">Class</th>
-            <th className="px-4 py-3 font-medium">Check-in</th>
-            <th className="px-4 py-3 font-medium">Check-out</th>
-            <th className="px-4 py-3 font-medium">Status</th>
-            <th className="px-4 py-3 font-medium">Working Hours</th>
+            <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Student Name</th>
+            <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Class</th>
+            <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Check-in</th>
+            <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Check-out</th>
+            <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
+            <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Working Hours</th>
             {canEdit ? (
-              <th className="px-4 py-3 font-medium">Actions</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actions</th>
             ) : null}
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-border">
           {isLoading ? (
-            <tr>
-              <td className="px-4 py-6 text-muted-foreground" colSpan={columnCount}>
-                Loading attendance...
-              </td>
-            </tr>
+            Array.from({ length: 3 }).map((_, index) => (
+              <tr key={`skeleton-${index}`}>
+                {Array.from({ length: columnCount }).map((_, colIndex) => (
+                  <td key={colIndex} className="px-4 py-4">
+                    <div className="skeleton h-4 w-20 rounded" />
+                  </td>
+                ))}
+              </tr>
+            ))
           ) : null}
 
           {!isLoading && records.length === 0 ? (
             <tr>
-              <td className="px-4 py-6 text-muted-foreground" colSpan={columnCount}>
+              <td className="px-4 py-12 text-center text-muted-foreground" colSpan={columnCount}>
                 No attendance records found.
               </td>
             </tr>
@@ -188,32 +207,32 @@ function AttendanceTable({
 
           {records.map((record) => (
             <tr
-              className="border-b last:border-0"
+              className="transition-colors hover:bg-muted/30"
               key={`${record.student_id}-${record.attendance_date}-${record.attendance_id ?? "absent"}`}
             >
-              <td className="px-4 py-3 font-medium">{record.student_name}</td>
-              <td className="px-4 py-3">
+              <td className="px-4 py-3.5 font-medium">{record.student_name}</td>
+              <td className="px-4 py-3.5 text-muted-foreground">
                 {record.grade}-{record.section}
               </td>
-              <td className="px-4 py-3 tabular-nums">
+              <td className="px-4 py-3.5 tabular-nums text-muted-foreground">
                 {formatTime(record.check_in)}
               </td>
-              <td className="px-4 py-3 tabular-nums">
+              <td className="px-4 py-3.5 tabular-nums text-muted-foreground">
                 {formatTime(record.check_out)}
               </td>
-              <td className="px-4 py-3">
+              <td className="px-4 py-3.5">
                 <StatusBadge status={record.status} />
               </td>
-              <td className="px-4 py-3 tabular-nums">
+              <td className="px-4 py-3.5 tabular-nums text-muted-foreground">
                 {record.working_hours}
               </td>
               {canEdit ? (
-                <td className="px-4 py-3">
+                <td className="px-4 py-3.5">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="gap-2"
+                    className="gap-2 shadow-sm"
                     onClick={() => onEdit(record)}
                   >
                     <Pencil aria-hidden="true" className="size-4" />
@@ -398,20 +417,20 @@ export default function AttendancePage() {
   const isCheckOutActive = Boolean(globalSession?.active_check_out_session);
 
   return (
-    <section className="space-y-6">
+    <section className="animate-page-enter space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-balance sm:text-3xl">
-            Live Attendance
+          <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
+            <span className="text-gradient">Live Attendance</span>
           </h1>
-          <p className="mt-2 text-muted-foreground text-pretty">
+          <p className="mt-2 max-w-2xl text-muted-foreground text-pretty">
             Live attendance records for today.
           </p>
         </div>
         <Button
           type="button"
           variant="outline"
-          className="w-full gap-2 sm:w-auto"
+          className="w-full gap-2 shadow-sm sm:w-auto"
           onClick={() => void handleRefresh()}
         >
           <RefreshCcw aria-hidden="true" className="size-4" />
@@ -421,7 +440,7 @@ export default function AttendancePage() {
 
       <KioskSettings />
 
-      <div className="space-y-4 rounded-lg border bg-card p-4">
+      <div className="space-y-4 rounded-xl border bg-card p-5 shadow-card">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold">Global attendance session</h2>
@@ -440,10 +459,10 @@ export default function AttendancePage() {
         {sessionMessage ? (
           <div
             className={cn(
-              "rounded-md border px-3 py-2 text-sm",
+              "animate-fade-in rounded-lg border px-3 py-2 text-sm shadow-sm",
               sessionMessageIsError
                 ? "border-red-200 bg-red-50 text-red-700"
-                : "border-green-200 bg-green-50 text-green-700",
+                : "border-emerald-200 bg-emerald-50 text-emerald-700",
             )}
             role={sessionMessageIsError ? "alert" : "status"}
           >
@@ -461,8 +480,8 @@ export default function AttendancePage() {
           <div className="grid gap-4 md:grid-cols-2 lg:max-w-3xl">
             <article
               className={cn(
-                "space-y-3 rounded-lg border p-4",
-                isCheckInActive && "border-primary ring-1 ring-primary/20",
+                "space-y-3 rounded-xl border p-4 shadow-card transition-shadow",
+                isCheckInActive && "border-primary ring-1 ring-primary/20 shadow-glow",
               )}
             >
               <div className="flex items-start justify-between gap-3">
@@ -474,12 +493,13 @@ export default function AttendancePage() {
                 </div>
                 <span
                   className={cn(
-                    "inline-flex rounded-full px-2.5 py-1 text-xs font-semibold",
+                    "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold tracking-wider",
                     isCheckInActive
-                      ? "bg-green-100 text-green-700"
-                      : "bg-slate-100 text-slate-600",
+                      ? "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-600/10"
+                      : "bg-slate-100 text-slate-500 ring-1 ring-slate-500/10",
                   )}
                 >
+                  <span className={cn("size-1.5 rounded-full", isCheckInActive ? "bg-emerald-500 animate-pulse" : "bg-slate-400")} />
                   {isCheckInActive ? "ON" : "OFF"}
                 </span>
               </div>

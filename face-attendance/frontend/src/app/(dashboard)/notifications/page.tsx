@@ -143,20 +143,20 @@ export default function NotificationsPage() {
   }
 
   return (
-    <section className="space-y-6">
+    <section className="animate-page-enter space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-balance sm:text-3xl">
-            Notifications
+          <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
+            <span className="text-gradient">Notifications</span>
           </h1>
-          <p className="mt-2 text-muted-foreground text-pretty">
+          <p className="mt-2 max-w-2xl text-muted-foreground text-pretty">
             WhatsApp parent notification delivery and failure tracking.
           </p>
         </div>
         <Button
           type="button"
           variant="outline"
-          className="w-full gap-2 sm:w-auto"
+          className="w-full gap-2 shadow-sm sm:w-auto"
           disabled={isRetrying}
           onClick={() => void handleRetryFailed()}
         >
@@ -167,8 +167,8 @@ export default function NotificationsPage() {
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {summaryCards.map((card) => (
-          <div key={card.label} className="rounded-lg border bg-card p-4">
-            <p className="text-sm text-muted-foreground">{card.label}</p>
+          <div key={card.label} className="card-hover rounded-xl border bg-card p-4 shadow-card">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{card.label}</p>
             <p className="mt-2 text-2xl font-bold tabular-nums">
               {card.value}
             </p>
@@ -176,9 +176,9 @@ export default function NotificationsPage() {
         ))}
       </div>
 
-      <div className="grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-3">
+      <div className="grid gap-3 rounded-xl border bg-card p-4 shadow-card md:grid-cols-3">
         <div className="grid gap-2">
-          <label className="text-sm font-medium" htmlFor="notification-date">
+          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" htmlFor="notification-date">
             Date
           </label>
           <Input
@@ -189,14 +189,14 @@ export default function NotificationsPage() {
           />
         </div>
         <div className="grid gap-2">
-          <label className="text-sm font-medium" htmlFor="notification-status">
+          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" htmlFor="notification-status">
             Status
           </label>
           <select
             id="notification-status"
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
-            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-10 rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
           >
             <option value="">All statuses</option>
             <option value="sent">Sent</option>
@@ -207,14 +207,14 @@ export default function NotificationsPage() {
           </select>
         </div>
         <div className="grid gap-2">
-          <label className="text-sm font-medium" htmlFor="notification-type">
+          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" htmlFor="notification-type">
             Message type
           </label>
           <select
             id="notification-type"
             value={typeFilter}
             onChange={(event) => setTypeFilter(event.target.value)}
-            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-10 rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
           >
             <option value="">All types</option>
             <option value="check_in">Check-in</option>
@@ -226,11 +226,11 @@ export default function NotificationsPage() {
 
       {toastMessage ? (
         <p
-          className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm font-medium text-green-700"
+          className="animate-fade-in rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-700 shadow-sm"
           role="status"
           aria-live="polite"
         >
-          {toastMessage}
+          ✓ {toastMessage}
         </p>
       ) : null}
       {hasError ? (
@@ -239,20 +239,20 @@ export default function NotificationsPage() {
 
       <div className="grid gap-3 md:hidden">
         {isLoading ? (
-          <div className="rounded-lg border bg-card p-5 text-sm text-muted-foreground">
+          <div className="rounded-xl border bg-card p-5 text-sm text-muted-foreground shadow-card">
             Loading notification logs...
           </div>
         ) : null}
         {!isLoading && logs.length === 0 ? (
-          <div className="rounded-lg border bg-card p-5 text-center">
-            <p className="font-medium">No WhatsApp activity</p>
+          <div className="rounded-xl border bg-card p-8 text-center shadow-card">
+            <p className="font-semibold">No WhatsApp activity</p>
             <p className="mt-1 text-sm text-muted-foreground">
               No messages match the selected date and filters.
             </p>
           </div>
         ) : null}
         {logs.map((log) => (
-          <article className="rounded-lg border bg-card p-4" key={`${log.id}-mobile`}>
+          <article className="card-hover rounded-xl border bg-card p-4 shadow-card" key={`${log.id}-mobile`}>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="truncate font-semibold">
@@ -287,20 +287,20 @@ export default function NotificationsPage() {
         ))}
       </div>
 
-      <div className="hidden overflow-x-auto rounded-lg border bg-card md:block">
+      <div className="hidden overflow-x-auto rounded-xl border bg-card shadow-card md:block">
         <table className="min-w-[980px] w-full text-left text-sm">
-          <thead className="border-b bg-muted/50 text-muted-foreground">
+          <thead className="border-b bg-muted/30">
             <tr>
-              <th className="px-4 py-3 font-medium">Student Name</th>
-              <th className="px-4 py-3 font-medium">Parent Phone</th>
-              <th className="px-4 py-3 font-medium">Type</th>
-              <th className="px-4 py-3 font-medium">Message Preview</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Time</th>
-              <th className="px-4 py-3 font-medium">Actions</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Student Name</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Parent Phone</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Type</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Message Preview</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Time</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-border">
             {isLoading ? (
               <tr>
                 <td className="px-4 py-6 text-muted-foreground" colSpan={7}>
@@ -316,8 +316,8 @@ export default function NotificationsPage() {
               </tr>
             ) : null}
             {logs.map((log) => (
-              <tr key={log.id} className="border-b last:border-0">
-                <td className="px-4 py-3 font-medium">
+              <tr key={log.id} className="transition-colors hover:bg-muted/30">
+                <td className="px-4 py-3.5 font-medium">
                   {log.student_name ?? `Student #${log.student_id}`}
                 </td>
                 <td className="px-4 py-3 tabular-nums">

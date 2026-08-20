@@ -69,18 +69,26 @@ function StatusBadge({ status }: Readonly<{ status: string }>) {
   return (
     <span
       className={cn(
-        "inline-flex rounded-full px-2 py-1 text-xs font-medium capitalize",
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold capitalize tracking-wide",
         status === "present"
-          ? "bg-green-50 text-green-700"
+          ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/10"
           : status === "late"
-            ? "bg-yellow-50 text-yellow-700"
+            ? "bg-yellow-50 text-yellow-700 ring-1 ring-yellow-600/10"
             : status === "absent"
-              ? "bg-red-50 text-red-700"
+              ? "bg-red-50 text-red-700 ring-1 ring-red-600/10"
               : status === "excused"
-                ? "bg-blue-50 text-blue-700"
-                : "bg-slate-100 text-slate-600",
+                ? "bg-blue-50 text-blue-700 ring-1 ring-blue-600/10"
+                : "bg-slate-50 text-slate-500 ring-1 ring-slate-500/10",
       )}
     >
+      <span className={cn(
+        "size-1.5 rounded-full",
+        status === "present" ? "bg-emerald-500"
+          : status === "late" ? "bg-yellow-500"
+          : status === "absent" ? "bg-red-500"
+          : status === "excused" ? "bg-blue-500"
+          : "bg-slate-400",
+      )} />
       {status}
     </span>
   );
@@ -96,7 +104,7 @@ function StatCard({
   color: "green" | "red" | "blue" | "amber" | "slate";
 }>) {
   const colorMap = {
-    green: "border-green-200 bg-green-50 text-green-700",
+    green: "border-emerald-200 bg-emerald-50 text-emerald-700",
     red: "border-red-200 bg-red-50 text-red-700",
     blue: "border-blue-200 bg-blue-50 text-blue-700",
     amber: "border-amber-200 bg-amber-50 text-amber-700",
@@ -105,12 +113,12 @@ function StatCard({
   return (
     <div
       className={cn(
-        "rounded-lg border p-4 text-center",
+        "card-hover rounded-xl border p-4 text-center shadow-sm",
         colorMap[color],
       )}
     >
       <p className="text-2xl font-bold tabular-nums">{value}</p>
-      <p className="mt-1 text-xs font-medium uppercase tracking-wide opacity-80">
+      <p className="mt-1 text-xs font-semibold uppercase tracking-wider opacity-80">
         {label}
       </p>
     </div>
@@ -295,26 +303,26 @@ export default function StudentReportsPage() {
   const hasActiveFilters = Boolean(gradeFilter || sectionFilter || searchTerm.trim());
 
   return (
-    <section className="space-y-6">
+    <section className="animate-page-enter space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-balance sm:text-3xl">
-            Student Reports
+          <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
+            <span className="text-gradient">Student Reports</span>
           </h1>
-          <p className="mt-2 text-muted-foreground text-pretty">
+          <p className="mt-2 max-w-2xl text-muted-foreground text-pretty">
             View, filter, and export student attendance history by date range, class, or individual student.
           </p>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="space-y-3 rounded-lg border bg-card p-4">
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+      <div className="space-y-4 rounded-xl border bg-card p-5 shadow-card">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Filters
         </h2>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          <div className="grid gap-1.5">
-            <label className="text-sm font-medium" htmlFor="report-start-date">
+          <div className="grid gap-2">
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" htmlFor="report-start-date">
               Start Date
             </label>
             <Input
@@ -324,8 +332,8 @@ export default function StudentReportsPage() {
               onChange={(event) => setStartDate(event.target.value)}
             />
           </div>
-          <div className="grid gap-1.5">
-            <label className="text-sm font-medium" htmlFor="report-end-date">
+          <div className="grid gap-2">
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" htmlFor="report-end-date">
               End Date
             </label>
             <Input
@@ -335,8 +343,8 @@ export default function StudentReportsPage() {
               onChange={(event) => setEndDate(event.target.value)}
             />
           </div>
-          <div className="grid gap-1.5">
-            <label className="text-sm font-medium" htmlFor="report-grade-filter">
+          <div className="grid gap-2">
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" htmlFor="report-grade-filter">
               Class / Grade
             </label>
             <select
@@ -346,7 +354,7 @@ export default function StudentReportsPage() {
                 setGradeFilter(event.target.value);
                 setSelectedStudentId("");
               }}
-              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="h-10 rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
             >
               <option value="">All Classes</option>
               {grades.map((grade) => (
@@ -356,8 +364,8 @@ export default function StudentReportsPage() {
               ))}
             </select>
           </div>
-          <div className="grid gap-1.5">
-            <label className="text-sm font-medium" htmlFor="report-section-filter">
+          <div className="grid gap-2">
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" htmlFor="report-section-filter">
               Section
             </label>
             <select
@@ -367,7 +375,7 @@ export default function StudentReportsPage() {
                 setSectionFilter(event.target.value);
                 setSelectedStudentId("");
               }}
-              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="h-10 rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
             >
               <option value="">All Sections</option>
               {sections.map((section) => (
@@ -377,15 +385,15 @@ export default function StudentReportsPage() {
               ))}
             </select>
           </div>
-          <div className="grid gap-1.5">
-            <label className="text-sm font-medium" htmlFor="report-student-filter">
+          <div className="grid gap-2">
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" htmlFor="report-student-filter">
               Student
             </label>
             <select
               id="report-student-filter"
               value={selectedStudentId}
               onChange={(event) => setSelectedStudentId(event.target.value)}
-              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="h-10 rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
             >
               <option value="">All Students</option>
               {filteredStudents.map((student) => (
@@ -414,7 +422,7 @@ export default function StudentReportsPage() {
           </div>
           <Button
             type="button"
-            className="gap-2"
+            className="gap-2 shadow-sm"
             onClick={() => void loadHistory()}
           >
             Apply Filters
@@ -422,7 +430,7 @@ export default function StudentReportsPage() {
           <Button
             type="button"
             variant="outline"
-            className="gap-2"
+            className="gap-2 shadow-sm"
             onClick={() => void handleExport()}
           >
             <Download aria-hidden="true" className="size-4" />
@@ -466,29 +474,33 @@ export default function StudentReportsPage() {
       ) : null}
 
       {/* Data table */}
-      <div className="overflow-x-auto rounded-lg border bg-card">
+      <div className="overflow-x-auto rounded-xl border bg-card shadow-card">
         <table className="min-w-[960px] w-full text-left text-sm">
-          <thead className="border-b bg-muted/50 text-muted-foreground">
+          <thead className="border-b bg-muted/30">
             <tr>
-              <th className="px-4 py-3 font-medium">Date</th>
-              <th className="px-4 py-3 font-medium">Student Name</th>
-              <th className="px-4 py-3 font-medium">Class</th>
-              <th className="px-4 py-3 font-medium">Check-in</th>
-              <th className="px-4 py-3 font-medium">Check-out</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Working Hours</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Date</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Student Name</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Class</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Check-in</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Check-out</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Working Hours</th>
               {canEditAttendance ? (
-                <th className="px-4 py-3 font-medium">Actions</th>
+                <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actions</th>
               ) : null}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-border">
             {isHistoryLoading ? (
-              <tr>
-                <td className="px-4 py-6 text-muted-foreground" colSpan={canEditAttendance ? 8 : 7}>
-                  Loading attendance history...
-                </td>
-              </tr>
+              Array.from({ length: 5 }).map((_, index) => (
+                <tr key={`skeleton-${index}`}>
+                  {Array.from({ length: canEditAttendance ? 8 : 7 }).map((_, colIndex) => (
+                    <td key={colIndex} className="px-4 py-4">
+                      <div className="skeleton h-4 w-20 rounded" />
+                    </td>
+                  ))}
+                </tr>
+              ))
             ) : null}
 
             {!isHistoryLoading && filteredRecords.length === 0 ? (
@@ -510,35 +522,35 @@ export default function StudentReportsPage() {
 
             {filteredRecords.map((record) => (
               <tr
-                className="border-b last:border-0 hover:bg-muted/30 transition-colors"
+                className="transition-colors hover:bg-muted/30"
                 key={`${record.student_id}-${record.attendance_date}-${record.attendance_id ?? "absent"}`}
               >
-                <td className="px-4 py-3 tabular-nums">
+                <td className="px-4 py-3.5 tabular-nums">
                   {record.attendance_date}
                 </td>
-                <td className="px-4 py-3 font-medium">{record.student_name}</td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3.5 font-medium">{record.student_name}</td>
+                <td className="px-4 py-3.5">
                   {record.grade}-{record.section}
                 </td>
-                <td className="px-4 py-3 tabular-nums">
+                <td className="px-4 py-3.5 tabular-nums text-muted-foreground">
                   {formatTime(record.check_in)}
                 </td>
-                <td className="px-4 py-3 tabular-nums">
+                <td className="px-4 py-3.5 tabular-nums text-muted-foreground">
                   {formatTime(record.check_out)}
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3.5">
                   <StatusBadge status={record.status} />
                 </td>
-                <td className="px-4 py-3 tabular-nums">
+                <td className="px-4 py-3.5 tabular-nums text-muted-foreground">
                   {record.working_hours}
                 </td>
                 {canEditAttendance ? (
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3.5">
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="gap-2"
+                      className="gap-2 shadow-sm"
                       onClick={() => handleEditRecord(record)}
                     >
                       <Pencil aria-hidden="true" className="size-4" />
@@ -560,7 +572,7 @@ export default function StudentReportsPage() {
           aria-modal="true"
           aria-labelledby="edit-attendance-title"
         >
-          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-lg border bg-background p-5 shadow-lg">
+          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-xl border bg-background p-5 shadow-lg animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold" id="edit-attendance-title">
@@ -579,6 +591,7 @@ export default function StudentReportsPage() {
                 variant="ghost"
                 size="icon"
                 aria-label="Close attendance editor"
+                className="rounded-full hover:bg-muted"
                 onClick={() => setEditState(null)}
               >
                 <X aria-hidden="true" className="size-4" />
@@ -587,7 +600,7 @@ export default function StudentReportsPage() {
 
             <div className="mt-5 grid gap-4">
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="attendance-status">
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" htmlFor="attendance-status">
                   Status
                 </label>
                 <select
@@ -607,7 +620,7 @@ export default function StudentReportsPage() {
                       error: "",
                     });
                   }}
-                  className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="h-10 rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <option value="present">Present</option>
                   <option value="absent">Absent</option>
@@ -618,7 +631,7 @@ export default function StudentReportsPage() {
               {editState.status === "present" ? (
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="grid gap-2">
-                    <label className="text-sm font-medium" htmlFor="check-in-time">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" htmlFor="check-in-time">
                       Check-in
                     </label>
                     <Input
@@ -635,7 +648,7 @@ export default function StudentReportsPage() {
                     />
                   </div>
                   <div className="grid gap-2">
-                    <label className="text-sm font-medium" htmlFor="check-out-time">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" htmlFor="check-out-time">
                       Check-out
                     </label>
                     <Input
@@ -656,7 +669,7 @@ export default function StudentReportsPage() {
 
               {editState.error ? (
                 <p
-                  className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+                  className="animate-fade-in rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 shadow-sm"
                 >
                   {editState.error}
                 </p>
@@ -667,12 +680,14 @@ export default function StudentReportsPage() {
               <Button
                 type="button"
                 variant="outline"
+                className="shadow-sm"
                 onClick={() => setEditState(null)}
               >
                 Cancel
               </Button>
               <Button
                 type="button"
+                className="shadow-md"
                 disabled={isSavingEdit}
                 onClick={() => void handleSaveAttendanceEdit()}
               >

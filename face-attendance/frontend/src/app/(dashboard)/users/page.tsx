@@ -37,14 +37,14 @@ function RoleBadge({ role }: Readonly<{ role: string }>) {
   return (
     <span
       className={cn(
-        "inline-flex rounded-full px-2 py-1 text-xs font-medium",
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold tracking-wide",
         role === "admin" || role === "super_admin"
-          ? "bg-red-50 text-red-700"
+          ? "bg-red-50 text-red-700 ring-1 ring-red-600/10"
           : role === "hr"
-            ? "bg-blue-50 text-blue-700"
+            ? "bg-blue-50 text-blue-700 ring-1 ring-blue-600/10"
             : role === "branch_manager"
-              ? "bg-yellow-50 text-yellow-700"
-              : "bg-slate-100 text-slate-600",
+              ? "bg-yellow-50 text-yellow-700 ring-1 ring-yellow-600/10"
+              : "bg-slate-50 text-slate-500 ring-1 ring-slate-500/10",
       )}
     >
       {roleLabels[role] ?? role}
@@ -56,12 +56,13 @@ function StatusBadge({ isActive }: Readonly<{ isActive: boolean }>) {
   return (
     <span
       className={cn(
-        "inline-flex rounded-full px-2 py-1 text-xs font-medium",
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold tracking-wide",
         isActive
-          ? "bg-green-50 text-green-700"
-          : "bg-slate-100 text-slate-600",
+          ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/10"
+          : "bg-slate-50 text-slate-500 ring-1 ring-slate-500/10",
       )}
     >
+      <span className={cn("size-1.5 rounded-full", isActive ? "bg-emerald-500" : "bg-slate-400")} />
       {isActive ? "Active" : "Inactive"}
     </span>
   );
@@ -312,9 +313,11 @@ export default function UsersPage() {
 
   if (!hasUserManagementAccess) {
     return (
-      <section className="space-y-4">
-        <h1 className="text-2xl font-bold text-balance sm:text-3xl">Users</h1>
-        <p className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+      <section className="animate-page-enter space-y-4">
+        <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
+          <span className="text-gradient">Users</span>
+        </h1>
+        <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 shadow-sm">
           You do not have permission to manage portal users.
         </p>
       </section>
@@ -322,19 +325,19 @@ export default function UsersPage() {
   }
 
   return (
-    <section className="space-y-6">
+    <section className="animate-page-enter space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-balance sm:text-3xl">
-            Users
+          <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
+            <span className="text-gradient">Users</span>
           </h1>
-          <p className="mt-2 text-muted-foreground text-pretty">
+          <p className="mt-2 max-w-2xl text-muted-foreground text-pretty">
             Manage users who can access this organization portal.
           </p>
         </div>
         <Button
           type="button"
-          className="w-full gap-2 sm:w-auto"
+          className="w-full gap-2 shadow-md sm:w-auto"
           onClick={() => setIsAddModalOpen(true)}
         >
           <UserPlus aria-hidden="true" className="size-4" />
@@ -342,7 +345,7 @@ export default function UsersPage() {
         </Button>
       </div>
 
-      <div className="relative rounded-lg border bg-card p-4">
+      <div className="relative rounded-xl border bg-card p-4 shadow-card">
         <Search
           aria-hidden="true"
           className="absolute left-7 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
@@ -358,11 +361,11 @@ export default function UsersPage() {
 
       {toastMessage ? (
         <p
-          className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm font-medium text-green-700"
+          className="animate-fade-in rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-700 shadow-sm"
           role="status"
           aria-live="polite"
         >
-          {toastMessage}
+          ✓ {toastMessage}
         </p>
       ) : null}
 
@@ -372,7 +375,7 @@ export default function UsersPage() {
 
       {actionError ? (
         <p
-          className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700"
+          className="animate-fade-in rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700 shadow-sm"
           role="alert"
         >
           {actionError}
@@ -381,12 +384,12 @@ export default function UsersPage() {
 
       <div className="grid gap-3 md:hidden">
         {isLoading ? (
-          <div className="rounded-lg border bg-card p-5 text-sm text-muted-foreground">
+          <div className="rounded-xl border bg-card p-5 text-sm text-muted-foreground shadow-card">
             Loading users...
           </div>
         ) : null}
         {!isLoading && filteredUsers.length === 0 ? (
-          <div className="rounded-lg border bg-card p-5 text-center">
+          <div className="rounded-xl border bg-card p-8 text-center shadow-card">
             <p className="font-medium">
               {searchTerm.trim() ? "No matching users" : "No portal users yet"}
             </p>
@@ -415,7 +418,7 @@ export default function UsersPage() {
           const isOwnUser = currentUser?.id === user.id;
           const isProtected = !isSuperAdmin && isSuperAdminRole(user.role);
           return (
-            <article className="rounded-lg border bg-card p-4" key={user.id}>
+            <article className="card-hover rounded-xl border bg-card p-4 shadow-card" key={user.id}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="truncate font-semibold">{user.name}</p>
@@ -463,21 +466,21 @@ export default function UsersPage() {
         })}
       </div>
 
-      <div className="hidden overflow-x-auto rounded-lg border bg-card md:block">
+      <div className="hidden overflow-x-auto rounded-xl border bg-card shadow-card md:block">
         <table
           className="min-w-[980px] w-full text-left text-sm"
         >
-          <thead className="border-b bg-muted/50 text-muted-foreground">
+          <thead className="border-b bg-muted/30">
             <tr>
-              <th className="px-4 py-3 font-medium">Name</th>
-              <th className="px-4 py-3 font-medium">Email</th>
-              <th className="px-4 py-3 font-medium">Role</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Created At</th>
-              <th className="px-4 py-3 font-medium">Actions</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Name</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Email</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Role</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Created At</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-border">
             {isLoading ? (
               <tr>
                 <td
@@ -492,7 +495,7 @@ export default function UsersPage() {
             {!isLoading && filteredUsers.length === 0 ? (
               <tr>
                 <td
-                  className="px-4 py-6 text-muted-foreground"
+                  className="px-4 py-12 text-center text-muted-foreground"
                   colSpan={tableColumnCount}
                 >
                   No users found.
@@ -504,21 +507,21 @@ export default function UsersPage() {
               const isOwnUser = currentUser?.id === user.id;
               const isProtected = !isSuperAdmin && isSuperAdminRole(user.role);
               return (
-                <tr className="border-b last:border-0" key={user.id}>
-                  <td className="px-4 py-3 font-medium">{user.name}</td>
-                  <td className="px-4 py-3 text-muted-foreground">
+                <tr className="transition-colors hover:bg-muted/30" key={user.id}>
+                  <td className="px-4 py-3.5 font-medium">{user.name}</td>
+                  <td className="px-4 py-3.5 text-muted-foreground">
                     {user.email}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3.5">
                     <RoleBadge role={user.role} />
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3.5">
                     <StatusBadge isActive={user.is_active} />
                   </td>
-                  <td className="px-4 py-3 tabular-nums">
+                  <td className="px-4 py-3.5 tabular-nums text-muted-foreground">
                     {dateFormatter.format(new Date(user.created_at))}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3.5">
                     <UserActions
                       user={user}
                       isOwnUser={isOwnUser}
