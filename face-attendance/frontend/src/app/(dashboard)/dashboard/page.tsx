@@ -43,18 +43,6 @@ import {
 import { getApiErrorMessage } from "@/lib/errors";
 import { canManageKiosk } from "@/lib/permissions";
 
-interface GitHubReleaseAsset {
-  name: string;
-  browser_download_url: string;
-  size: number;
-}
-
-interface GitHubRelease {
-  tag_name: string;
-  name: string;
-  assets: GitHubReleaseAsset[];
-  published_at: string;
-}
 
 function isValidSchoolPhone(phone: string): boolean {
   const normalized = phone.trim().replace(/[\s\-()+]/g, "");
@@ -97,11 +85,11 @@ export default function DashboardPage() {
   const [launchError, setLaunchError] = useState<string | null>(null);
 
   // APK Download state
-  const [apkDownloadUrl, setApkDownloadUrl] = useState<string | null>(null);
-  const [apkVersion, setApkVersion] = useState<string | null>(null);
-  const [apkSize, setApkSize] = useState<number | null>(null);
-  const [isLoadingApk, setIsLoadingApk] = useState(true);
-  const [apkError, setApkError] = useState<string | null>(null);
+  const apkDownloadUrl = "/app-release-unsigned.apk";
+  const apkVersion = "v1.0.5";
+  const apkSize = 10350596; // 10.3MB
+  const isLoadingApk = false;
+  const apkError = null;
 
   const hasAdminAccess = canManageKiosk(user);
 
@@ -138,61 +126,7 @@ export default function DashboardPage() {
     void Promise.resolve().then(loadDashboard);
   }, [loadDashboard]);
 
-  // Fetch latest APK release from GitHub
-  useEffect(() => {
-    let cancelled = false;
 
-    async function fetchLatestRelease(): Promise<void> {
-      setIsLoadingApk(true);
-      setApkError(null);
-
-      try {
-        const response = await fetch(
-          "https://api.github.com/repos/AbdullahArif17/Face-Detector/releases/latest",
-          {
-            headers: {
-              Accept: "application/vnd.github.v3+json",
-            },
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(`GitHub API error: ${response.status}`);
-        }
-
-        const release: GitHubRelease = await response.json();
-
-        if (cancelled) return;
-
-        // Find the APK asset
-        const apkAsset = release.assets.find(
-          (asset) => asset.name.endsWith(".apk")
-        );
-
-        if (apkAsset) {
-          setApkDownloadUrl(apkAsset.browser_download_url);
-          setApkVersion(release.tag_name);
-          setApkSize(apkAsset.size);
-        } else {
-          setApkError("No APK found in the latest release");
-        }
-      } catch {
-        if (!cancelled) {
-          setApkError("Could not load release info");
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoadingApk(false);
-        }
-      }
-    }
-
-    void fetchLatestRelease();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const attendanceSummary = useMemo(
     () => ({
