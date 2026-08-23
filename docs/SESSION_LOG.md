@@ -481,6 +481,12 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: Strict TypeScript checks, Next.js optimized production build, and ESLint pass without any errors. Visual audit confirms full responsive UI parity across devices.
 - Pending: Wait for final visual QA. WhatsApp infrastructure and staff absence notification logic remain on the roadmap for the next technical phase.
 
+## 2026-08-23 - Complete WhatsApp removal and fix deployment error
+- Completed: Committed and pushed the WhatsApp integration removal code to fix the Vercel `UndefinedColumnError`.
+- Changed: Finalized the removal of `whatsapp_token` and `whatsapp_phone_id` from the SQLAlchemy models, removed legacy WhatsApp API routes, deleted `whatsapp_logs`, and purged frontend WhatsApp references.
+- Verified: Typecheck passed, git commit and push completed, triggering Vercel rebuild to sync the application code with the modified database schema.
+- Pending: Design and implement FCM (Firebase Cloud Messaging) for push notifications and `smtplib` for SMTP-based email reporting.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

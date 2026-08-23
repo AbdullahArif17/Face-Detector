@@ -5,9 +5,9 @@ Last updated: 2026-08-20
 ## Product
 
 - Name: Face Attendance
-- Objective: Multi-tenant school attendance SaaS using class-scoped face-recognition sessions, parent WhatsApp notifications for students, and school-number WhatsApp alerts for teachers and staff.
-- Active domain model: organizations/schools, portal users, classes, students, employees (teachers and staff), attendance sessions, attendance marks, face embeddings, and WhatsApp logs.
-- Teachers and staff mirror the student experience: face enrollment (AI key `e{employee_id}`), kiosk check-in/check-out, and a Staff Attendance page (today, history, manual edit, CSV export). Their check-in/check-out alerts are free-form WhatsApp text messages to `company.school_phone` (normalized `92...`; unset/invalid means no notification, attendance still marked). Staff absences are not auto-created or notified; the attendance session is shared with students. Each employee has an optional `expected_arrival_time` (drives on-time/late check-in classification → late/on-time WhatsApp texts) and an optional `expected_departure_time`.
+- Objective: Multi-tenant school attendance SaaS using class-scoped face-recognition sessions, FCM push notifications for arrival/checkout, and weekly email reports for students, staff, and HR/managers.
+- Active domain model: organizations/schools, portal users, classes, students, employees (teachers and staff), attendance sessions, attendance marks, and face embeddings.
+- Teachers and staff mirror the student experience: face enrollment (AI key `e{employee_id}`), kiosk check-in/check-out, and a Staff Attendance page (today, history, manual edit, CSV export). Their check-in/check-out alerts are sent via FCM/Emails. Staff absences are not auto-created or notified; the attendance session is shared with students. Each employee has an optional `expected_arrival_time` (drives on-time/late check-in classification) and an optional `expected_departure_time`.
 
 ## Architecture
 
