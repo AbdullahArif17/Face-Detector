@@ -49,26 +49,6 @@ from app.schemas.attendance import (
     AttendanceSessionLaunchResponse,
     AttendanceSessionStatus,
 )
-from app.services.whatsapp import (
-    absent_message_body,
-    checkin_message_body,
-    checkout_message_body,
-    get_whatsapp_credentials,
-    log_whatsapp_message,
-    school_notification_phone,
-    school_phone_or_default,
-    send_absent_message,
-    send_checkin_message,
-    send_checkout_message,
-    send_staff_checkin_message,
-    send_staff_checkout_message,
-    send_staff_on_time_message,
-    send_staff_late_message,
-    staff_checkin_message_body,
-    staff_checkout_message_body,
-    build_staff_on_time_message,
-    build_staff_late_message,
-)
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
 logger = logging.getLogger("face_attendance_attendance")
@@ -374,299 +354,16 @@ def build_attendance_session_read(
     )
 
 
-def has_whatsapp_config(school: Company) -> bool:
-    access_token, phone_number_id = get_whatsapp_credentials(school)
-    return bool(access_token and phone_number_id)
 
 
-async def send_checkin_notification(
-    *,
-    session: AsyncSession,
-    attendance: Attendance,
-    student: Student,
-    school: Company,
-    event_time: datetime,
-) -> None:
-    access_token, phone_number_id = get_whatsapp_credentials(school)
-    if not access_token or not phone_number_id:
-        attendance.notification_sent = False
-        attendance.notification_status = None
-        return
-
-    check_time = display_time(event_time)
-    date_str = display_date(event_time)
-    message_body = checkin_message_body(student, school, check_time, date_str)
-    result = await send_checkin_message(
-        phone_number_id,
-        access_token,
-        student.parent_phone,
-        student.parent_name,
-        student.student_name,
-        school.name,
-        school_phone_or_default(school),
-        check_time,
-        date_str,
-        student.grade,
-        student.section,
-    )
-
-    notification_status = "sent" if result["success"] else "failed"
-    attendance.notification_sent = result["success"] is True
-    attendance.notification_status = notification_status
-    await log_whatsapp_message(
-        session,
-        school_id=school.id,
-        student_id=student.id,
-        parent_phone=student.parent_phone,
-        message_type="check_in",
-        message_body=message_body,
-        status=notification_status,
-        meta_message_id=result["message_id"] if isinstance(result["message_id"], str) else None,
-        error_message=result["error"] if isinstance(result["error"], str) else None,
-    )
 
 
-async def send_checkout_notification(
-    *,
-    session: AsyncSession,
-    attendance: Attendance,
-    student: Student,
-    school: Company,
-    event_time: datetime,
-) -> None:
-    access_token, phone_number_id = get_whatsapp_credentials(school)
-    if not access_token or not phone_number_id:
-        attendance.notification_sent = False
-        attendance.notification_status = None
-        return
-
-    check_time = display_time(event_time)
-    date_str = display_date(event_time)
-    message_body = checkout_message_body(student, school, check_time, date_str)
-    result = await send_checkout_message(
-        phone_number_id,
-        access_token,
-        student.parent_phone,
-        student.parent_name,
-        student.student_name,
-        school.name,
-        school_phone_or_default(school),
-        check_time,
-        date_str,
-        student.grade,
-        student.section,
-    )
-
-    notification_status = "sent" if result["success"] else "failed"
-    attendance.notification_sent = result["success"] is True
-    attendance.notification_status = notification_status
-    await log_whatsapp_message(
-        session,
-        school_id=school.id,
-        student_id=student.id,
-        parent_phone=student.parent_phone,
-        message_type="check_out",
-        message_body=message_body,
-        status=notification_status,
-        meta_message_id=result["message_id"] if isinstance(result["message_id"], str) else None,
-        error_message=result["error"] if isinstance(result["error"], str) else None,
-    )
 
 
-async def send_absent_notification(
-    *,
-    session: AsyncSession,
-    attendance: Attendance,
-    student: Student,
-    school: Company,
-    event_time: datetime,
-) -> None:
-    access_token, phone_number_id = get_whatsapp_credentials(school)
-    if not access_token or not phone_number_id:
-        attendance.notification_sent = False
-        attendance.notification_status = None
-        return
-
-    date_str = display_date(event_time)
-    message_body = absent_message_body(student, school, date_str)
-    result = await send_absent_message(
-        phone_number_id,
-        access_token,
-        student.parent_phone,
-        student.parent_name,
-        school.name,
-        school_phone_or_default(school),
-        student.student_name,
-        date_str,
-        student.grade,
-        student.section,
-    )
-
-    notification_status = "sent" if result["success"] else "failed"
-    attendance.notification_sent = result["success"] is True
-    attendance.notification_status = notification_status
-    await log_whatsapp_message(
-        session,
-        school_id=school.id,
-        student_id=student.id,
-        parent_phone=student.parent_phone,
-        message_type="absent",
-        message_body=message_body,
-        status=notification_status,
-        meta_message_id=result["message_id"] if isinstance(result["message_id"], str) else None,
-        error_message=result["error"] if isinstance(result["error"], str) else None,
-    )
 
 
-async def send_staff_checkin_notification(
-    *,
-    session: AsyncSession,
-    attendance: Attendance,
-    employee: Employee,
-    school: Company,
-    event_time: datetime,
-) -> None:
-    access_token, phone_number_id = get_whatsapp_credentials(school)
-    admin_phone = school_notification_phone(school)
-    if not access_token or not phone_number_id or admin_phone is None:
-        attendance.notification_sent = False
-        attendance.notification_status = None
-        return
-
-    check_time = display_time(event_time)
-    date_str = display_date(event_time)
-
-    # Determine check-in status based on expected_arrival_time
-    checkin_status = "none"
-    if employee.expected_arrival_time is not None:
-        # Compare check-in time with expected arrival time (both in local timezone)
-        event_local = to_local(event_time)
-        check_time_only = event_local.time()
-        if check_time_only <= employee.expected_arrival_time:
-            checkin_status = "on_time"
-        else:
-            checkin_status = "late"
-
-    attendance.checkin_status = checkin_status
-
-    # Send appropriate notification
-    if checkin_status == "on_time":
-        message_body = build_staff_on_time_message(
-            employee_name=employee.name,
-            designation=employee.designation or "",
-            school_name=school.name,
-            check_time=check_time,
-            date_str=date_str,
-        )
-        result = await send_staff_on_time_message(
-            phone_number_id,
-            access_token,
-            admin_phone,
-            school_phone_or_default(school),
-            employee.name,
-            employee.designation or "",
-            school.name,
-            check_time,
-            date_str,
-        )
-    elif checkin_status == "late":
-        # employee.expected_arrival_time is guaranteed not None here (checkin_status logic)
-        expected_str = employee.expected_arrival_time.strftime("%I:%M %p")  # type: ignore[union-attr]
-        message_body = build_staff_late_message(
-            employee_name=employee.name,
-            designation=employee.designation or "",
-            school_name=school.name,
-            check_time=check_time,
-            expected_time=expected_str,
-            date_str=date_str,
-        )
-        result = await send_staff_late_message(
-            phone_number_id,
-            access_token,
-            admin_phone,
-            school_phone_or_default(school),
-            employee.name,
-            employee.designation or "",
-            school.name,
-            check_time,
-            expected_str,
-            date_str,
-        )
-    else:
-        # No expected time set - use generic check-in message
-        message_body = staff_checkin_message_body(employee, school, check_time, date_str)
-        result = await send_staff_checkin_message(
-            phone_number_id,
-            access_token,
-            admin_phone,
-            school_phone_or_default(school),
-            employee.name,
-            employee.designation or "",
-            school.name,
-            check_time,
-            date_str,
-        )
-
-    notification_status = "sent" if result["success"] else "failed"
-    attendance.notification_sent = result["success"] is True
-    attendance.notification_status = notification_status
-    await log_whatsapp_message(
-        session,
-        school_id=school.id,
-        employee_id=employee.id,
-        parent_phone=admin_phone,
-        message_type="staff_check_in",
-        message_body=message_body,
-        status=notification_status,
-        meta_message_id=result["message_id"] if isinstance(result["message_id"], str) else None,
-        error_message=result["error"] if isinstance(result["error"], str) else None,
-    )
 
 
-async def send_staff_checkout_notification(
-    *,
-    session: AsyncSession,
-    attendance: Attendance,
-    employee: Employee,
-    school: Company,
-    event_time: datetime,
-) -> None:
-    access_token, phone_number_id = get_whatsapp_credentials(school)
-    admin_phone = school_notification_phone(school)
-    if not access_token or not phone_number_id or admin_phone is None:
-        attendance.notification_sent = False
-        attendance.notification_status = None
-        return
-
-    check_time = display_time(event_time)
-    date_str = display_date(event_time)
-    message_body = staff_checkout_message_body(employee, school, check_time, date_str)
-    result = await send_staff_checkout_message(
-        phone_number_id,
-        access_token,
-        admin_phone,
-        school_phone_or_default(school),
-        employee.name,
-        employee.designation or "",
-        school.name,
-        check_time,
-        date_str,
-    )
-
-    notification_status = "sent" if result["success"] else "failed"
-    attendance.notification_sent = result["success"] is True
-    attendance.notification_status = notification_status
-    await log_whatsapp_message(
-        session,
-        school_id=school.id,
-        employee_id=employee.id,
-        parent_phone=admin_phone,
-        message_type="staff_check_out",
-        message_body=message_body,
-        status=notification_status,
-        meta_message_id=result["message_id"] if isinstance(result["message_id"], str) else None,
-        error_message=result["error"] if isinstance(result["error"], str) else None,
-    )
 
 
 @router.get("/sessions", response_model=list[AttendanceSessionRead])
@@ -1015,18 +712,7 @@ async def stop_attendance_session(
                 session.add(attendance)
                 await session.flush()
                 
-                try:
-                    await send_absent_notification(
-                        session=session,
-                        attendance=attendance,
-                        student=student,
-                        school=company,
-                        event_time=attendance_session.started_at,
-                    )
-                except Exception:
-                    logger.exception("Failed to send absent WhatsApp notification")
-                    attendance.notification_status = "failed"
-                    attendance.notification_sent = False
+
 
     await session.commit()
     await session.refresh(attendance_session)
@@ -1194,7 +880,7 @@ async def auto_mark_attendance(
         grade=student.grade,
         section=student.section,
     )
-    should_notify = has_whatsapp_config(company)
+    should_notify = False
 
     if action_type == "check_out":
         today_attendance = await get_today_attendance_for_student(
@@ -1223,17 +909,7 @@ async def auto_mark_attendance(
             
         today_attendance.check_out = now
         
-        if should_notify:
-            try:
-                await send_checkout_notification(
-                    session=session,
-                    attendance=today_attendance,
-                    student=student,
-                    school=company,
-                    event_time=now,
-                )
-            except Exception:
-                logger.exception("Failed to send checkout WhatsApp notification")
+
 
         await session.commit()
         return AttendanceAutoMarkResponse(
@@ -1267,7 +943,7 @@ async def auto_mark_attendance(
         status="present",
         confidence_score=confidence,
         notification_sent=False,
-        notification_status="pending" if should_notify else None,
+        notification_status=None,
     )
     session.add(attendance)
     try:
@@ -1297,29 +973,7 @@ async def auto_mark_attendance(
         )
 
     await session.refresh(attendance)
-    if should_notify:
-        attendance_id = attendance.id
-        try:
-            await send_checkin_notification(
-                session=session,
-                attendance=attendance,
-                student=student,
-                school=company,
-                event_time=now,
-            )
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            logger.exception(
-                "Check-in notification failed for attendance_id=%s",
-                attendance_id,
-            )
-            persisted_attendance = await session.get(Attendance, attendance_id)
-            if persisted_attendance is not None:
-                persisted_attendance.notification_sent = False
-                persisted_attendance.notification_status = "failed"
-                await session.commit()
-                attendance = persisted_attendance
+
     return AttendanceAutoMarkResponse(
         matched=True,
         student=response_student,
@@ -1363,7 +1017,7 @@ async def _auto_mark_employee(
         name=employee.name,
         designation=employee.designation or "",
     )
-    should_notify = has_whatsapp_config(company)
+    should_notify = False
 
     if active_session.session_type == "check_out":
         today_attendance = await get_today_attendance_for_employee(
@@ -1390,17 +1044,7 @@ async def _auto_mark_employee(
 
         today_attendance.check_out = now
 
-        if should_notify:
-            try:
-                await send_staff_checkout_notification(
-                    session=session,
-                    attendance=today_attendance,
-                    employee=employee,
-                    school=company,
-                    event_time=now,
-                )
-            except Exception:
-                logger.exception("Failed to send staff checkout WhatsApp notification")
+
 
         await session.commit()
         return AttendanceAutoMarkResponse(
@@ -1432,7 +1076,7 @@ async def _auto_mark_employee(
         status="present",
         confidence_score=confidence,
         notification_sent=False,
-        notification_status="pending" if should_notify else None,
+        notification_status=None,
     )
     session.add(attendance)
     try:
@@ -1461,29 +1105,7 @@ async def _auto_mark_employee(
         )
 
     await session.refresh(attendance)
-    if should_notify:
-        attendance_id = attendance.id
-        try:
-            await send_staff_checkin_notification(
-                session=session,
-                attendance=attendance,
-                employee=employee,
-                school=company,
-                event_time=now,
-            )
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            logger.exception(
-                "Staff check-in notification failed for attendance_id=%s",
-                attendance_id,
-            )
-            persisted_attendance = await session.get(Attendance, attendance_id)
-            if persisted_attendance is not None:
-                persisted_attendance.notification_sent = False
-                persisted_attendance.notification_status = "failed"
-                await session.commit()
-                attendance = persisted_attendance
+
     return AttendanceAutoMarkResponse(
         matched=True,
         employee=response_employee,
@@ -1736,7 +1358,7 @@ async def export_attendance_history(
     output = StringIO(newline="")
     writer = csv.writer(output)
     writer.writerow(
-        ["Student", "Class", "Date", "Check In", "Check Out", "Status", "WhatsApp", "Working Hours"],
+        ["Student", "Class", "Date", "Check In", "Check Out", "Status", "Working Hours"],
     )
     for record in records:
         writer.writerow(
@@ -1901,7 +1523,7 @@ async def cron_end_sessions(
                         if attendance.notification_sent:
                             absent_notifications_sent += 1
                     except Exception:
-                        logger.exception("Failed to send absent WhatsApp notification during cron end-session")
+                        logger.exception("Failed to send absent notification during cron end-session")
                         attendance.notification_status = "failed"
                         attendance.notification_sent = False
 

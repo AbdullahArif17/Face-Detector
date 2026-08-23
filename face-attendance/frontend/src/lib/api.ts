@@ -301,45 +301,10 @@ export interface SchoolSettings {
   check_in_end_time: string | null;
   check_out_end_time: string | null;
   late_grace_minutes: number;
-  whatsapp_token_configured: boolean;
-  whatsapp_webhook_secure: boolean;
-  whatsapp_chatbot_ready: boolean;
-  whatsapp_checkin_template_configured: boolean;
-  whatsapp_checkout_template_configured: boolean;
-  whatsapp_absent_template_configured: boolean;
-  whatsapp_test_mode: boolean;
-  whatsapp_test_recipient_masked: string | null;
+
 }
 
-export interface WhatsappLog {
-  id: number;
-  school_id: number;
-  student_id: number | null;
-  student_name: string | null;
-  employee_id?: number | null;
-  employee_name?: string | null;
-  parent_phone: string;
-  message_type: "check_in" | "check_out" | "absent" | string;
-  message_body: string;
-  status: "sent" | "failed" | "pending" | string;
-  meta_message_id: string | null;
-  error_message: string | null;
-  sent_at: string | null;
-  created_at: string;
-}
 
-export interface WhatsappStats {
-  sent_today: number;
-  failed_today: number;
-  total_this_month: number;
-  success_rate: number;
-}
-
-export interface WhatsappRetryResponse {
-  retried: number;
-  success: number;
-  still_failed: number;
-}
 
 const API_PAGE_SIZE = 100;
 const FACE_REQUEST_TIMEOUT_MS = 125_000;
@@ -519,14 +484,7 @@ export async function deleteStudent(studentId: number): Promise<void> {
   await api.delete(`/students/${studentId}`);
 }
 
-export async function getStudentWhatsappLogs(
-  studentId: number,
-): Promise<WhatsappLog[]> {
-  const response = await api.get<WhatsappLog[]>(
-    `/students/${studentId}/whatsapp-logs`,
-  );
-  return response.data;
-}
+
 
 export async function importStudentsCsv(file: File): Promise<StudentImportResponse> {
   const formData = new FormData();
@@ -936,31 +894,6 @@ export async function updateSchoolSettings(
   return response.data;
 }
 
-export async function getWhatsappLogs(options: {
-  date?: string;
-  status?: string;
-  messageType?: string;
-  studentId?: number;
-} = {}): Promise<WhatsappLog[]> {
-  const response = await api.get<WhatsappLog[]>("/whatsapp/logs", {
-    params: {
-      date: options.date || undefined,
-      status: options.status || undefined,
-      message_type: options.messageType || undefined,
-      student_id: options.studentId || undefined,
-    },
-  });
-  return response.data;
-}
 
-export async function getWhatsappStats(): Promise<WhatsappStats> {
-  const response = await api.get<WhatsappStats>("/whatsapp/stats");
-  return response.data;
-}
-
-export async function retryFailedWhatsapp(): Promise<WhatsappRetryResponse> {
-  const response = await api.post<WhatsappRetryResponse>("/whatsapp/retry-failed");
-  return response.data;
-}
 
 export default api;

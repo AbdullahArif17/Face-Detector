@@ -1,7 +1,7 @@
 """Reset the development database to a clean Demo School dataset.
 
 This is intentionally destructive and intended only for local/dev data.
-It preserves the Demo School company row, API key, and WhatsApp settings, but
+It preserves the Demo School company row and API key, but
 removes old students, attendance, sessions, users except the demo admin, and
 other test companies.
 """
@@ -24,7 +24,7 @@ from app.models.employee import Employee
 from app.models.face_embedding import FaceEmbedding
 from app.models.student import Student
 from app.models.user import User
-from app.models.whatsapp_log import WhatsappLog
+
 
 DEMO_SCHOOL_NAME = "Demo School"
 DEMO_ADMIN_EMAIL = "admin@demo.com"
@@ -194,7 +194,7 @@ async def clear_old_data(session, school_id: int) -> None:
     if not company_ids:
         return
 
-    await session.execute(delete(WhatsappLog).where(WhatsappLog.school_id.in_(company_ids)))
+
     await session.execute(delete(Attendance).where(Attendance.company_id.in_(company_ids)))
     await session.execute(
         delete(FaceEmbedding).where(

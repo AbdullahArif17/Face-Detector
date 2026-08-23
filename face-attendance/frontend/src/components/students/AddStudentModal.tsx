@@ -161,7 +161,7 @@ export function AddStudentModal({
       return;
     }
     if (!isValidParentPhone(parentPhone)) {
-      setError("Parent WhatsApp number format: 923001234567 or 03001234567.");
+      setError("Parent phone number format: 923001234567 or 03001234567.");
       return;
     }
     if (parentPhone2.trim() && !isValidParentPhone(parentPhone2.trim())) {
@@ -225,7 +225,7 @@ export function AddStudentModal({
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit student" : "Add student"}</DialogTitle>
           <DialogDescription>
-            Student records include parent WhatsApp numbers for notifications.
+            Student records include parent phone numbers for notifications.
           </DialogDescription>
         </DialogHeader>
 
@@ -432,7 +432,7 @@ export function AddStudentModal({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="parent-phone">Parent WhatsApp Number</Label>
+            <Label htmlFor="parent-phone">Parent Phone Number</Label>
             <Input
               id="parent-phone"
               inputMode="numeric"

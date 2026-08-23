@@ -193,7 +193,7 @@ async def export_staff_attendance_history(
     output = StringIO(newline="")
     writer = csv.writer(output)
     writer.writerow(
-        ["Employee", "Designation", "Department", "Date", "Check In", "Check Out", "Status", "WhatsApp", "Working Hours"],
+        ["Employee", "Designation", "Department", "Date", "Check In", "Check Out", "Status", "Working Hours"],
     )
     for record in records:
         writer.writerow(
@@ -205,7 +205,6 @@ async def export_staff_attendance_history(
                 display_time(record.check_in) if record.check_in else "",
                 display_time(record.check_out) if record.check_out else "",
                 csv_safe(record.status),
-                csv_safe(record.notification_status or ""),
                 csv_safe(record.working_hours),
             ],
         )

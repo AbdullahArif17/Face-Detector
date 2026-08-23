@@ -35,12 +35,7 @@ from app.routers.face import should_update_profile_image, unenroll_face
 from app.routers.companies import ensure_company_access
 from app.routers.users import ensure_can_manage_user, resolve_user_company_id
 from app.schemas.attendance import AttendanceManualUpdate
-from app.schemas.whatsapp import WhatsappTestRequest
-from app.schemas.face import FaceEnrollRequest
-from app.schemas.auth import SignupRequest
-from app.schemas.company import SchoolSettingsUpdate
 from app.schemas.user import UserCreate
-from app.services import whatsapp
 import main as backend_main
 
 
@@ -267,41 +262,8 @@ def test_organization_admin_cannot_manage_super_admin() -> None:
     assert error.value.status_code == 403
 
 
-def test_school_settings_reject_organization_whatsapp_credentials() -> None:
-    with pytest.raises(ValidationError):
-        SchoolSettingsUpdate.model_validate(
-            {
-                "school_phone": "923001111111",
-                "whatsapp_token": "organization-token",
-            },
-        )
-
-
-def test_whatsapp_credentials_always_use_backend_configuration(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        whatsapp,
-        "settings",
-        SimpleNamespace(
-            meta_whatsapp_token="shared-token",
-            meta_phone_number_id="shared-phone-id",
-        ),
-    )
-    organization = SimpleNamespace(
-        whatsapp_token="organization-token",
-        whatsapp_phone_id="organization-phone-id",
-    )
-
-    assert whatsapp.get_whatsapp_credentials(organization) == (  # type: ignore[arg-type]
-        "shared-token",
-        "shared-phone-id",
-    )
-
-
 def test_pakistan_phone_normalization() -> None:
     assert normalize_pakistan_phone("0336-2725979") == "923362725979"
-    assert WhatsappTestRequest(phone="03362725979", message="test").phone == "03362725979"
 
 
 @pytest.mark.asyncio
@@ -334,123 +296,6 @@ async def test_stale_attendance_session_is_expired_before_new_start() -> None:
     assert fake_session.flushed is True
 
 
-@pytest.mark.asyncio
-async def test_whatsapp_test_mode_blocks_other_recipients(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        whatsapp,
-        "settings",
-        type(
-            "TestSettings",
-            (),
-            {
-                "whatsapp_test_mode": True,
-                "whatsapp_test_recipient": "923362725979",
-            },
-        )(),
-    )
-
-    result = await whatsapp.send_meta_message(
-        phone_number_id="test-phone-id",
-        access_token="test-token",
-        payload={"to": "923001234567", "type": "text"},
-    )
-
-    assert result["success"] is False
-    assert result["message_id"] is None
-    assert "test mode" in str(result["error"])
-
-
-@pytest.mark.asyncio
-async def test_attendance_template_parameter_order(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    captured: dict[str, list[str]] = {}
-
-    async def fake_send_template_message(**kwargs: object) -> dict[str, str | bool | None]:
-        captured[str(kwargs["template_name"])] = list(kwargs["body_parameters"])  # type: ignore[arg-type]
-        return {"success": True, "message_id": "wamid.test", "error": None}
-
-    monkeypatch.setattr(
-        whatsapp,
-        "settings",
-        SimpleNamespace(
-            meta_checkin_template_name="school_checkin_alert",
-            meta_checkout_template_name="school_checkout_alert",
-            meta_absent_template_name="school_absent_alert",
-        ),
-    )
-    monkeypatch.setattr(whatsapp, "send_template_message", fake_send_template_message)
-
-    await whatsapp.send_checkin_message(
-        "phone-id",
-        "token",
-        "923001234567",
-        "Parent",
-        "Abdullah",
-        "Demo School",
-        "923001111111",
-        "08:15 AM",
-        "24 July 2026",
-        "Class 5",
-        "A",
-    )
-    await whatsapp.send_checkout_message(
-        "phone-id",
-        "token",
-        "923001234567",
-        "Parent",
-        "Abdullah",
-        "Demo School",
-        "923001111111",
-        "01:30 PM",
-        "24 July 2026",
-        "Class 5",
-        "A",
-    )
-    await whatsapp.send_absent_message(
-        "phone-id",
-        "token",
-        "923001234567",
-        "Parent",
-        "Demo School",
-        "923001111111",
-        "Abdullah",
-        "24 July 2026",
-        "Class 5",
-        "A",
-    )
-
-    assert captured["school_checkin_alert"] == [
-        "check-in",
-        "Parent",
-        "Abdullah",
-        "08:15 AM",
-        "24 July 2026",
-        "Class 5-A",
-        "Demo School",
-        "923001111111",
-    ]
-    assert captured["school_checkout_alert"] == [
-        "check-out",
-        "Parent",
-        "Abdullah",
-        "01:30 PM",
-        "24 July 2026",
-        "Class 5-A",
-        "Demo School",
-        "923001111111",
-    ]
-    assert captured["school_absent_alert"] == [
-        "absence",
-        "Parent",
-        "Abdullah",
-        "24 July 2026",
-        "Class 5-A",
-        "Demo School",
-        "923001111111",
-    ]
 
 
 def test_embedding_encryption_round_trip(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -541,41 +386,6 @@ def test_parse_recognition_subject_maps_prefixed_ids(
     assert parse_recognition_subject(raw) == expected
 
 
-def test_school_notification_phone_normalizes_valid_number() -> None:
-    school = SimpleNamespace(school_phone="0300-1234567")
-
-    assert whatsapp.school_notification_phone(school) == "923001234567"  # type: ignore[arg-type]
-
-
-def test_school_notification_phone_returns_none_when_unset_or_invalid() -> None:
-    assert whatsapp.school_notification_phone(SimpleNamespace(school_phone=None)) is None  # type: ignore[arg-type]
-    assert whatsapp.school_notification_phone(SimpleNamespace(school_phone="not-a-phone")) is None  # type: ignore[arg-type]
-
-
-def test_staff_message_bodies_include_employee_and_school_details() -> None:
-    checkin = whatsapp.build_staff_checkin_message(
-        employee_name="Ayesha Khan",
-        designation="Teacher",
-        school_name="Demo School",
-        school_phone="923001234567",
-        check_time="08:15 AM",
-        date_str="11 August 2026",
-    )
-    checkout = whatsapp.build_staff_checkout_message(
-        employee_name="Ayesha Khan",
-        designation="Teacher",
-        school_name="Demo School",
-        checkout_time="01:30 PM",
-        date_str="11 August 2026",
-    )
-
-    assert "Ayesha Khan" in checkin
-    assert "Teacher" in checkin
-    assert "923001234567" in checkin
-    assert "Ayesha Khan" in checkout
-    assert "Teacher" in checkout
-
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("present", [True, False])
 async def test_employee_face_embedding_lookup(present: bool) -> None:
@@ -591,32 +401,6 @@ async def test_employee_face_embedding_lookup(present: bool) -> None:
         )
         is present
     )
-
-
-@pytest.mark.asyncio
-async def test_whatsapp_log_accepts_employee_without_student() -> None:
-    class FakeSession:
-        added: object | None = None
-
-        def add(self, record: object) -> None:
-            self.added = record
-
-    session = FakeSession()
-    log = await whatsapp.log_whatsapp_message(
-        session,  # type: ignore[arg-type]
-        school_id=2,
-        employee_id=5,
-        parent_phone="923001234567",
-        message_type="staff_check_in",
-        message_body="✅ Staff Check-in",
-        status="sent",
-        meta_message_id="wamid.test",
-    )
-
-    assert log.employee_id == 5
-    assert log.student_id is None
-    assert log.message_type == "staff_check_in"
-    assert session.added is log
 
 
 def test_manual_attendance_requires_exactly_one_subject() -> None:

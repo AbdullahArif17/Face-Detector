@@ -14,7 +14,6 @@ from app.models.branch import Branch
 from app.models.face_embedding import FaceEmbedding
 from app.models.student import Student
 from app.models.user import User
-from app.models.whatsapp_log import WhatsappLog
 from app.schemas.student import (
     StudentCreate,
     StudentImportError,
@@ -22,7 +21,6 @@ from app.schemas.student import (
     StudentResponse,
     StudentUpdate,
 )
-from app.schemas.whatsapp import WhatsappLogResponse
 
 router = APIRouter(prefix="/students", tags=["students"])
 MAX_CSV_BYTES = 1_000_000
@@ -315,46 +313,6 @@ async def delete_student(
     await session.delete(student)
     await session.commit()
 
-
-@router.get("/{student_id}/whatsapp-logs", response_model=list[WhatsappLogResponse])
-async def get_student_whatsapp_logs(
-    student_id: int,
-    session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(
-        require_role("super_admin", "admin", "hr", "branch_manager", "viewer"),
-    ),
-) -> list[WhatsappLogResponse]:
-    student = await get_school_student(
-        session,
-        student_id=student_id,
-        school_id=current_user.company_id,
-    )
-    result = await session.execute(
-        select(WhatsappLog)
-        .where(
-            WhatsappLog.school_id == current_user.company_id,
-            WhatsappLog.student_id == student.id,
-        )
-        .order_by(WhatsappLog.created_at.desc()),
-    )
-    logs = list(result.scalars().all())
-    return [
-        WhatsappLogResponse(
-            id=log.id,
-            school_id=log.school_id,
-            student_id=log.student_id,
-            student_name=student.student_name,
-            parent_phone=log.parent_phone,
-            message_type=log.message_type,
-            message_body=log.message_body,
-            status=log.status,
-            meta_message_id=log.meta_message_id,
-            error_message=log.error_message,
-            sent_at=log.sent_at,
-            created_at=log.created_at,
-        )
-        for log in logs
-    ]
 
 
 @router.post("/import", response_model=StudentImportResponse)

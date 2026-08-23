@@ -22,7 +22,6 @@ from app.schemas.company import (
     SchoolSettingsResponse,
     SchoolSettingsUpdate,
 )
-from app.services.whatsapp import is_configured_secret, is_configured_value
 
 router = APIRouter(prefix="/companies", tags=["companies"])
 
@@ -40,15 +39,6 @@ def ensure_company_access(current_user: User, company_id: int) -> None:
 
 
 def build_school_settings_response(company: Company) -> SchoolSettingsResponse:
-    default_token_configured = is_configured_secret(settings.meta_whatsapp_token)
-    default_phone_id_configured = is_configured_value(settings.meta_phone_number_id)
-    credentials_ready = default_token_configured and default_phone_id_configured
-    webhook_secure = is_configured_secret(settings.meta_app_secret)
-    test_recipient_masked = (
-        f"{settings.whatsapp_test_recipient[:3]}***{settings.whatsapp_test_recipient[-4:]}"
-        if settings.whatsapp_test_recipient
-        else None
-    )
     return SchoolSettingsResponse(
         company_id=company.id,
         school_phone=company.school_phone,
@@ -58,20 +48,6 @@ def build_school_settings_response(company: Company) -> SchoolSettingsResponse:
         check_in_end_time=company.check_in_end_time,
         check_out_end_time=company.check_out_end_time,
         late_grace_minutes=company.late_grace_minutes,
-        whatsapp_token_configured=credentials_ready,
-        whatsapp_webhook_secure=webhook_secure,
-        whatsapp_chatbot_ready=credentials_ready and webhook_secure,
-        whatsapp_checkin_template_configured=is_configured_value(
-            settings.meta_checkin_template_name,
-        ),
-        whatsapp_checkout_template_configured=is_configured_value(
-            settings.meta_checkout_template_name,
-        ),
-        whatsapp_absent_template_configured=is_configured_value(
-            settings.meta_absent_template_name,
-        ),
-        whatsapp_test_mode=settings.whatsapp_test_mode,
-        whatsapp_test_recipient_masked=test_recipient_masked,
     )
 
 

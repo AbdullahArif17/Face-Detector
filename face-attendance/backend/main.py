@@ -26,8 +26,6 @@ from app.routers import (
     staff_attendance,
     students,
     users,
-    webhooks,
-    whatsapp,
 )
 
 from app.core.config import settings
@@ -256,9 +254,6 @@ app.include_router(staff_attendance.router)
 app.include_router(attendance.router)
 app.include_router(face.router)
 app.include_router(users.router)
-app.include_router(whatsapp.router)
-app.include_router(webhooks.router)
-
 
 @app.get("/health", tags=["health"])
 async def health_check() -> dict[str, str]:

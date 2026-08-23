@@ -216,7 +216,7 @@ async def add_demo_data() -> None:
     print(f"Classes created: {created_classes}")
     print(f"Students created: {created_students}")
     print(f"Attendance rows created: {created_attendance}")
-    print("No face embeddings or WhatsApp messages were created.")
+    print("No face embeddings were created.")
 
 
 if __name__ == "__main__":

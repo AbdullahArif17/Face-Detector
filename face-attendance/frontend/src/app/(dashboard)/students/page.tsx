@@ -3,7 +3,6 @@
 import {
   Edit,
   FileUp,
-  MessageSquareText,
   Search,
   ShieldCheck,
   ShieldX,
@@ -28,11 +27,9 @@ import {
 import { Input } from "@/components/ui/input";
 import {
   deleteStudent,
-  getStudentWhatsappLogs,
   getStudents,
   importStudentsCsv,
   type Student,
-  type WhatsappLog,
 } from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
@@ -67,69 +64,7 @@ function FaceBadge({ hasFaceEnrolled }: Readonly<{ hasFaceEnrolled: boolean }>) 
   );
 }
 
-function LogsModal({
-  student,
-  logs,
-  open,
-  onOpenChange,
-}: Readonly<{
-  student: Student | null;
-  logs: WhatsappLog[];
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}>) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>WhatsApp logs</DialogTitle>
-          <DialogDescription>
-            {student
-              ? `Messages sent for ${student.student_name}.`
-              : "Student WhatsApp message history."}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="max-h-[60dvh] overflow-y-auto rounded-lg border">
-          <table className="min-w-[720px] w-full text-left text-sm">
-            <thead className="border-b bg-muted/50 text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3 font-medium">Phone</th>
-                <th className="px-4 py-3 font-medium">Type</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Message</th>
-                <th className="px-4 py-3 font-medium">Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {logs.length === 0 ? (
-                <tr>
-                  <td className="px-4 py-6 text-muted-foreground" colSpan={5}>
-                    No WhatsApp messages found for this student.
-                  </td>
-                </tr>
-              ) : null}
-              {logs.map((log) => (
-                <tr key={log.id} className="border-b last:border-0">
-                  <td className="px-4 py-3 tabular-nums">
-                    {maskPhone(log.parent_phone)}
-                  </td>
-                  <td className="px-4 py-3">{log.message_type}</td>
-                  <td className="px-4 py-3">{log.status}</td>
-                  <td className="max-w-xs truncate px-4 py-3">
-                    {log.message_body}
-                  </td>
-                  <td className="px-4 py-3">
-                    {new Date(log.created_at).toLocaleString()}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
+
 
 function StudentActions({
   student,
@@ -137,7 +72,6 @@ function StudentActions({
   className,
   onEdit,
   onEnroll,
-  onViewLogs,
   onRemove,
 }: Readonly<{
   student: Student;
@@ -145,7 +79,6 @@ function StudentActions({
   className?: string;
   onEdit: () => void;
   onEnroll: () => void;
-  onViewLogs: () => void;
   onRemove: () => void;
 }>) {
   return (
@@ -170,17 +103,7 @@ function StudentActions({
       >
         {student.has_face_enrolled ? "Update Face" : "Enroll Face"}
       </Button>
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        className="gap-1"
-        disabled={isDeactivating}
-        onClick={onViewLogs}
-      >
-        <MessageSquareText aria-hidden="true" className="size-3" />
-        View Logs
-      </Button>
+
       <Button
         type="button"
         size="sm"
@@ -209,8 +132,6 @@ export default function StudentsPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [enrollingStudent, setEnrollingStudent] = useState<Student | null>(null);
-  const [logsStudent, setLogsStudent] = useState<Student | null>(null);
-  const [logs, setLogs] = useState<WhatsappLog[]>([]);
   const [pendingRemoveStudent, setPendingRemoveStudent] =
     useState<Student | null>(null);
   const [removingStudentId, setRemovingStudentId] = useState<
@@ -314,16 +235,7 @@ export default function StudentsPage() {
     }
   }
 
-  async function handleViewLogs(student: Student): Promise<void> {
-    setLogsStudent(student);
-    try {
-      setLogs(await getStudentWhatsappLogs(student.id));
-      setHasError(false);
-    } catch {
-      setHasError(true);
-      setLogs([]);
-    }
-  }
+
 
   function handleFaceEnrolled(
     studentId: number,
@@ -347,7 +259,7 @@ export default function StudentsPage() {
             <span className="text-gradient">Students</span>
           </h1>
           <p className="mt-2 max-w-2xl text-muted-foreground text-pretty">
-            Manage student records, parent WhatsApp contacts, and face enrollment.
+            Manage student records, parent contacts, and face enrollment.
           </p>
         </div>
         <div className="grid gap-2 sm:flex">
@@ -511,7 +423,7 @@ export default function StudentsPage() {
                 </dd>
               </div>
               <div>
-                <dt className="text-xs text-muted-foreground">WhatsApp</dt>
+                <dt className="text-xs text-muted-foreground">Phone</dt>
                 <dd className="mt-0.5 tabular-nums">
                   {maskPhone(student.parent_phone)}
                 </dd>
@@ -523,7 +435,6 @@ export default function StudentsPage() {
               isDeactivating={removingStudentId === student.id}
               onEdit={() => setEditingStudent(student)}
               onEnroll={() => setEnrollingStudent(student)}
-              onViewLogs={() => void handleViewLogs(student)}
               onRemove={() => {
                 setActionError(null);
                 setPendingRemoveStudent(student);
@@ -589,7 +500,6 @@ export default function StudentsPage() {
                     isDeactivating={removingStudentId === student.id}
                     onEdit={() => setEditingStudent(student)}
                     onEnroll={() => setEnrollingStudent(student)}
-                    onViewLogs={() => void handleViewLogs(student)}
                     onRemove={() => {
                       setActionError(null);
                       setPendingRemoveStudent(student);
@@ -630,17 +540,7 @@ export default function StudentsPage() {
         />
       ) : null}
 
-      <LogsModal
-        student={logsStudent}
-        logs={logs}
-        open={logsStudent !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setLogsStudent(null);
-            setLogs([]);
-          }
-        }}
-      />
+
 
       <ConfirmDialog
         open={pendingRemoveStudent !== null}

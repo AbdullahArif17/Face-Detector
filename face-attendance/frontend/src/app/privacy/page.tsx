@@ -29,10 +29,10 @@ export default function PrivacyPolicyPage() {
         <ul>
           <li>Organization, branch, class, staff-account, and access-role information.</li>
           <li>Student names, roll numbers, classes, status, and profile photographs.</li>
-          <li>Parent or guardian names, phone numbers, and WhatsApp delivery information.</li>
+          <li>Parent or guardian names, phone numbers, and delivery information.</li>
           <li>Attendance events, check-in and check-out times, confidence scores, and audit logs.</li>
           <li>Face images submitted for enrollment or recognition and derived biometric embeddings.</li>
-          <li>WhatsApp messages, message identifiers, delivery statuses, and inbound chatbot commands.</li>
+          <li>Messages, message identifiers, and delivery statuses.</li>
           <li>Basic security and diagnostic information needed to operate and protect the service.</li>
         </ul>
       </section>
@@ -52,7 +52,7 @@ export default function PrivacyPolicyPage() {
         <p>
           The service uses infrastructure providers including Vercel for application hosting, Neon
           for database hosting, Hugging Face for isolated face-recognition processing, and Meta&apos;s
-          WhatsApp Business Platform for messages. Information is shared only as needed to provide
+          Providers for messages. Information is shared only as needed to provide
           those functions, protect the service, comply with law, or follow the controlling
           organization&apos;s authorized instructions.
         </p>

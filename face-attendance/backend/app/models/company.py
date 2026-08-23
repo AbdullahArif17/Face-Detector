@@ -29,8 +29,6 @@ class Company(Base):
     check_in_end_time: Mapped[str | None] = mapped_column(String(5), nullable=True)
     check_out_end_time: Mapped[str | None] = mapped_column(String(5), nullable=True)
     late_grace_minutes: Mapped[int] = mapped_column(Integer, default=15, nullable=False)
-    whatsapp_token: Mapped[str | None] = mapped_column(String(1000), nullable=True)
-    whatsapp_phone_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     api_key: Mapped[str] = mapped_column(
         String(255),
         default=lambda: secrets.token_urlsafe(32),

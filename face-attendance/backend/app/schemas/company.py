@@ -54,14 +54,6 @@ class SchoolSettingsResponse(BaseModel):
     check_in_end_time: str | None = None
     check_out_end_time: str | None = None
     late_grace_minutes: int = 15
-    whatsapp_token_configured: bool
-    whatsapp_webhook_secure: bool = False
-    whatsapp_chatbot_ready: bool = False
-    whatsapp_checkin_template_configured: bool = False
-    whatsapp_checkout_template_configured: bool = False
-    whatsapp_absent_template_configured: bool = False
-    whatsapp_test_mode: bool = False
-    whatsapp_test_recipient_masked: str | None = None
 
 
 class SchoolSettingsUpdate(BaseModel):

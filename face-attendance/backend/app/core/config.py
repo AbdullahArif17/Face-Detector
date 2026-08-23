@@ -30,21 +30,6 @@ class Settings:
     credential_encryption_key: str | None
     app_timezone: str
     frontend_origins: list[str]
-    meta_whatsapp_token: str | None
-    meta_phone_number_id: str | None
-    meta_webhook_verify_token: str | None
-    meta_app_secret: str | None
-    meta_graph_api_version: str
-    meta_template_language: str
-    meta_test_template_language: str
-    meta_checkin_template_name: str | None
-    meta_checkout_template_name: str | None
-    meta_absent_template_name: str | None
-    meta_test_template_name: str | None
-    meta_staff_on_time_template_name: str | None
-    meta_staff_late_template_name: str | None
-    whatsapp_test_mode: bool
-    whatsapp_test_recipient: str | None
     cron_secret: str | None
     app_env: str
 
@@ -110,19 +95,6 @@ def get_settings() -> Settings:
     if not secret_key:
         raise RuntimeError("SECRET_KEY is not configured")
 
-    whatsapp_test_mode = parse_bool_env("WHATSAPP_TEST_MODE")
-    raw_test_recipient = os.getenv("WHATSAPP_TEST_RECIPIENT", "").strip()
-    try:
-        whatsapp_test_recipient = (
-            normalize_pakistan_phone(raw_test_recipient) if raw_test_recipient else None
-        )
-    except ValueError as exc:
-        raise RuntimeError("WHATSAPP_TEST_RECIPIENT is not a valid Pakistan phone") from exc
-    if whatsapp_test_mode and whatsapp_test_recipient is None:
-        raise RuntimeError(
-            "WHATSAPP_TEST_RECIPIENT is required when WHATSAPP_TEST_MODE=true",
-        )
-
     return Settings(
         database_url=normalize_database_url(database_url),
         secret_key=secret_key,
@@ -164,21 +136,6 @@ def get_settings() -> Settings:
                 "http://localhost:3000,http://127.0.0.1:3000",
             ),
         ),
-        meta_whatsapp_token=os.getenv("META_WHATSAPP_TOKEN"),
-        meta_phone_number_id=os.getenv("META_PHONE_NUMBER_ID"),
-        meta_webhook_verify_token=os.getenv("META_WEBHOOK_VERIFY_TOKEN"),
-        meta_app_secret=os.getenv("META_APP_SECRET"),
-        meta_graph_api_version=os.getenv("META_GRAPH_API_VERSION", "v25.0").strip(),
-        meta_template_language=os.getenv("META_TEMPLATE_LANGUAGE", "en"),
-        meta_test_template_language=os.getenv("META_TEST_TEMPLATE_LANGUAGE", "en_US"),
-        meta_checkin_template_name=os.getenv("META_CHECKIN_TEMPLATE_NAME"),
-        meta_checkout_template_name=os.getenv("META_CHECKOUT_TEMPLATE_NAME"),
-        meta_absent_template_name=os.getenv("META_ABSENT_TEMPLATE_NAME"),
-        meta_test_template_name=os.getenv("META_TEST_TEMPLATE_NAME"),
-        meta_staff_on_time_template_name=os.getenv("META_STAFF_ON_TIME_TEMPLATE_NAME"),
-        meta_staff_late_template_name=os.getenv("META_STAFF_LATE_TEMPLATE_NAME"),
-        whatsapp_test_mode=whatsapp_test_mode,
-        whatsapp_test_recipient=whatsapp_test_recipient,
         cron_secret=os.getenv("CRON_SECRET"),
         app_env=app_env,
     )

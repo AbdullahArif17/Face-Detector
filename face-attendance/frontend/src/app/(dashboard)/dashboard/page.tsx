@@ -238,14 +238,7 @@ export default function DashboardPage() {
     );
   }, [todayRecords]);
 
-  const whatsappStatusText = schoolSettings
-    ? schoolSettings.whatsapp_token_configured
-      ? schoolSettings.whatsapp_chatbot_ready
-        ? "Active (Alerts & Chatbot)"
-        : "Alerts Only"
-      : "Not configured"
-    : "Unknown";
-  const isWhatsappActive = schoolSettings?.whatsapp_token_configured;
+
 
   async function handleSaveSchoolPhone(): Promise<void> {
     if (!user) return;
@@ -585,32 +578,16 @@ export default function DashboardPage() {
             <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
               <div>
                 <CardTitle className="flex items-center gap-2">
-                  <MessageCircle className="size-5 text-[#25D366]" />
-                  WhatsApp Integration
+                  <MessageCircle className="size-5 text-indigo-500" />
+                  Notifications
                 </CardTitle>
                 <CardDescription className="mt-1">
                   Messaging and notification settings.
                 </CardDescription>
               </div>
-              <div className={`flex size-2 rounded-full ${isWhatsappActive ? 'bg-emerald-500 pulse-ring' : 'bg-muted-foreground'}`} />
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <div className="skeleton h-10 w-full" />
-              ) : (
-                <div className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium ${isWhatsappActive ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20' : 'bg-muted text-muted-foreground'}`}>
-                  {isWhatsappActive ? <ShieldCheck className="size-3.5" /> : null}
-                  {whatsappStatusText}
-                </div>
-              )}
-              
-              <div className="mt-6 space-y-4">
-                <div className="border-t pt-4">
-                  <p className="text-sm font-medium mb-1 text-foreground">Test Messages</p>
-                  <p className="text-xs text-muted-foreground">
-                    Admin test messages use school credentials first, then default backend credentials.
-                  </p>
-                </div>
+              <div className="space-y-4">
 
                 {hasAdminAccess ? (
                   <form

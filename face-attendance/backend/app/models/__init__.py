@@ -6,7 +6,6 @@ from app.models.employee import Employee
 from app.models.face_embedding import FaceEmbedding
 from app.models.student import Student
 from app.models.user import User
-from app.models.whatsapp_log import WhatsappInboundMessage, WhatsappLog
 
 __all__ = [
     "Attendance",
@@ -17,7 +16,5 @@ __all__ = [
     "FaceEmbedding",
     "Student",
     "User",
-    "WhatsappInboundMessage",
-    "WhatsappLog",
 ]
 

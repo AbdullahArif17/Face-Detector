@@ -28,7 +28,7 @@ export default function TermsPage() {
         <ul>
           <li>Provide accurate records and keep access permissions current.</li>
           <li>Obtain all notices, consents, and permissions required for student and biometric data.</li>
-          <li>Use WhatsApp messaging only for lawful, expected school communications.</li>
+          <li>Use communication channels only for lawful, expected school communications.</li>
           <li>Configure retention, respond to data-subject requests, and remove access promptly.</li>
           <li>Do not use the service for covert surveillance or unrelated identification.</li>
         </ul>
@@ -55,7 +55,7 @@ export default function TermsPage() {
       <section>
         <h2>Privacy and third-party services</h2>
         <p>
-          Personal information is handled as described in the Privacy Policy. Use of Meta WhatsApp
+          Personal information is handled as described in the Privacy Policy.
           and other infrastructure providers may also be governed by their applicable terms and
           policies.
         </p>

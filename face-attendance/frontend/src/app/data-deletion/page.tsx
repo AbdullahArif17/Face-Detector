@@ -12,7 +12,7 @@ export default function DataDeletionPage() {
   return (
     <LegalPage
       title="Data Deletion Instructions"
-      description="Use these instructions to request deletion of information associated with Face Attendance or its WhatsApp integration."
+      description="Use these instructions to request deletion of information associated with Face Attendance or its integrations."
     >
       <section>
         <h2>School-managed records</h2>
@@ -28,7 +28,7 @@ export default function DataDeletionPage() {
         <h2>Platform or Meta-related requests</h2>
         <p>
           Send a request to <PrivacyContact /> with the subject “Face Attendance Data Deletion
-          Request.” Include the organization name, the WhatsApp number or account email involved, the
+          Request.” Include the organization name, the phone number or account email involved, the
           categories of data to delete, and enough information to verify ownership or authorization.
           Do not send passwords, face photographs, access tokens, or government identity documents by
           ordinary email.
@@ -51,10 +51,10 @@ export default function DataDeletionPage() {
       </section>
 
       <section>
-        <h2>Removing WhatsApp access</h2>
+        <h2>Removing access</h2>
         <p>
-          You may also block the business number in WhatsApp and ask the school to remove your parent
-          contact from future notifications. Removing or blocking WhatsApp does not automatically
+          You may also block the business number and ask the school to remove your parent
+          contact from future notifications. Removing or blocking does not automatically
           delete school attendance records; use the request process above for those records.
         </p>
       </section>
