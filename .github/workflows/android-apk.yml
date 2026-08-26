@@ -79,6 +79,8 @@ jobs:
       - name: Build Release APK
         working-directory: face-attendance/frontend/android
         run: |
+          mkdir -p ~/.android
+          keytool -genkey -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "C=US, O=Android, CN=Android Debug"
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
 
