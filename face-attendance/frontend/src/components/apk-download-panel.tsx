@@ -14,7 +14,7 @@ export function ApkDownloadPanel() {
         <BrandLogo showName={false} markClassName="size-10 shadow-md" />
         <div className="flex-1 min-w-0">
           <h4 className="text-sm font-semibold text-sidebar-fg truncate">
-            Android App
+            Face Detector
           </h4>
           <p className="text-xs text-sidebar-muted-fg line-clamp-1">
             Install the app
