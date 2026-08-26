@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.faceattendance.app',
-  appName: 'Face Attendance',
+  appName: 'Face Detector',
   webDir: 'out',
   server: {
     androidScheme: 'https',
