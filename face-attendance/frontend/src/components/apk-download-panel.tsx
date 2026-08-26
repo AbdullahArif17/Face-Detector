@@ -26,7 +26,7 @@ export function ApkDownloadPanel() {
         className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white shadow-sm transition-all hover:scale-[1.02]"
         size="sm"
       >
-        <a href="/app-release-unsigned.apk" download="FaceAttendance.apk">
+        <a href="https://github.com/AbdullahArif17/Face-Detector/releases/latest/download/app-release.apk" target="_blank" rel="noreferrer">
           <Download className="size-4" />
           Install APK
         </a>
