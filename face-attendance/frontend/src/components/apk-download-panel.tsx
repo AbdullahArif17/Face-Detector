@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download, Smartphone } from "lucide-react";
+import { Smartphone } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 
@@ -37,7 +37,8 @@ export function ApkDownloadPanel() {
     setDeferredPrompt(null);
   };
 
-  if (isInstalled) return null;
+  // Only show the panel if PWA install is available and not already installed
+  if (isInstalled || !deferredPrompt) return null;
 
   return (
     <div className="mx-4 mb-4 rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 via-sidebar-bg to-sidebar-bg p-4 shadow-sm relative overflow-hidden">
@@ -57,33 +58,13 @@ export function ApkDownloadPanel() {
       </div>
 
       <div className="space-y-2">
-        {/* PWA Install — preferred method */}
-        {deferredPrompt && (
-          <Button
-            onClick={handleInstallPWA}
-            className="w-full gap-2 bg-primary hover:bg-primary/90 text-white shadow-sm transition-all hover:scale-[1.02]"
-            size="sm"
-          >
-            <Smartphone className="size-4" />
-            Install App
-          </Button>
-        )}
-
-        {/* APK fallback */}
         <Button
-          asChild
-          variant={deferredPrompt ? "outline" : "default"}
-          className={
-            deferredPrompt
-              ? "w-full gap-2 transition-all hover:scale-[1.02]"
-              : "w-full gap-2 bg-green-600 hover:bg-green-700 text-white shadow-sm transition-all hover:scale-[1.02]"
-          }
+          onClick={handleInstallPWA}
+          className="w-full gap-2 bg-primary hover:bg-primary/90 text-white shadow-sm transition-all hover:scale-[1.02]"
           size="sm"
         >
-          <a href="https://github.com/AbdullahArif17/Face-Detector/releases/latest/download/app-release.apk" target="_blank" rel="noreferrer">
-            <Download className="size-4" />
-            Download APK
-          </a>
+          <Smartphone className="size-4" />
+          Install App
         </Button>
       </div>
     </div>
