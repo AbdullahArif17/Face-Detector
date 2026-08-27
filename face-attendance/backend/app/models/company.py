@@ -29,6 +29,7 @@ class Company(Base):
     check_in_end_time: Mapped[str | None] = mapped_column(String(5), nullable=True)
     check_out_end_time: Mapped[str | None] = mapped_column(String(5), nullable=True)
     late_grace_minutes: Mapped[int] = mapped_column(Integer, default=15, nullable=False)
+    default_session_duration_minutes: Mapped[int] = mapped_column(Integer, default=60, server_default="60", nullable=False)
     api_key: Mapped[str] = mapped_column(
         String(255),
         default=lambda: secrets.token_urlsafe(32),

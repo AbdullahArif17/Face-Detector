@@ -297,6 +297,7 @@ export interface CompanyKioskInfoResponse {
   school_logo: string | null;
   student_count: number;
   attendance_active: boolean;
+  session_expires_at: string | null;
 }
 
 export interface SchoolClass {
@@ -314,10 +315,19 @@ export interface SchoolSettings {
   check_in_end_time: string | null;
   check_out_end_time: string | null;
   late_grace_minutes: number;
-
+  default_session_duration_minutes: number;
 }
 
-
+export interface UpdateSchoolSettingsInput {
+  school_phone?: string | null;
+  school_contact?: string | null;
+  school_logo?: string | null;
+  attendance_start_time?: string;
+  check_in_end_time?: string | null;
+  check_out_end_time?: string | null;
+  late_grace_minutes?: number;
+  default_session_duration_minutes?: number;
+}
 
 const API_PAGE_SIZE = 100;
 const FACE_REQUEST_TIMEOUT_MS = 125_000;
@@ -893,12 +903,7 @@ export async function getSchoolSettings(
 
 export async function updateSchoolSettings(
   companyId: number,
-  input: {
-    school_phone?: string | null;
-    school_contact?: string | null;
-    check_in_end_time?: string | null;
-    check_out_end_time?: string | null;
-  },
+  input: UpdateSchoolSettingsInput,
 ): Promise<SchoolSettings> {
   const response = await api.put<SchoolSettings>(
     `/companies/${companyId}/settings`,

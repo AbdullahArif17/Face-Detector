@@ -18,6 +18,8 @@ import {
   type AttendanceDashboardRecord,
   type Student,
 } from "@/lib/api";
+import { AttendanceChart } from "@/components/charts/AttendanceChart";
+import { DateRangePresets } from "@/components/DateRangePresets";
 
 type AttendanceEditableStatus = "present" | "absent" | "excused";
 
@@ -311,10 +313,18 @@ export default function StudentReportsPage() {
       </div>
 
       {/* Filters */}
-      <div className="space-y-4 rounded-xl border bg-card p-5 shadow-card">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Filters
-        </h2>
+      <div className="space-y-4 rounded-lg border bg-card p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+            Filters
+          </h2>
+          <DateRangePresets
+            onSelectRange={(start, end) => {
+              setStartDate(start);
+              setEndDate(end);
+            }}
+          />
+        </div>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <div className="grid gap-2">
             <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" htmlFor="report-start-date">
@@ -452,12 +462,17 @@ export default function StudentReportsPage() {
 
       {/* Summary statistics */}
       {!isHistoryLoading && filteredRecords.length > 0 ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <StatCard label="Total Records" value={stats.total} color="slate" />
-          <StatCard label="Present" value={stats.present} color="green" />
-          <StatCard label="Absent" value={stats.absent} color="red" />
-          <StatCard label="Excused" value={stats.excused} color="blue" />
-          <StatCard label="Attendance Rate" value={`${stats.rate}%`} color="amber" />
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:col-span-1 lg:grid-cols-2">
+            <StatCard label="Total Records" value={stats.total} color="slate" />
+            <StatCard label="Present" value={stats.present} color="green" />
+            <StatCard label="Absent" value={stats.absent} color="red" />
+            <StatCard label="Excused" value={stats.excused} color="blue" />
+            <StatCard label="Attendance Rate" value={`${stats.rate}%`} color="amber" />
+          </div>
+          <div className="lg:col-span-2">
+            <AttendanceChart records={filteredRecords} />
+          </div>
         </div>
       ) : null}
 

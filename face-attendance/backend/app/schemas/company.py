@@ -37,6 +37,7 @@ class CompanyKioskInfoResponse(BaseModel):
     school_logo: str | None = None
     student_count: int = Field(default=0, ge=0)
     attendance_active: bool = False
+    session_expires_at: str | None = None
 
 
 class SchoolClassResponse(BaseModel):
@@ -54,6 +55,7 @@ class SchoolSettingsResponse(BaseModel):
     check_in_end_time: str | None = None
     check_out_end_time: str | None = None
     late_grace_minutes: int = 15
+    default_session_duration_minutes: int = 60
 
 
 class SchoolSettingsUpdate(BaseModel):
@@ -71,4 +73,14 @@ class SchoolSettingsUpdate(BaseModel):
         default=None,
         pattern=r"^([01]\d|2[0-3]):[0-5]\d$",
         description="Local check-out session end time as HH:MM. Blank = no auto-end.",
+    )
+    late_grace_minutes: int | None = Field(
+        default=None,
+        ge=0,
+        description="Minutes after start time before marked late",
+    )
+    default_session_duration_minutes: int | None = Field(
+        default=None,
+        ge=0,
+        description="Default session duration in minutes",
     )

@@ -74,6 +74,7 @@ export default function DashboardPage() {
   const [hasError, setHasError] = useState(false);
   const [schoolPhoneInput, setSchoolPhoneInput] = useState("");
   const [schoolContactInput, setSchoolContactInput] = useState("");
+  const [defaultSessionDurationInput, setDefaultSessionDurationInput] = useState("");
   const [isSavingSchoolPhone, setIsSavingSchoolPhone] = useState(false);
   const [schoolPhoneError, setSchoolPhoneError] = useState<string | null>(
     null,
@@ -114,6 +115,7 @@ export default function DashboardPage() {
       setSchoolSettings(settingsResponse);
       setSchoolPhoneInput(settingsResponse?.school_phone ?? "");
       setSchoolContactInput(settingsResponse?.school_contact ?? "");
+      setDefaultSessionDurationInput(settingsResponse?.default_session_duration_minutes?.toString() ?? "60");
       setHasError(false);
     } catch {
       setHasError(true);
@@ -264,9 +266,11 @@ export default function DashboardPage() {
       await updateSchoolSettings(user.company_id, {
         school_phone: phoneTrimmed || null,
         school_contact: contactTrimmed || null,
+        default_session_duration_minutes: defaultSessionDurationInput ? parseInt(defaultSessionDurationInput, 10) : 60,
       });
       setSchoolPhoneInput(phoneTrimmed);
       setSchoolContactInput(contactTrimmed);
+      setDefaultSessionDurationInput(defaultSessionDurationInput);
     } catch (error) {
       setSchoolPhoneError(
         getApiErrorMessage(error, "Failed to save the settings."),
@@ -640,6 +644,27 @@ export default function DashboardPage() {
                     {schoolPhoneError ? (
                       <p className="text-xs font-medium text-destructive bg-destructive/10 p-2 rounded">{schoolPhoneError}</p>
                     ) : null}
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="session-duration" className="text-xs font-semibold text-foreground">
+                        Default Session Duration (Minutes)
+                      </Label>
+                      <p className="text-[11px] text-muted-foreground leading-tight">
+                        How long an attendance session should run by default before expiring.
+                      </p>
+                      <Input
+                        id="session-duration"
+                        type="number"
+                        min="1"
+                        value={defaultSessionDurationInput}
+                        disabled={isSavingSchoolPhone}
+                        className="h-9 text-sm"
+                        onChange={(event) => {
+                          setDefaultSessionDurationInput(event.target.value);
+                          setSchoolPhoneError(null);
+                        }}
+                      />
+                    </div>
 
                     <Button
                       type="submit"

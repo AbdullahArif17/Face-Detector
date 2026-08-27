@@ -297,7 +297,7 @@ export default function KioskPage() {
         }
         resultTimeoutRef.current = window.setTimeout(
           () => setResult(null),
-          3_500,
+          5_000,
         );
       } catch (markError) {
         setResult({
@@ -315,7 +315,7 @@ export default function KioskPage() {
         });
         resultTimeoutRef.current = window.setTimeout(
           () => setResult(null),
-          3_500,
+          5_000,
         );
       } finally {
         processingRef.current = false;
@@ -413,6 +413,18 @@ export default function KioskPage() {
       : null);
   const fallbackDisabled =
     !hasValidConfig || !attendanceActive || isProcessing;
+
+  let remainingText = "";
+  if (attendanceActive && kioskInfo?.session_expires_at) {
+    const diff = new Date(kioskInfo.session_expires_at).getTime() - clock.getTime();
+    if (diff > 0) {
+      const mins = Math.floor(diff / 60000);
+      const secs = Math.floor((diff % 60000) / 1000);
+      remainingText = `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    } else {
+      remainingText = "Expiring...";
+    }
+  }
 
   return (
     <main className="relative flex h-dvh w-screen flex-col overflow-hidden bg-black text-white">
@@ -527,6 +539,12 @@ export default function KioskPage() {
               {kioskInfo ? (
                 <span className="rounded-full bg-black/40 px-2.5 py-0.5 text-xs font-medium text-white/90 backdrop-blur-md">
                   {kioskInfo.student_count} students
+                </span>
+              ) : null}
+              {remainingText ? (
+                <span className="flex items-center gap-1.5 rounded-full bg-black/40 px-2.5 py-0.5 text-xs font-medium text-amber-300 backdrop-blur-md">
+                  <Clock3 aria-hidden="true" className="size-3" />
+                  {remainingText}
                 </span>
               ) : null}
             </div>

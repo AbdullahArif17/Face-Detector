@@ -1,4 +1,5 @@
 import secrets
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
@@ -94,18 +95,22 @@ async def get_company_kiosk_info(
         or 0,
     )
     day_start, day_end = local_day_bounds()
-    attendance_active = (
-        await session.scalar(
-            select(AttendanceSession.id).where(
-                AttendanceSession.company_id == company.id,
-                AttendanceSession.status == "active",
-                AttendanceSession.stopped_at.is_(None),
-                AttendanceSession.started_at >= day_start,
-                AttendanceSession.started_at < day_end,
-            ),
-        )
-        is not None
+    active_session = await session.scalar(
+        select(AttendanceSession).where(
+            AttendanceSession.company_id == company.id,
+            AttendanceSession.status == "active",
+            AttendanceSession.stopped_at.is_(None),
+            AttendanceSession.started_at >= day_start,
+            AttendanceSession.started_at < day_end,
+        ).limit(1)
     )
+
+    attendance_active = active_session is not None
+    session_expires_at = None
+    if active_session:
+        duration_mins = company.default_session_duration_minutes or 60
+        expires_dt = active_session.started_at + timedelta(minutes=duration_mins)
+        session_expires_at = expires_dt.isoformat()
 
     return CompanyKioskInfoResponse(
         company_id=company.id,
@@ -113,6 +118,7 @@ async def get_company_kiosk_info(
         school_logo=company.school_logo,
         student_count=student_count,
         attendance_active=attendance_active,
+        session_expires_at=session_expires_at,
     )
 
 
