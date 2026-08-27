@@ -1,0 +1,26 @@
+{
+  "name": "Face Detector",
+  "short_name": "Face Detector",
+  "description": "AI-powered face recognition attendance management",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#6366f1",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "categories": ["education", "productivity", "business"],
+  "icons": [
+    {
+      "src": "/images/face-attendance-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/face-attendance-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
