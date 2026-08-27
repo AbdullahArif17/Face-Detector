@@ -239,6 +239,19 @@ export interface AttendanceClassSessionStatus {
   active_session: AttendanceSession | null;
 }
 
+export interface NotificationLog {
+  id: number;
+  company_id: number;
+  recipient_email: string | null;
+  recipient_fcm_token: string | null;
+  notification_type: string;
+  event_type: string;
+  status: string;
+  message_content: string;
+  error_message: string | null;
+  created_at: string;
+}
+
 export interface PortalUser {
   id: number;
   name: string;
@@ -894,6 +907,17 @@ export async function updateSchoolSettings(
   return response.data;
 }
 
-
+export async function getNotificationLogs(options: {
+  limit?: number;
+  offset?: number;
+} = {}): Promise<NotificationLog[]> {
+  const response = await api.get<NotificationLog[]>("/notifications/logs", {
+    params: {
+      limit: options.limit ?? 50,
+      offset: options.offset ?? 0,
+    },
+  });
+  return response.data;
+}
 
 export default api;

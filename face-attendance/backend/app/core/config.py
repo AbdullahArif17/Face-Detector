@@ -32,6 +32,17 @@ class Settings:
     frontend_origins: list[str]
     cron_secret: str | None
     app_env: str
+    
+    # SMTP Configuration
+    smtp_host: str | None
+    smtp_port: int
+    smtp_user: str | None
+    smtp_pass: str | None
+    smtp_from_email: str | None
+
+    # Firebase/FCM Configuration
+    firebase_credentials_path: str | None
+    firebase_credentials_json: str | None
 
 
 def normalize_database_url(database_url: str) -> str:
@@ -138,6 +149,13 @@ def get_settings() -> Settings:
         ),
         cron_secret=os.getenv("CRON_SECRET"),
         app_env=app_env,
+        smtp_host=os.getenv("SMTP_HOST"),
+        smtp_port=int(os.getenv("SMTP_PORT", "587")),
+        smtp_user=os.getenv("SMTP_USER"),
+        smtp_pass=os.getenv("SMTP_PASS"),
+        smtp_from_email=os.getenv("SMTP_FROM_EMAIL"),
+        firebase_credentials_path=os.getenv("FIREBASE_CREDENTIALS_PATH"),
+        firebase_credentials_json=os.getenv("FIREBASE_CREDENTIALS_JSON"),
     )
 
 

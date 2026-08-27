@@ -6,7 +6,7 @@ import logging
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -25,6 +25,7 @@ from app.core.time import (
     school_timezone,
     to_local,
 )
+from app.services.notification_service import NotificationService
 from app.dependencies import get_company_by_api_key, require_role
 from app.models.attendance import Attendance
 from app.models.attendance_session import AttendanceSession
@@ -724,6 +725,7 @@ async def stop_attendance_session(
 async def auto_mark_attendance(
     request: Request,
     payload: AttendanceAutoMarkRequest,
+    background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_db),
     company: Company = Depends(get_company_by_api_key),
 ) -> AttendanceAutoMarkResponse:
@@ -850,6 +852,7 @@ async def auto_mark_attendance(
     if kind == "employee":
         return await _auto_mark_employee(
             session=session,
+            background_tasks=background_tasks,
             company=company,
             active_session=active_session,
             recognition=recognition,
@@ -908,10 +911,28 @@ async def auto_mark_attendance(
             )
             
         today_attendance.check_out = now
-        
-
-
         await session.commit()
+        
+        background_tasks.add_task(
+            NotificationService.send_company_fcm,
+            session,
+            company.id,
+            "Student Checked Out",
+            f"{student.student_name} has checked out.",
+            "student_checkout",
+            {"student_id": str(student.id)}
+        )
+        if student.parent_email:
+            background_tasks.add_task(
+                NotificationService.send_email,
+                session,
+                company.id,
+                student.parent_email,
+                "Student Check-Out Notification",
+                f"<p>Hello,</p><p><b>{student.student_name}</b> has checked out at {display_time(now)}.</p>",
+                "student_checkout",
+            )
+
         return AttendanceAutoMarkResponse(
             matched=True,
             student=response_student,
@@ -974,6 +995,26 @@ async def auto_mark_attendance(
 
     await session.refresh(attendance)
 
+    background_tasks.add_task(
+        NotificationService.send_company_fcm,
+        session,
+        company.id,
+        "Student Checked In",
+        f"{student.student_name} has checked in.",
+        "student_checkin",
+        {"student_id": str(student.id)}
+    )
+    if student.parent_email:
+        background_tasks.add_task(
+            NotificationService.send_email,
+            session,
+            company.id,
+            student.parent_email,
+            "Student Check-In Notification",
+            f"<p>Hello,</p><p><b>{student.student_name}</b> has checked in at {display_time(now)}.</p>",
+            "student_checkin",
+        )
+
     return AttendanceAutoMarkResponse(
         matched=True,
         student=response_student,
@@ -989,6 +1030,7 @@ async def auto_mark_attendance(
 async def _auto_mark_employee(
     *,
     session: AsyncSession,
+    background_tasks: BackgroundTasks,
     company: Company,
     active_session: AttendanceSession,
     recognition: dict[str, Any],
@@ -1043,10 +1085,18 @@ async def _auto_mark_employee(
             )
 
         today_attendance.check_out = now
-
-
-
         await session.commit()
+
+        background_tasks.add_task(
+            NotificationService.send_company_fcm,
+            session,
+            company.id,
+            "Employee Checked Out",
+            f"{employee.name} has checked out.",
+            "employee_checkout",
+            {"employee_id": str(employee.id)}
+        )
+
         return AttendanceAutoMarkResponse(
             matched=True,
             employee=response_employee,
@@ -1105,6 +1155,16 @@ async def _auto_mark_employee(
         )
 
     await session.refresh(attendance)
+
+    background_tasks.add_task(
+        NotificationService.send_company_fcm,
+        session,
+        company.id,
+        "Employee Checked In",
+        f"{employee.name} has checked in.",
+        "employee_checkin",
+        {"employee_id": str(employee.id)}
+    )
 
     return AttendanceAutoMarkResponse(
         matched=True,

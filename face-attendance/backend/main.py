@@ -26,6 +26,7 @@ from app.routers import (
     staff_attendance,
     students,
     users,
+    notifications,
 )
 
 from app.core.config import settings
@@ -253,6 +254,7 @@ app.include_router(students.router)
 app.include_router(staff_attendance.router)
 app.include_router(attendance.router)
 app.include_router(face.router)
+app.include_router(notifications.router)
 app.include_router(users.router)
 
 @app.get("/health", tags=["health"])

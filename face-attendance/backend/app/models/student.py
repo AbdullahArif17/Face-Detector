@@ -27,6 +27,7 @@ class Student(Base):
     parent_name: Mapped[str] = mapped_column(String(255), nullable=False)
     parent_phone: Mapped[str] = mapped_column(String(20), nullable=False)
     parent_phone_2: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    parent_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     profile_image: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="active", nullable=False)
     created_at: Mapped[datetime] = mapped_column(
