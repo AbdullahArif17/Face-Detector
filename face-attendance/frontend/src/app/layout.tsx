@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { AuthProvider } from "@/context/AuthContext";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
+import { PwaInstallPrompt } from "@/components/PwaInstallPrompt";
 
 import "./globals.css";
 
@@ -37,6 +38,7 @@ export default function RootLayout({
       <body>
         <AuthProvider>{children}</AuthProvider>
         <ServiceWorkerRegistration />
+        <PwaInstallPrompt />
       </body>
     </html>
   );
