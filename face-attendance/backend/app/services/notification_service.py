@@ -40,7 +40,6 @@ def init_firebase():
 class NotificationService:
     @staticmethod
     async def log_notification(
-        db: AsyncSession,
         company_id: int,
         notification_type: str,
         event_type: str,
@@ -50,23 +49,24 @@ class NotificationService:
         recipient_fcm_token: str | None = None,
         error_message: str | None = None,
     ):
-        log = NotificationLog(
-            company_id=company_id,
-            notification_type=notification_type,
-            event_type=event_type,
-            status=status,
-            message_content=message_content,
-            recipient_email=recipient_email,
-            recipient_fcm_token=recipient_fcm_token,
-            error_message=error_message,
-            created_at=datetime.now(timezone.utc),
-        )
-        db.add(log)
-        await db.commit()
+        from app.core.database import SessionLocal
+        async with SessionLocal() as db:
+            log = NotificationLog(
+                company_id=company_id,
+                notification_type=notification_type,
+                event_type=event_type,
+                status=status,
+                message_content=message_content,
+                recipient_email=recipient_email,
+                recipient_fcm_token=recipient_fcm_token,
+                error_message=error_message,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(log)
+            await db.commit()
 
     @staticmethod
     async def send_fcm_push(
-        db: AsyncSession,
         company_id: int,
         token: str,
         title: str,
@@ -101,7 +101,6 @@ class NotificationService:
             success = False
             
         await NotificationService.log_notification(
-            db=db,
             company_id=company_id,
             notification_type="fcm",
             event_type=event_type,
@@ -114,7 +113,6 @@ class NotificationService:
 
     @staticmethod
     async def send_company_fcm(
-        db: AsyncSession,
         company_id: int,
         title: str,
         body: str,
@@ -122,18 +120,20 @@ class NotificationService:
         data: dict | None = None,
     ):
         from sqlalchemy import select
+        from app.core.database import SessionLocal
         from app.models.user_device_token import UserDeviceToken
         from app.models.user import User
 
-        result = await db.execute(
-            select(UserDeviceToken.fcm_token)
-            .join(User, User.id == UserDeviceToken.user_id)
-            .where(User.company_id == company_id, User.is_active == True)
-        )
-        tokens = result.scalars().all()
+        async with SessionLocal() as db:
+            result = await db.execute(
+                select(UserDeviceToken.fcm_token)
+                .join(User, User.id == UserDeviceToken.user_id)
+                .where(User.company_id == company_id, User.is_active == True)
+            )
+            tokens = result.scalars().all()
+            
         for token in tokens:
             await NotificationService.send_fcm_push(
-                db=db,
                 company_id=company_id,
                 token=token,
                 title=title,
@@ -144,7 +144,6 @@ class NotificationService:
 
     @staticmethod
     async def send_email(
-        db: AsyncSession,
         company_id: int,
         recipient_email: str,
         subject: str,
@@ -188,7 +187,6 @@ class NotificationService:
             success = False
             
         await NotificationService.log_notification(
-            db=db,
             company_id=company_id,
             notification_type="email",
             event_type=event_type,

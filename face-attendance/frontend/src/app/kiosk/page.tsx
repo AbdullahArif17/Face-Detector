@@ -4,12 +4,14 @@ import {
   Camera,
   CameraOff,
   CheckCircle2,
+  ChevronLeft,
   Clock3,
   LoaderCircle,
   RefreshCcw,
   Upload,
   XCircle,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -199,6 +201,7 @@ function ResultOverlay({
 }
 
 export default function KioskPage() {
+  const router = useRouter();
   const webcamRef = useRef<Webcam>(null);
   const captureInputRef = useRef<HTMLInputElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
@@ -506,6 +509,15 @@ export default function KioskPage() {
       {/* Top Header Overlay */}
       <header className="relative z-10 flex w-full flex-col sm:flex-row sm:items-center sm:justify-between p-4 sm:p-6 lg:p-8 gap-4">
         <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full bg-black/40 text-white/90 backdrop-blur-md hover:bg-black/60 hover:text-white"
+            onClick={() => router.back()}
+            title="Go Back"
+          >
+            <ChevronLeft aria-hidden="true" className="size-6" />
+          </Button>
           <BrandLogo
             showName={false}
             markClassName="size-12 rounded-2xl shadow-xl ring-2 ring-white/20"

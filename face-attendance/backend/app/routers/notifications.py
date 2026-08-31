@@ -75,7 +75,7 @@ async def remove_device_token(
 async def get_notification_logs(
     limit: int = 50,
     offset: int = 0,
-    current_user: User = Depends(require_role(["owner", "admin"])),
+    current_user: User = Depends(require_role("owner", "admin")),
     db: AsyncSession = Depends(get_db),
 ):
     """

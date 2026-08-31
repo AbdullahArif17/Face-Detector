@@ -925,4 +925,15 @@ export async function getNotificationLogs(options: {
   return response.data;
 }
 
+export async function registerDeviceToken(fcmToken: string, deviceName?: string): Promise<void> {
+  await api.post("/notifications/device-tokens", {
+    fcm_token: fcmToken,
+    device_name: deviceName ?? "Web Browser",
+  });
+}
+
+export async function removeDeviceToken(fcmToken: string): Promise<void> {
+  await api.delete(`/notifications/device-tokens/${fcmToken}`);
+}
+
 export default api;

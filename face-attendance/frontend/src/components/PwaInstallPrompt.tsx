@@ -64,21 +64,24 @@ export function PwaInstallPrompt() {
   }
 
   return (
-    <div className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 w-[90%] max-w-sm items-center justify-between rounded-lg border bg-card p-4 shadow-lg animate-in slide-in-from-bottom-5 fade-in duration-300">
-      <div className="flex flex-col gap-1 pr-2">
-        <p className="text-sm font-medium leading-none">Install App</p>
-        <p className="text-xs text-muted-foreground">Add to home screen for a better experience.</p>
-      </div>
-      <div className="flex items-center gap-2">
-        <Button size="sm" onClick={handleInstallClick} className="h-8 gap-1.5 px-3">
-          <Download className="size-3.5" />
-          Install
-        </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground shrink-0" onClick={handleDismiss}>
+    <div className="fixed top-0 left-0 right-0 z-[100] flex items-center justify-between border-b bg-background px-3 py-2 shadow-sm sm:bottom-4 sm:top-auto sm:left-auto sm:right-4 sm:w-auto sm:min-w-[320px] sm:rounded-xl sm:border sm:shadow-lg animate-in slide-in-from-top-2 sm:slide-in-from-bottom-2 fade-in duration-300">
+      <div className="flex items-center gap-3">
+        <button onClick={handleDismiss} className="text-muted-foreground hover:text-foreground p-1 -ml-1">
           <X className="size-4" />
           <span className="sr-only">Dismiss</span>
-        </Button>
+        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded bg-emerald-600 text-white shadow-sm">
+             <Download className="size-4" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold leading-tight text-foreground">Face Attendance</span>
+          </div>
+        </div>
       </div>
+      <Button size="sm" onClick={handleInstallClick} className="ml-4 h-7 shrink-0 rounded-full bg-[#22c55e] px-4 text-xs font-semibold text-white hover:bg-[#16a34a] shadow-sm">
+        Install
+      </Button>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { AuthProvider } from "@/context/AuthContext";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 import { PwaInstallPrompt } from "@/components/PwaInstallPrompt";
+import { FirebaseNotifications } from "@/components/FirebaseNotifications";
 
 import "./globals.css";
 
@@ -39,6 +40,7 @@ export default function RootLayout({
         <AuthProvider>{children}</AuthProvider>
         <ServiceWorkerRegistration />
         <PwaInstallPrompt />
+        <FirebaseNotifications />
       </body>
     </html>
   );

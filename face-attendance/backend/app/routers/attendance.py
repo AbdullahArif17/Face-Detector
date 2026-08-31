@@ -915,7 +915,6 @@ async def auto_mark_attendance(
         
         background_tasks.add_task(
             NotificationService.send_company_fcm,
-            session,
             company.id,
             "Student Checked Out",
             f"{student.student_name} has checked out.",
@@ -997,7 +996,6 @@ async def auto_mark_attendance(
 
     background_tasks.add_task(
         NotificationService.send_company_fcm,
-        session,
         company.id,
         "Student Checked In",
         f"{student.student_name} has checked in.",
@@ -1089,7 +1087,6 @@ async def _auto_mark_employee(
 
         background_tasks.add_task(
             NotificationService.send_company_fcm,
-            session,
             company.id,
             "Employee Checked Out",
             f"{employee.name} has checked out.",
@@ -1156,12 +1153,22 @@ async def _auto_mark_employee(
 
     await session.refresh(attendance)
 
+    status_msg = ""
+    if company.attendance_start_time:
+        start_time_today = datetime.combine(now.date(), company.attendance_start_time).replace(tzinfo=now.tzinfo)
+        if company.late_grace_minutes:
+            start_time_today += timedelta(minutes=company.late_grace_minutes)
+        if now > start_time_today:
+            late_by = int((now - start_time_today).total_seconds() / 60)
+            status_msg = f" (Late by {late_by} mins)"
+        else:
+            status_msg = " (On time)"
+
     background_tasks.add_task(
         NotificationService.send_company_fcm,
-        session,
         company.id,
         "Employee Checked In",
-        f"{employee.name} has checked in.",
+        f"{employee.name} has checked in{status_msg}.",
         "employee_checkin",
         {"employee_id": str(employee.id)}
     )
@@ -1592,4 +1599,115 @@ async def cron_end_sessions(
         "ended_sessions": ended_count,
         "absent_notifications_sent": absent_notifications_sent,
         "timestamp": now.isoformat(),
+    }
+
+@router.post("/cron/weekly-parent-reports", status_code=status.HTTP_200_OK)
+async def cron_weekly_parent_reports(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Cron job to send weekly attendance reports to parents.
+    
+    Protected by CRON_SECRET header. Runs once weekly and sends the past 7 days 
+    of attendance to the parent_email.
+    """
+    cron_secret = settings.cron_secret
+    if cron_secret:
+        provided_secret = request.headers.get("X-Cron-Secret") or request.headers.get("Authorization", "").removeprefix("Bearer ")
+        if not hmac.compare_digest(provided_secret or "", cron_secret):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid cron secret")
+
+    now_utc = datetime.now(timezone.utc)
+    end_date = to_local(now_utc).date()
+    start_date = end_date - timedelta(days=7)
+    
+    start_time, end_time = date_bounds(start_date, end_date)
+    
+    students_result = await session.execute(
+        select(Student).where(
+            Student.status == "active",
+            Student.parent_email.is_not(None),
+            Student.parent_email != ""
+        )
+    )
+    students = students_result.scalars().all()
+    
+    attendance_result = await session.execute(
+        select(Attendance, Student).join(Student).where(
+            Attendance.check_in >= start_time,
+            Attendance.check_in < end_time,
+            Student.status == "active",
+            Student.parent_email.is_not(None),
+            Student.parent_email != ""
+        ).order_by(Attendance.check_in.asc())
+    )
+    
+    rows = attendance_result.all()
+    attendance_by_student = {}
+    for att, stu in rows:
+        if stu.id not in attendance_by_student:
+            attendance_by_student[stu.id] = []
+        attendance_by_student[stu.id].append(att)
+        
+    emails_queued = 0
+    
+    for student in students:
+        records = attendance_by_student.get(student.id, [])
+        if not records:
+            continue
+            
+        table_rows = []
+        for rec in records:
+            local_ci = to_local(rec.check_in)
+            date_str = local_ci.strftime("%a, %b %d")
+            time_str = local_ci.strftime("%I:%M %p")
+            out_str = to_local(rec.check_out).strftime("%I:%M %p") if rec.check_out else "-"
+            status_cap = rec.status.capitalize()
+            table_rows.append(
+                f"<tr>"
+                f"<td style='padding:8px;border:1px solid #ccc;'>{date_str}</td>"
+                f"<td style='padding:8px;border:1px solid #ccc;'>{status_cap}</td>"
+                f"<td style='padding:8px;border:1px solid #ccc;'>{time_str}</td>"
+                f"<td style='padding:8px;border:1px solid #ccc;'>{out_str}</td>"
+                f"</tr>"
+            )
+            
+        table_html = (
+            "<table style='border-collapse:collapse;width:100%;max-width:600px;'>"
+            "<thead><tr style='background-color:#f3f4f6;'>"
+            "<th style='padding:8px;border:1px solid #ccc;text-align:left;'>Day</th>"
+            "<th style='padding:8px;border:1px solid #ccc;text-align:left;'>Status</th>"
+            "<th style='padding:8px;border:1px solid #ccc;text-align:left;'>Arrival</th>"
+            "<th style='padding:8px;border:1px solid #ccc;text-align:left;'>Departure</th>"
+            "</tr></thead><tbody>"
+            + "".join(table_rows) +
+            "</tbody></table>"
+        )
+        
+        html_body = (
+            f"<div style='font-family:sans-serif;color:#333;'>"
+            f"<h2>Weekly Attendance Report</h2>"
+            f"<p>Hello,</p>"
+            f"<p>Here is the attendance report for <b>{student.student_name}</b> for the week of {start_date.strftime('%b %d')} - {(end_date - timedelta(days=1)).strftime('%b %d')}.</p>"
+            f"{table_html}"
+            f"<br><p>Best regards,<br>School Administration</p>"
+            f"</div>"
+        )
+        
+        background_tasks.add_task(
+            NotificationService.send_email,
+            company_id=student.school_id,
+            recipient_email=student.parent_email,
+            subject=f"Weekly Attendance Report: {student.student_name}",
+            body_text=f"Weekly Attendance Report for {student.student_name}. Please view this email in an HTML-compatible client.",
+            body_html=html_body,
+            event_type="weekly_report"
+        )
+        emails_queued += 1
+        
+    return {
+        "reports_queued": emails_queued,
+        "timestamp": now_utc.isoformat(),
+        "date_range": f"{start_date} to {end_date}"
     }
