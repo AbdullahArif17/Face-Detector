@@ -72,11 +72,10 @@ export default function DashboardPage() {
   );
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [schoolPhoneInput, setSchoolPhoneInput] = useState("");
   const [schoolContactInput, setSchoolContactInput] = useState("");
   const [defaultSessionDurationInput, setDefaultSessionDurationInput] = useState("");
-  const [isSavingSchoolPhone, setIsSavingSchoolPhone] = useState(false);
-  const [schoolPhoneError, setSchoolPhoneError] = useState<string | null>(
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(
     null,
   );
   const [launchingSession, setLaunchingSession] = useState<
@@ -113,7 +112,6 @@ export default function DashboardPage() {
       setEmployees(employeeRecords);
       setTodayRecords(attendanceRecords);
       setSchoolSettings(settingsResponse);
-      setSchoolPhoneInput(settingsResponse?.school_phone ?? "");
       setSchoolContactInput(settingsResponse?.school_contact ?? "");
       setDefaultSessionDurationInput(settingsResponse?.default_session_duration_minutes?.toString() ?? "60");
       setHasError(false);
@@ -242,41 +240,32 @@ export default function DashboardPage() {
 
 
 
-  async function handleSaveSchoolPhone(): Promise<void> {
+  async function handleSaveSettings(): Promise<void> {
     if (!user) return;
-    setSchoolPhoneError(null);
-    const phoneTrimmed = schoolPhoneInput.trim();
+    setSettingsError(null);
     const contactTrimmed = schoolContactInput.trim();
     
-    if (phoneTrimmed && !isValidSchoolPhone(phoneTrimmed)) {
-      setSchoolPhoneError(
-        "Invalid admin phone format. Must be 923001234567 or 03001234567.",
-      );
-      return;
-    }
     if (contactTrimmed && !isValidSchoolPhone(contactTrimmed)) {
-      setSchoolPhoneError(
+      setSettingsError(
         "Invalid contact phone format. Must be 923001234567 or 03001234567.",
       );
       return;
     }
 
-    setIsSavingSchoolPhone(true);
+    setIsSavingSettings(true);
     try {
       await updateSchoolSettings(user.company_id, {
-        school_phone: phoneTrimmed || null,
         school_contact: contactTrimmed || null,
         default_session_duration_minutes: defaultSessionDurationInput ? parseInt(defaultSessionDurationInput, 10) : 60,
       });
-      setSchoolPhoneInput(phoneTrimmed);
       setSchoolContactInput(contactTrimmed);
       setDefaultSessionDurationInput(defaultSessionDurationInput);
     } catch (error) {
-      setSchoolPhoneError(
+      setSettingsError(
         getApiErrorMessage(error, "Failed to save the settings."),
       );
     } finally {
-      setIsSavingSchoolPhone(false);
+      setIsSavingSettings(false);
     }
   }
 
@@ -598,29 +587,9 @@ export default function DashboardPage() {
                     className="grid gap-4 rounded-lg border bg-muted/10 p-4"
                     onSubmit={(event) => {
                       event.preventDefault();
-                      void handleSaveSchoolPhone();
+                      void handleSaveSettings();
                     }}
                   >
-                    <div className="space-y-1.5">
-                      <Label htmlFor="school-phone" className="text-xs font-semibold text-foreground">
-                        Admin Dispatch Number
-                      </Label>
-                      <p className="text-[11px] text-muted-foreground leading-tight">
-                        Internal routing number for staff alerts.
-                      </p>
-                      <Input
-                        id="school-phone"
-                        value={schoolPhoneInput}
-                        disabled={isSavingSchoolPhone}
-                        placeholder="923001234567"
-                        className="h-9 text-sm"
-                        onChange={(event) => {
-                          setSchoolPhoneInput(event.target.value);
-                          setSchoolPhoneError(null);
-                        }}
-                      />
-                    </div>
-
                     <div className="space-y-1.5">
                       <Label htmlFor="school-contact" className="text-xs font-semibold text-foreground">
                         Public School Contact
@@ -631,18 +600,18 @@ export default function DashboardPage() {
                       <Input
                         id="school-contact"
                         value={schoolContactInput}
-                        disabled={isSavingSchoolPhone}
+                        disabled={isSavingSettings}
                         placeholder="Optional"
                         className="h-9 text-sm"
                         onChange={(event) => {
                           setSchoolContactInput(event.target.value);
-                          setSchoolPhoneError(null);
+                          setSettingsError(null);
                         }}
                       />
                     </div>
 
-                    {schoolPhoneError ? (
-                      <p className="text-xs font-medium text-destructive bg-destructive/10 p-2 rounded">{schoolPhoneError}</p>
+                    {settingsError ? (
+                      <p className="text-xs font-medium text-destructive bg-destructive/10 p-2 rounded">{settingsError}</p>
                     ) : null}
 
                     <div className="space-y-1.5">
@@ -657,24 +626,26 @@ export default function DashboardPage() {
                         type="number"
                         min="1"
                         value={defaultSessionDurationInput}
-                        disabled={isSavingSchoolPhone}
+                        disabled={isSavingSettings}
+                        placeholder="60"
                         className="h-9 text-sm"
                         onChange={(event) => {
                           setDefaultSessionDurationInput(event.target.value);
-                          setSchoolPhoneError(null);
+                          setSettingsError(null);
                         }}
                       />
                     </div>
 
-                    <Button
-                      type="submit"
-                      size="sm"
-                      disabled={isSavingSchoolPhone}
-                      className="w-full mt-1 bg-foreground text-background hover:bg-foreground/90"
-                    >
-                      {isSavingSchoolPhone ? "Saving settings..." : "Save Settings"}
-                    </Button>
-                  </form>
+                    <div className="flex justify-end">
+                      <Button
+                        type="submit"
+                        size="sm"
+                        disabled={isSavingSettings}
+                        className="h-8"
+                      >
+                        {isSavingSettings ? "Saving settings..." : "Save Settings"}
+                      </Button>
+                    </div></form>
                 ) : null}
               </div>
             </CardContent>

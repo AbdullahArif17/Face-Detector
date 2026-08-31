@@ -924,12 +924,12 @@ async def auto_mark_attendance(
         if student.parent_email:
             background_tasks.add_task(
                 NotificationService.send_email,
-                session,
-                company.id,
-                student.parent_email,
-                "Student Check-Out Notification",
-                f"<p>Hello,</p><p><b>{student.student_name}</b> has checked out at {display_time(now)}.</p>",
-                "student_checkout",
+                company_id=company.id,
+                recipient_email=student.parent_email or "",
+                subject="Student Check-Out Notification",
+                body_text=f"Hello,\n\n{student.student_name} has checked out at {display_time(now)}.",
+                body_html=f"<p>Hello,</p><p><b>{student.student_name}</b> has checked out at {display_time(now)}.</p>",
+                event_type="student_checkout",
             )
 
         return AttendanceAutoMarkResponse(
@@ -1005,12 +1005,12 @@ async def auto_mark_attendance(
     if student.parent_email:
         background_tasks.add_task(
             NotificationService.send_email,
-            session,
-            company.id,
-            student.parent_email,
-            "Student Check-In Notification",
-            f"<p>Hello,</p><p><b>{student.student_name}</b> has checked in at {display_time(now)}.</p>",
-            "student_checkin",
+            company_id=company.id,
+            recipient_email=student.parent_email or "",
+            subject="Student Check-In Notification",
+            body_text=f"Hello,\n\n{student.student_name} has checked in at {display_time(now)}.",
+            body_html=f"<p>Hello,</p><p><b>{student.student_name}</b> has checked in at {display_time(now)}.</p>",
+            event_type="student_checkin",
         )
 
     return AttendanceAutoMarkResponse(
@@ -1155,7 +1155,7 @@ async def _auto_mark_employee(
 
     status_msg = ""
     if company.attendance_start_time:
-        start_time_today = datetime.combine(now.date(), company.attendance_start_time).replace(tzinfo=now.tzinfo)
+        start_time_today = datetime.combine(now.date(), time.fromisoformat(company.attendance_start_time)).replace(tzinfo=now.tzinfo)
         if company.late_grace_minutes:
             start_time_today += timedelta(minutes=company.late_grace_minutes)
         if now > start_time_today:
@@ -1512,6 +1512,54 @@ async def mark_attendance(
     return attendance
 
 
+async def send_absent_notification(
+    session: AsyncSession,
+    attendance: Attendance,
+    student: Student,
+    school: Company,
+    event_time: datetime,
+):
+    if not student.parent_email:
+        attendance.notification_status = "failed"
+        attendance.notification_sent = False
+        return
+        
+    frontend_url = settings.frontend_origins[0] if settings.frontend_origins else "http://localhost:3000"
+    logo_url = f"{frontend_url.rstrip('/')}/images/face-attendance-logo.png"
+    contact_html = f"<br><p>If you have any questions, please contact us at <b>{school.school_contact}</b>.</p>" if school.school_contact else ""
+    
+    subject = f"Absence Notice: {student.student_name}"
+    body_text = f"Dear Parent,\n\nPlease be informed that {student.student_name} was marked absent on {event_time.strftime('%Y-%m-%d')}.\n\nSchool Administration"
+    body_html = (
+        f"<div style='font-family:sans-serif;color:#333;'>"
+        f"<div style='text-align:center;margin-bottom:20px;'>"
+        f"  <img src='{logo_url}' alt='Face Detector Logo' style='max-width:150px;height:auto;'>"
+        f"</div>"
+        f"<h2>Absence Notice</h2>"
+        f"<p>Dear Parent,</p>"
+        f"<p>Please be informed that <b>{student.student_name}</b> was marked absent on {event_time.strftime('%Y-%m-%d')}.</p>"
+        f"{contact_html}"
+        f"<br><p>Best regards,<br>School Administration</p>"
+        f"</div>"
+    )
+    
+    success = await NotificationService.send_email(
+        company_id=school.id,
+        recipient_email=student.parent_email or "",
+        subject=subject,
+        body_text=body_text,
+        body_html=body_html,
+        event_type="absence_notice"
+    )
+    
+    if success:
+        attendance.notification_sent = True
+        attendance.notification_status = "sent"
+    else:
+        attendance.notification_sent = False
+        attendance.notification_status = "failed"
+
+
 @router.post("/cron/end-sessions", status_code=status.HTTP_200_OK)
 async def cron_end_sessions(
     request: Request,
@@ -1633,6 +1681,9 @@ async def cron_weekly_parent_reports(
     )
     students = students_result.scalars().all()
     
+    companies_result = await session.execute(select(Company))
+    company_by_id = {c.id: c for c in companies_result.scalars().all()}
+    
     attendance_result = await session.execute(
         select(Attendance, Student).join(Student).where(
             Attendance.check_in >= start_time,
@@ -1688,6 +1739,11 @@ async def cron_weekly_parent_reports(
         frontend_url = settings.frontend_origins[0] if settings.frontend_origins else "http://localhost:3000"
         logo_url = f"{frontend_url.rstrip('/')}/images/face-attendance-logo.png"
 
+        company = company_by_id.get(student.school_id)
+        contact_html = ""
+        if company and company.school_contact:
+            contact_html = f"<br><p>If you have any questions, please contact us at <b>{company.school_contact}</b>.</p>"
+
         html_body = (
             f"<div style='font-family:sans-serif;color:#333;'>"
             f"<div style='text-align:center;margin-bottom:20px;'>"
@@ -1697,6 +1753,7 @@ async def cron_weekly_parent_reports(
             f"<p>Hello,</p>"
             f"<p>Here is the attendance report for <b>{student.student_name}</b> for the week of {start_date.strftime('%b %d')} - {(end_date - timedelta(days=1)).strftime('%b %d')}.</p>"
             f"{table_html}"
+            f"{contact_html}"
             f"<br><p>Best regards,<br>School Administration</p>"
             f"</div>"
         )
@@ -1704,7 +1761,7 @@ async def cron_weekly_parent_reports(
         background_tasks.add_task(
             NotificationService.send_email,
             company_id=student.school_id,
-            recipient_email=student.parent_email,
+            recipient_email=student.parent_email or "",
             subject=f"Weekly Attendance Report: {student.student_name}",
             body_text=f"Weekly Attendance Report for {student.student_name}. Please view this email in an HTML-compatible client.",
             body_html=html_body,
