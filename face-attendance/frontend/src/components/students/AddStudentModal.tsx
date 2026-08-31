@@ -66,6 +66,7 @@ export function AddStudentModal({
   const [parentName, setParentName] = useState(student?.parent_name ?? "");
   const [parentPhone, setParentPhone] = useState(student?.parent_phone ?? "");
   const [parentPhone2, setParentPhone2] = useState(student?.parent_phone_2 ?? "");
+  const [parentEmail, setParentEmail] = useState(student?.parent_email ?? "");
   const [profileImage, setProfileImage] = useState<string | null>(
     student?.profile_image ?? null,
   );
@@ -156,11 +157,11 @@ export function AddStudentModal({
       return;
     }
 
-    if (!studentName.trim() || !studentCode.trim() || !parentName.trim()) {
-      setError("Student name, roll number, and parent name are required.");
+    if (!studentName.trim()) {
+      setError("Student name is required.");
       return;
     }
-    if (!isValidParentPhone(parentPhone)) {
+    if (parentPhone.trim() && !isValidParentPhone(parentPhone)) {
       setError("Parent phone number format: 923001234567 or 03001234567.");
       return;
     }
@@ -168,15 +169,20 @@ export function AddStudentModal({
       setError("Second parent number format: 923001234567 or 03001234567.");
       return;
     }
+    if (parentEmail.trim() && !/^\S+@\S+\.\S+$/.test(parentEmail)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
 
     const payload: StudentInput = {
       student_name: studentName.trim(),
-      student_code: studentCode.trim(),
+      student_code: studentCode.trim() || null,
       grade,
       section,
-      parent_name: parentName.trim(),
-      parent_phone: parentPhone.trim(),
+      parent_name: parentName.trim() || null,
+      parent_phone: parentPhone.trim() || null,
       parent_phone_2: parentPhone2.trim() || null,
+      parent_email: parentEmail.trim() || null,
       profile_image: profileImage,
     };
 
@@ -241,7 +247,7 @@ export function AddStudentModal({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="student-code">Roll Number</Label>
+            <Label htmlFor="student-code">Roll Number (optional)</Label>
             <Input
               id="student-code"
               value={studentCode}
@@ -422,7 +428,7 @@ export function AddStudentModal({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="parent-name">Parent/Guardian Name</Label>
+            <Label htmlFor="parent-name">Parent/Guardian Name (optional)</Label>
             <Input
               id="parent-name"
               value={parentName}
@@ -432,7 +438,18 @@ export function AddStudentModal({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="parent-phone">Parent Phone Number</Label>
+            <Label htmlFor="parent-email">Parent Email (optional)</Label>
+            <Input
+              id="parent-email"
+              type="email"
+              value={parentEmail}
+              onChange={(event) => setParentEmail(event.target.value)}
+              placeholder="parent@example.com"
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="parent-phone">Parent Phone Number (optional)</Label>
             <Input
               id="parent-phone"
               inputMode="numeric"

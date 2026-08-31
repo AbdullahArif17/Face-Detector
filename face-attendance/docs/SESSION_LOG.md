@@ -1,0 +1,1 @@
+- **2026-09-01**: Completed migration to make student details (roll number, parent name, parent phone) optional. Added parent_email. Updated backend API, frontend forms, and CSV imports to safely handle null constraints.

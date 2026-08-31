@@ -8,18 +8,21 @@ from app.core.phones import normalize_pakistan_phone
 
 class StudentCreate(BaseModel):
     student_name: str = Field(min_length=1, max_length=255)
-    student_code: str = Field(min_length=1, max_length=100)
+    student_code: str | None = Field(default=None, max_length=100)
     grade: str = Field(min_length=1, max_length=50)
     section: str = Field(min_length=1, max_length=20)
-    parent_name: str = Field(min_length=1, max_length=255)
-    parent_phone: str = Field(min_length=11, max_length=20)
+    parent_name: str | None = Field(default=None, max_length=255)
+    parent_phone: str | None = Field(default=None, max_length=20)
     parent_phone_2: str | None = Field(default=None, max_length=20)
+    parent_email: str | None = Field(default=None, max_length=255)
     profile_image: str | None = Field(default=None, max_length=MAX_IMAGE_BASE64_LENGTH)
     class_id: int | None = None
 
     @field_validator("parent_phone")
     @classmethod
-    def validate_parent_phone(cls, value: str) -> str:
+    def validate_parent_phone(cls, value: str | None) -> str | None:
+        if value is None or value.strip() == "":
+            return None
         return normalize_pakistan_phone(value)
 
     @field_validator("parent_phone_2")
@@ -35,9 +38,10 @@ class StudentUpdate(BaseModel):
     student_code: str | None = Field(default=None, min_length=1, max_length=100)
     grade: str | None = Field(default=None, min_length=1, max_length=50)
     section: str | None = Field(default=None, min_length=1, max_length=20)
-    parent_name: str | None = Field(default=None, min_length=1, max_length=255)
+    parent_name: str | None = Field(default=None, max_length=255)
     parent_phone: str | None = Field(default=None, max_length=20)
     parent_phone_2: str | None = Field(default=None, max_length=20)
+    parent_email: str | None = Field(default=None, max_length=255)
     profile_image: str | None = Field(default=None, max_length=MAX_IMAGE_BASE64_LENGTH)
     class_id: int | None = None
     status: str | None = Field(default=None, max_length=50)
@@ -45,7 +49,7 @@ class StudentUpdate(BaseModel):
     @field_validator("parent_phone")
     @classmethod
     def validate_parent_phone(cls, value: str | None) -> str | None:
-        if value is None:
+        if value is None or value.strip() == "":
             return None
         return normalize_pakistan_phone(value)
 
@@ -64,12 +68,13 @@ class StudentResponse(BaseModel):
     school_id: int
     class_id: int
     student_name: str
-    student_code: str
+    student_code: str | None
     grade: str
     section: str
-    parent_name: str
-    parent_phone: str
+    parent_name: str | None
+    parent_phone: str | None
     parent_phone_2: str | None
+    parent_email: str | None
     profile_image: str | None
     status: str
     has_face_enrolled: bool = False

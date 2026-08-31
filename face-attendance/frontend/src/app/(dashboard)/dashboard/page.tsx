@@ -333,10 +333,9 @@ export default function DashboardPage() {
               </Button>
               <Button
                 type="button"
-                variant="outline"
                 disabled={launchingSession !== null}
                 onClick={() => void handleLaunchKiosk("check_out")}
-                className="shadow-sm"
+                className="shadow-sm bg-primary text-primary-foreground"
               >
                 {launchingSession === "check_out"
                   ? "Launching..."

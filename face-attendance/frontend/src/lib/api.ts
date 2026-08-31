@@ -50,12 +50,13 @@ export interface Student {
   school_id: number;
   class_id: number;
   student_name: string;
-  student_code: string;
+  student_code: string | null;
   grade: string;
   section: string;
-  parent_name: string;
-  parent_phone: string;
+  parent_name: string | null;
+  parent_phone: string | null;
   parent_phone_2: string | null;
+  parent_email: string | null;
   profile_image: string | null;
   status: string;
   has_face_enrolled: boolean;
@@ -64,24 +65,26 @@ export interface Student {
 
 export interface StudentInput {
   student_name: string;
-  student_code: string;
+  student_code?: string | null;
   grade: string;
   section: string;
-  parent_name: string;
-  parent_phone: string;
+  parent_name?: string | null;
+  parent_phone?: string | null;
   parent_phone_2?: string | null;
+  parent_email?: string | null;
   profile_image?: string | null;
   class_id?: number;
 }
 
 export interface StudentUpdateInput {
   student_name?: string;
-  student_code?: string;
+  student_code?: string | null;
   grade?: string;
   section?: string;
-  parent_name?: string;
-  parent_phone?: string;
+  parent_name?: string | null;
+  parent_phone?: string | null;
   parent_phone_2?: string | null;
+  parent_email?: string | null;
   profile_image?: string | null;
   class_id?: number;
   status?: string;

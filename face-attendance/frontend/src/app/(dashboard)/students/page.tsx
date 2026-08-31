@@ -172,7 +172,7 @@ export default function StudentsPage() {
     return (
       normalizedSearch.length === 0 ||
       student.student_name.toLowerCase().includes(normalizedSearch) ||
-      student.student_code.toLowerCase().includes(normalizedSearch)
+      (student.student_code && student.student_code.toLowerCase().includes(normalizedSearch))
     );
   });
   const hasActiveFilters = Boolean(
@@ -419,13 +419,13 @@ export default function StudentsPage() {
               <div>
                 <dt className="text-xs text-muted-foreground">Parent</dt>
                 <dd className="mt-0.5 truncate font-medium">
-                  {student.parent_name}
+                  {student.parent_name || <span className="text-muted-foreground font-normal italic">Not provided</span>}
                 </dd>
               </div>
               <div>
-                <dt className="text-xs text-muted-foreground">Phone</dt>
+                <dt className="text-xs text-muted-foreground">Contact</dt>
                 <dd className="mt-0.5 tabular-nums">
-                  {maskPhone(student.parent_phone)}
+                  {student.parent_phone ? maskPhone(student.parent_phone) : <span className="text-muted-foreground font-normal italic">Not provided</span>}
                 </dd>
               </div>
             </dl>
@@ -487,9 +487,11 @@ export default function StudentsPage() {
                 <td className="px-4 py-3.5">
                   {student.grade}-{student.section}
                 </td>
-                <td className="px-4 py-3.5">{student.parent_name}</td>
+                <td className="px-4 py-3.5">
+                  {student.parent_name ? student.parent_name : <span className="text-muted-foreground italic">Not provided</span>}
+                </td>
                 <td className="px-4 py-3.5 tabular-nums text-muted-foreground">
-                  {maskPhone(student.parent_phone)}
+                  {student.parent_phone ? maskPhone(student.parent_phone) : <span className="italic">Not provided</span>}
                 </td>
                 <td className="px-4 py-3.5">
                   <FaceBadge hasFaceEnrolled={student.has_face_enrolled} />

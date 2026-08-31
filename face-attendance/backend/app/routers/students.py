@@ -123,6 +123,7 @@ async def build_student_response(
         parent_name=student.parent_name,
         parent_phone=student.parent_phone,
         parent_phone_2=student.parent_phone_2,
+        parent_email=student.parent_email,
         profile_image=student.profile_image,
         status=student.status,
         has_face_enrolled=has_face_enrolled,
@@ -183,13 +184,14 @@ async def create_student(
     school_id = current_user.company_id
     grade = normalize_grade(payload.grade)
     section = normalize_section(payload.section)
-    student_code = payload.student_code.strip()
+    student_code = payload.student_code.strip() if payload.student_code else None
 
-    await ensure_unique_student_code(
-        session,
-        school_id=school_id,
-        student_code=student_code,
-    )
+    if student_code:
+        await ensure_unique_student_code(
+            session,
+            school_id=school_id,
+            student_code=student_code,
+        )
 
     school_class = (
         await session.get(Branch, payload.class_id)
@@ -211,9 +213,10 @@ async def create_student(
         student_code=student_code,
         grade=grade,
         section=section,
-        parent_name=payload.parent_name.strip(),
+        parent_name=payload.parent_name.strip() if payload.parent_name else None,
         parent_phone=payload.parent_phone,
         parent_phone_2=payload.parent_phone_2,
+        parent_email=payload.parent_email,
         profile_image=(
             make_profile_thumbnail(payload.profile_image)
             if payload.profile_image
@@ -253,15 +256,19 @@ async def update_student(
             str(update_data["profile_image"]),
         )
 
-    if "student_code" in update_data and update_data["student_code"] is not None:
-        student_code = str(update_data["student_code"]).strip()
-        await ensure_unique_student_code(
-            session,
-            school_id=current_user.company_id,
-            student_code=student_code,
-            exclude_student_id=student.id,
-        )
-        update_data["student_code"] = student_code
+    if "student_code" in update_data:
+        if update_data["student_code"] is not None:
+            student_code = str(update_data["student_code"]).strip() or None
+            if student_code:
+                await ensure_unique_student_code(
+                    session,
+                    school_id=current_user.company_id,
+                    student_code=student_code,
+                    exclude_student_id=student.id,
+                )
+            update_data["student_code"] = student_code
+        else:
+            update_data["student_code"] = None
 
     if "grade" in update_data and update_data["grade"] is not None:
         update_data["grade"] = normalize_grade(str(update_data["grade"]))
@@ -284,7 +291,14 @@ async def update_student(
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid class")
 
     for field, value in update_data.items():
-        if value is not None or field in {"parent_phone_2", "profile_image"}:
+        if value is not None or field in {
+            "student_code",
+            "parent_name",
+            "parent_phone",
+            "parent_phone_2",
+            "parent_email",
+            "profile_image",
+        }:
             setattr(student, field, value)
 
     try:
@@ -340,16 +354,13 @@ async def import_students(
     reader = csv.DictReader(StringIO(content))
     required_columns = {
         "student_name",
-        "student_code",
         "grade",
         "section",
-        "parent_name",
-        "parent_phone",
     }
     if not reader.fieldnames or not required_columns.issubset(set(reader.fieldnames)):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="CSV must include student_name, student_code, grade, section, parent_name, parent_phone",
+            detail="CSV must include student_name, grade, section",
         )
 
     created = 0
@@ -367,11 +378,12 @@ async def import_students(
         try:
             payload = StudentCreate(
                 student_name=row.get("student_name", ""),
-                student_code=row.get("student_code", ""),
+                student_code=row.get("student_code", "").strip() or None,
                 grade=row.get("grade", ""),
                 section=row.get("section", ""),
-                parent_name=row.get("parent_name", ""),
-                parent_phone=row.get("parent_phone", ""),
+                parent_name=row.get("parent_name", "").strip() or None,
+                parent_phone=row.get("parent_phone", "").strip() or None,
+                parent_email=row.get("parent_email", "").strip() or None,
             )
             await create_student(payload, session=session, current_user=current_user)
             created += 1
