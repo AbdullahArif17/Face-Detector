@@ -1685,8 +1685,14 @@ async def cron_weekly_parent_reports(
             "</tbody></table>"
         )
         
+        frontend_url = settings.frontend_origins[0] if settings.frontend_origins else "http://localhost:3000"
+        logo_url = f"{frontend_url.rstrip('/')}/images/face-attendance-logo.png"
+
         html_body = (
             f"<div style='font-family:sans-serif;color:#333;'>"
+            f"<div style='text-align:center;margin-bottom:20px;'>"
+            f"  <img src='{logo_url}' alt='Face Detector Logo' style='max-width:150px;height:auto;'>"
+            f"</div>"
             f"<h2>Weekly Attendance Report</h2>"
             f"<p>Hello,</p>"
             f"<p>Here is the attendance report for <b>{student.student_name}</b> for the week of {start_date.strftime('%b %d')} - {(end_date - timedelta(days=1)).strftime('%b %d')}.</p>"
