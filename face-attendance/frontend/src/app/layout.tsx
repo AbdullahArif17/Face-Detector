@@ -35,6 +35,17 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="apple-touch-icon" href="/images/face-attendance-logo.png" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.pwaDeferredPrompt = null;
+              window.addEventListener('beforeinstallprompt', function(e) {
+                e.preventDefault();
+                window.pwaDeferredPrompt = e;
+              });
+            `,
+          }}
+        />
       </head>
       <body>
         <AuthProvider>{children}</AuthProvider>
