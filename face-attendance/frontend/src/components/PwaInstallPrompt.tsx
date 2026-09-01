@@ -64,7 +64,7 @@ export function PwaInstallPrompt() {
   }
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-[100] flex items-center justify-between border-b bg-background px-3 py-2 shadow-sm sm:bottom-4 sm:top-auto sm:left-auto sm:right-4 sm:w-auto sm:min-w-[320px] sm:rounded-xl sm:border sm:shadow-lg animate-in slide-in-from-top-2 sm:slide-in-from-bottom-2 fade-in duration-300">
+    <div className="fixed bottom-0 left-0 right-0 z-[100] flex items-center justify-between border-t bg-background px-3 py-3 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] sm:bottom-4 sm:border-t-0 sm:top-auto sm:left-auto sm:right-4 sm:w-auto sm:min-w-[320px] sm:rounded-xl sm:border sm:shadow-lg animate-in slide-in-from-bottom-2 fade-in duration-300">
       <div className="flex items-center gap-3">
         <button onClick={handleDismiss} className="text-muted-foreground hover:text-foreground p-1 -ml-1">
           <X className="size-4" />

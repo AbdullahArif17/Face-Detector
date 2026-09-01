@@ -149,7 +149,9 @@ export default function StaffReportsPage() {
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const loadHistory = useCallback(async (): Promise<void> => {
-    setIsHistoryLoading(true);
+    if (historyRecords.length === 0) {
+      setIsHistoryLoading(true);
+    }
     try {
       const records = await getStaffAttendanceHistory({
         startDate,
@@ -165,7 +167,7 @@ export default function StaffReportsPage() {
     } finally {
       setIsHistoryLoading(false);
     }
-  }, [endDate, selectedEmployeeId, startDate]);
+  }, [endDate, selectedEmployeeId, startDate, historyRecords.length]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -190,6 +192,10 @@ export default function StaffReportsPage() {
 
   useEffect(() => {
     void Promise.resolve().then(loadHistory);
+    const interval = window.setInterval(() => {
+      void loadHistory();
+    }, 30_000);
+    return () => window.clearInterval(interval);
   }, [loadHistory]);
 
   // Filter records by designation and search term

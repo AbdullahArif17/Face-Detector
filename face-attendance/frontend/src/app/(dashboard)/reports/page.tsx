@@ -141,7 +141,9 @@ export default function StudentReportsPage() {
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const loadHistory = useCallback(async (): Promise<void> => {
-    setIsHistoryLoading(true);
+    if (historyRecords.length === 0) {
+      setIsHistoryLoading(true);
+    }
     try {
       const records = await getAttendanceHistory({
         startDate,
@@ -157,7 +159,7 @@ export default function StudentReportsPage() {
     } finally {
       setIsHistoryLoading(false);
     }
-  }, [endDate, selectedStudentId, startDate]);
+  }, [endDate, selectedStudentId, startDate, historyRecords.length]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -182,6 +184,10 @@ export default function StudentReportsPage() {
 
   useEffect(() => {
     void Promise.resolve().then(loadHistory);
+    const interval = window.setInterval(() => {
+      void loadHistory();
+    }, 30_000);
+    return () => window.clearInterval(interval);
   }, [loadHistory]);
 
   // Filter records by grade, section, and search term

@@ -1094,6 +1094,16 @@ async def _auto_mark_employee(
             {"employee_id": str(employee.id)}
         )
 
+        if company.hr_email:
+            background_tasks.add_task(
+                NotificationService.send_email,
+                company_id=company.id,
+                recipient_email=company.hr_email,
+                subject="Staff Check-Out Notification",
+                body_text=f"Hello HR,\n\n{employee.name} has checked out at {display_time(now)}.",
+                event_type="employee_checkout",
+            )
+
         return AttendanceAutoMarkResponse(
             matched=True,
             employee=response_employee,
@@ -1172,6 +1182,16 @@ async def _auto_mark_employee(
         "employee_checkin",
         {"employee_id": str(employee.id)}
     )
+
+    if company.hr_email:
+        background_tasks.add_task(
+            NotificationService.send_email,
+            company_id=company.id,
+            recipient_email=company.hr_email,
+            subject="Staff Check-In Notification",
+            body_text=f"Hello HR,\n\n{employee.name} has checked in at {display_time(now)}{status_msg}.",
+            event_type="employee_checkin",
+        )
 
     return AttendanceAutoMarkResponse(
         matched=True,

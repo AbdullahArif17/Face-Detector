@@ -172,7 +172,9 @@ class NotificationService:
             import asyncio
             
             def _send():
-                with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as server:
+                host = settings.smtp_host or ""
+                port = settings.smtp_port or 587
+                with smtplib.SMTP(host, port) as server:
                     server.starttls()
                     server.login(settings.smtp_user, settings.smtp_pass) # type: ignore
                     server.send_message(msg)

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BookOpen,
   Briefcase,
   CalendarCheck,
   ClipboardList,
@@ -35,6 +36,7 @@ const navigation = [
   { name: "Student Reports", href: "/reports", icon: FileText },
   { name: "Staff Reports", href: "/staff-reports", icon: ClipboardList },
   { name: "Notifications", href: "/notifications", icon: MessageSquareText },
+  { name: "Guide", href: "/guide", icon: BookOpen },
 ] as const;
 
 const usersNavigationItem = {
