@@ -44,7 +44,7 @@ export function FirebaseNotifications() {
           if (payload.notification) {
             new Notification(payload.notification.title || "Notification", {
               body: payload.notification.body,
-              icon: payload.notification.image || "/icon-192x192.png",
+              icon: payload.notification.image || "/images/face-attendance-logo.png",
             });
           }
         });
