@@ -1,263 +1,34 @@
 "use client";
 
-import { Pencil, Power, PowerOff, RefreshCcw, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Power, PowerOff, RefreshCcw } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
 import { ApiError } from "@/components/api-error";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { KioskSettings } from "@/components/kiosk-settings";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 import { getApiErrorMessage } from "@/lib/errors";
 import { canManageAttendanceSessions } from "@/lib/permissions";
 import {
   getActiveAttendanceSession,
-  getAttendanceToday,
   startAttendanceSession,
   stopAttendanceSession,
-  updateManualAttendance,
   type AttendanceSession,
   type AttendanceSessionStatus,
-  type AttendanceDashboardRecord,
 } from "@/lib/api";
-
-type AttendanceEditableStatus = "present" | "absent" | "excused";
-
-interface AttendanceEditState {
-  record: AttendanceDashboardRecord;
-  status: AttendanceEditableStatus;
-  checkInTime: string;
-  checkOutTime: string;
-  error: string;
-}
-
-const timeFormatter = new Intl.DateTimeFormat("en-US", {
-  timeStyle: "short",
-});
 
 const dateTimeFormatter = new Intl.DateTimeFormat("en-US", {
   dateStyle: "medium",
   timeStyle: "short",
 });
 
-function formatTime(value: string | null): string {
-  return value ? timeFormatter.format(new Date(value)) : "—";
-}
-
-function timeInputValue(value: string | null): string {
-  if (!value) {
-    return "";
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-  return date.toTimeString().slice(0, 5);
-}
-
-function defaultCheckInTime(): string {
-  return new Date().toTimeString().slice(0, 5);
-}
-
-function StatusBadge({ status }: Readonly<{ status: string }>) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold capitalize tracking-wide",
-        status === "present"
-          ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/10"
-          : status === "late"
-            ? "bg-yellow-50 text-yellow-700 ring-1 ring-yellow-600/10"
-            : status === "absent"
-              ? "bg-red-50 text-red-700 ring-1 ring-red-600/10"
-              : "bg-slate-50 text-slate-500 ring-1 ring-slate-500/10",
-      )}
-    >
-      <span className={cn(
-        "size-1.5 rounded-full",
-        status === "present" ? "bg-emerald-500"
-          : status === "late" ? "bg-yellow-500"
-          : status === "absent" ? "bg-red-500"
-          : "bg-slate-400",
-      )} />
-      {status}
-    </span>
-  );
-}
-
-function AttendanceTable({
-  records,
-  isLoading,
-  canEdit,
-  onEdit,
-}: Readonly<{
-  records: AttendanceDashboardRecord[];
-  isLoading: boolean;
-  canEdit: boolean;
-  onEdit: (record: AttendanceDashboardRecord) => void;
-}>) {
-  const columnCount = canEdit ? 7 : 6;
-
-  return (
-    <>
-      <div className="grid gap-3 md:hidden">
-        {isLoading ? (
-          Array.from({ length: 3 }).map((_, index) => (
-            <div key={`skeleton-mobile-${index}`} className="rounded-xl border bg-card p-4 shadow-card">
-              <div className="flex items-center gap-3">
-                <div className="flex-1 space-y-2">
-                  <div className="skeleton h-4 w-32 rounded" />
-                  <div className="skeleton h-3 w-24 rounded" />
-                </div>
-                <div className="skeleton h-5 w-16 rounded-full" />
-              </div>
-            </div>
-          ))
-        ) : null}
-        {!isLoading && records.length === 0 ? (
-          <div className="rounded-xl border bg-card p-8 text-center shadow-card">
-            <p className="font-semibold">No attendance records</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Records will appear here after the session receives a scan or a
-              staff member adds attendance.
-            </p>
-          </div>
-        ) : null}
-        {records.map((record) => (
-          <article
-            className="card-hover rounded-xl border bg-card p-4 shadow-card"
-            key={`${record.student_id}-${record.attendance_date}-${record.attendance_id ?? "absent"}-mobile`}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate font-semibold">{record.student_name}</p>
-                <p className="mt-0.5 text-sm text-muted-foreground">
-                  {record.grade}-{record.section}
-                </p>
-              </div>
-              <StatusBadge status={record.status} />
-            </div>
-            <dl className="mt-4 grid grid-cols-3 gap-3 text-sm">
-              <div>
-                <dt className="text-xs text-muted-foreground">Check-in</dt>
-                <dd className="mt-1 tabular-nums">{formatTime(record.check_in)}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-muted-foreground">Check-out</dt>
-                <dd className="mt-1 tabular-nums">{formatTime(record.check_out)}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-muted-foreground">Hours</dt>
-                <dd className="mt-1 tabular-nums">{record.working_hours}</dd>
-              </div>
-            </dl>
-            {canEdit ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="mt-4 w-full gap-2"
-                onClick={() => onEdit(record)}
-              >
-                <Pencil aria-hidden="true" className="size-4" />
-                Edit attendance
-              </Button>
-            ) : null}
-          </article>
-        ))}
-      </div>
-
-      <div className="hidden overflow-x-auto rounded-xl border bg-card shadow-card md:block">
-      <table className="min-w-[860px] w-full text-left text-sm">
-        <thead className="border-b bg-muted/30">
-          <tr>
-            <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Student Name</th>
-            <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Class</th>
-            <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Check-in</th>
-            <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Check-out</th>
-            <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
-            <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Working Hours</th>
-            {canEdit ? (
-              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actions</th>
-            ) : null}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
-          {isLoading ? (
-            Array.from({ length: 3 }).map((_, index) => (
-              <tr key={`skeleton-${index}`}>
-                {Array.from({ length: columnCount }).map((_, colIndex) => (
-                  <td key={colIndex} className="px-4 py-4">
-                    <div className="skeleton h-4 w-20 rounded" />
-                  </td>
-                ))}
-              </tr>
-            ))
-          ) : null}
-
-          {!isLoading && records.length === 0 ? (
-            <tr>
-              <td className="px-4 py-12 text-center text-muted-foreground" colSpan={columnCount}>
-                No attendance records found.
-              </td>
-            </tr>
-          ) : null}
-
-          {records.map((record) => (
-            <tr
-              className="transition-colors hover:bg-muted/30"
-              key={`${record.student_id}-${record.attendance_date}-${record.attendance_id ?? "absent"}`}
-            >
-              <td className="px-4 py-3.5 font-medium">{record.student_name}</td>
-              <td className="px-4 py-3.5 text-muted-foreground">
-                {record.grade}-{record.section}
-              </td>
-              <td className="px-4 py-3.5 tabular-nums text-muted-foreground">
-                {formatTime(record.check_in)}
-              </td>
-              <td className="px-4 py-3.5 tabular-nums text-muted-foreground">
-                {formatTime(record.check_out)}
-              </td>
-              <td className="px-4 py-3.5">
-                <StatusBadge status={record.status} />
-              </td>
-              <td className="px-4 py-3.5 tabular-nums text-muted-foreground">
-                {record.working_hours}
-              </td>
-              {canEdit ? (
-                <td className="px-4 py-3.5">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-2 shadow-sm"
-                    onClick={() => onEdit(record)}
-                  >
-                    <Pencil aria-hidden="true" className="size-4" />
-                    Edit
-                  </Button>
-                </td>
-              ) : null}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      </div>
-    </>
-  );
-}
-
 export default function AttendancePage() {
   const { user } = useAuth();
   const canManageSessions = canManageAttendanceSessions(user);
-  const canEditAttendance = canManageSessions;
   
-  const [todayRecords, setTodayRecords] = useState<AttendanceDashboardRecord[]>([]);
   const [globalSession, setGlobalSession] = useState<AttendanceSessionStatus | null>(null);
-  
-  const [isTodayLoading, setIsTodayLoading] = useState(true);
   const [isSessionLoading, setIsSessionLoading] = useState(true);
   
   const [isUpdatingSession, setIsUpdatingSession] = useState(false);
@@ -265,22 +36,7 @@ export default function AttendancePage() {
   const [sessionMessage, setSessionMessage] = useState("");
   const [sessionMessageIsError, setSessionMessageIsError] = useState(false);
   
-  const [editState, setEditState] = useState<AttendanceEditState | null>(null);
   const [pendingStopSession, setPendingStopSession] = useState<AttendanceSession | null>(null);
-  const [isSavingEdit, setIsSavingEdit] = useState(false);
-
-  const loadToday = useCallback(async (): Promise<void> => {
-    setIsTodayLoading(true);
-    try {
-      const records = await getAttendanceToday();
-      setTodayRecords(records);
-      setHasError(false);
-    } catch {
-      setHasError(true);
-    } finally {
-      setIsTodayLoading(false);
-    }
-  }, []);
 
   const loadGlobalSession = useCallback(async (): Promise<void> => {
     setIsSessionLoading(true);
@@ -296,30 +52,18 @@ export default function AttendancePage() {
   }, []);
 
   useEffect(() => {
-    void Promise.resolve().then(async () => {
-      await Promise.all([loadToday(), loadGlobalSession()]);
-    });
-  }, [loadToday, loadGlobalSession]);
+    void loadGlobalSession();
+  }, [loadGlobalSession]);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
-      void loadToday();
       void loadGlobalSession();
     }, 30_000);
     return () => window.clearInterval(interval);
-  }, [loadGlobalSession, loadToday]);
-
-  const summary = useMemo(
-    () => ({
-      present: todayRecords.filter((record) => record.status === "present").length,
-      late: todayRecords.filter((record) => record.status === "late").length,
-      absent: todayRecords.filter((record) => record.status === "absent").length,
-    }),
-    [todayRecords],
-  );
+  }, [loadGlobalSession]);
 
   async function handleRefresh(): Promise<void> {
-    await Promise.all([loadToday(), loadGlobalSession()]);
+    await loadGlobalSession();
   }
 
   async function handleStartSession(sessionType: "check_in" | "check_out"): Promise<void> {
@@ -329,7 +73,7 @@ export default function AttendancePage() {
     try {
       await startAttendanceSession(sessionType);
       setSessionMessage(`Global ${sessionType.replace("_", "-")} session started.`);
-      await Promise.all([loadGlobalSession(), loadToday()]);
+      await loadGlobalSession();
     } catch (error) {
       setSessionMessageIsError(true);
       setSessionMessage(
@@ -351,7 +95,7 @@ export default function AttendancePage() {
     try {
       await stopAttendanceSession(pendingStopSession.id);
       setSessionMessage("Attendance session stopped.");
-      await Promise.all([loadGlobalSession(), loadToday()]);
+      await loadGlobalSession();
     } catch (error) {
       setSessionMessageIsError(true);
       setSessionMessage(
@@ -360,56 +104,6 @@ export default function AttendancePage() {
     } finally {
       setIsUpdatingSession(false);
       setPendingStopSession(null);
-    }
-  }
-
-  function handleEditRecord(record: AttendanceDashboardRecord): void {
-    const normalizedStatus = ["present", "absent", "excused"].includes(record.status)
-      ? (record.status as AttendanceEditableStatus)
-      : "present";
-    setEditState({
-      record,
-      status: normalizedStatus,
-      checkInTime:
-        normalizedStatus === "present"
-          ? timeInputValue(record.check_in) || defaultCheckInTime()
-          : "",
-      checkOutTime: normalizedStatus === "present" ? timeInputValue(record.check_out) : "",
-      error: "",
-    });
-  }
-
-  async function handleSaveAttendanceEdit(): Promise<void> {
-    if (!editState || isSavingEdit) {
-      return;
-    }
-    if (editState.status === "present" && !editState.checkInTime) {
-      setEditState({ ...editState, error: "Check-in time is required." });
-      return;
-    }
-
-    setIsSavingEdit(true);
-    try {
-      await updateManualAttendance({
-        attendance_id: editState.record.attendance_id,
-        student_id: editState.record.student_id,
-        attendance_date: editState.record.attendance_date,
-        status: editState.status,
-        check_in_time: editState.status === "present" ? editState.checkInTime : null,
-        check_out_time:
-          editState.status === "present" && editState.checkOutTime
-            ? editState.checkOutTime
-            : null,
-      });
-      setEditState(null);
-      await loadToday();
-    } catch (error) {
-      setEditState({
-        ...editState,
-        error: getApiErrorMessage(error, "Unable to save attendance."),
-      });
-    } finally {
-      setIsSavingEdit(false);
     }
   }
 
@@ -424,7 +118,7 @@ export default function AttendancePage() {
             <span className="text-gradient">Live Attendance</span>
           </h1>
           <p className="mt-2 max-w-2xl text-muted-foreground text-pretty">
-            Live attendance records for today.
+            Live attendance session status.
           </p>
         </div>
         <Button
@@ -434,7 +128,7 @@ export default function AttendancePage() {
           onClick={() => void handleRefresh()}
         >
           <RefreshCcw aria-hidden="true" className="size-4" />
-          Refresh Today
+          Refresh
         </Button>
       </div>
 
@@ -488,7 +182,7 @@ export default function AttendancePage() {
                 <div>
                   <h3 className="font-semibold">Check-in Session</h3>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Students arriving at school
+                    Students and staff arriving
                   </p>
                 </div>
                 <span
@@ -550,17 +244,18 @@ export default function AttendancePage() {
                 <div>
                   <h3 className="font-semibold">Check-out Session</h3>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Students leaving school
+                    Students and staff leaving
                   </p>
                 </div>
                 <span
                   className={cn(
-                    "inline-flex rounded-full px-2.5 py-1 text-xs font-semibold",
+                    "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold tracking-wider",
                     isCheckOutActive
-                      ? "bg-green-100 text-green-700"
-                      : "bg-slate-100 text-slate-600",
+                      ? "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-600/10"
+                      : "bg-slate-100 text-slate-500 ring-1 ring-slate-500/10",
                   )}
                 >
+                  <span className={cn("size-1.5 rounded-full", isCheckOutActive ? "bg-emerald-500 animate-pulse" : "bg-slate-400")} />
                   {isCheckOutActive ? "ON" : "OFF"}
                 </span>
               </div>
@@ -607,164 +302,8 @@ export default function AttendancePage() {
       {hasError ? (
         <ApiError
           onRetry={() => void handleRefresh()}
-          isRetrying={isTodayLoading || isSessionLoading}
+          isRetrying={isSessionLoading}
         />
-      ) : null}
-
-      <div className="space-y-4">
-        <div className="grid gap-3 md:grid-cols-3">
-          <div className="rounded-lg border bg-card p-4">
-            <p className="text-sm text-muted-foreground">Present</p>
-            <p className="mt-2 text-2xl font-bold text-green-700">
-              {summary.present}
-            </p>
-          </div>
-          <div className="rounded-lg border bg-card p-4">
-            <p className="text-sm text-muted-foreground">Late</p>
-            <p className="mt-2 text-2xl font-bold text-yellow-700">
-              {summary.late}
-            </p>
-          </div>
-          <div className="rounded-lg border bg-card p-4">
-            <p className="text-sm text-muted-foreground">Absent</p>
-            <p className="mt-2 text-2xl font-bold text-red-700">
-              {summary.absent}
-            </p>
-          </div>
-        </div>
-        <AttendanceTable
-          records={todayRecords}
-          isLoading={isTodayLoading}
-          canEdit={canEditAttendance}
-          onEdit={handleEditRecord}
-        />
-      </div>
-
-      {editState ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="edit-attendance-title"
-        >
-          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-lg border bg-background p-5 shadow-lg">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-semibold" id="edit-attendance-title">
-                  Edit attendance
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {editState.record.student_name} · {editState.record.grade}-
-                  {editState.record.section}
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label="Close attendance editor"
-                onClick={() => setEditState(null)}
-              >
-                <X aria-hidden="true" className="size-4" />
-              </Button>
-            </div>
-
-            <div className="mt-5 grid gap-4">
-              <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="attendance-status">
-                  Status
-                </label>
-                <select
-                  id="attendance-status"
-                  value={editState.status}
-                  onChange={(event) => {
-                    const nextStatus = event.target.value as AttendanceEditableStatus;
-                    setEditState({
-                      ...editState,
-                      status: nextStatus,
-                      checkInTime:
-                        nextStatus === "present"
-                          ? editState.checkInTime || defaultCheckInTime()
-                          : "",
-                      checkOutTime:
-                        nextStatus === "present" ? editState.checkOutTime : "",
-                      error: "",
-                    });
-                  }}
-                  className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <option value="present">Present</option>
-                  <option value="absent">Absent</option>
-                  <option value="excused">Excused</option>
-                </select>
-              </div>
-
-              {editState.status === "present" ? (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium" htmlFor="check-in-time">
-                      Check-in
-                    </label>
-                    <Input
-                      id="check-in-time"
-                      type="time"
-                      value={editState.checkInTime}
-                      onChange={(event) =>
-                        setEditState({
-                          ...editState,
-                          checkInTime: event.target.value,
-                          error: "",
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium" htmlFor="check-out-time">
-                      Check-out
-                    </label>
-                    <Input
-                      id="check-out-time"
-                      type="time"
-                      value={editState.checkOutTime}
-                      onChange={(event) =>
-                        setEditState({
-                          ...editState,
-                          checkOutTime: event.target.value,
-                          error: "",
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-              ) : null}
-
-              {editState.error ? (
-                <p
-                  className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
-                >
-                  {editState.error}
-                </p>
-              ) : null}
-            </div>
-
-            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setEditState(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                disabled={isSavingEdit}
-                onClick={() => void handleSaveAttendanceEdit()}
-              >
-                {isSavingEdit ? "Saving..." : "Save changes"}
-              </Button>
-            </div>
-          </div>
-        </div>
       ) : null}
 
       <ConfirmDialog
