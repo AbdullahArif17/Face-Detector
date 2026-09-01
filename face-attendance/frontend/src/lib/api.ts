@@ -314,6 +314,7 @@ export interface SchoolSettings {
   school_phone: string | null;
   school_contact: string | null;
   school_logo: string | null;
+  hr_email: string | null;
   attendance_start_time: string;
   check_in_end_time: string | null;
   check_out_end_time: string | null;
@@ -325,6 +326,7 @@ export interface UpdateSchoolSettingsInput {
   school_phone?: string | null;
   school_contact?: string | null;
   school_logo?: string | null;
+  hr_email?: string | null;
   attendance_start_time?: string;
   check_in_end_time?: string | null;
   check_out_end_time?: string | null;

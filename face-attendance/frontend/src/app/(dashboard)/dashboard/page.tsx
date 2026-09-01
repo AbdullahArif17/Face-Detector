@@ -73,6 +73,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [schoolContactInput, setSchoolContactInput] = useState("");
+  const [hrEmailInput, setHrEmailInput] = useState("");
   const [defaultSessionDurationInput, setDefaultSessionDurationInput] = useState("");
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(
@@ -113,6 +114,7 @@ export default function DashboardPage() {
       setTodayRecords(attendanceRecords);
       setSchoolSettings(settingsResponse);
       setSchoolContactInput(settingsResponse?.school_contact ?? "");
+      setHrEmailInput(settingsResponse?.hr_email ?? "");
       setDefaultSessionDurationInput(settingsResponse?.default_session_duration_minutes?.toString() ?? "60");
       setHasError(false);
     } catch {
@@ -256,9 +258,11 @@ export default function DashboardPage() {
     try {
       await updateSchoolSettings(user.company_id, {
         school_contact: contactTrimmed || null,
+        hr_email: hrEmailInput.trim() || null,
         default_session_duration_minutes: defaultSessionDurationInput ? parseInt(defaultSessionDurationInput, 10) : 60,
       });
       setSchoolContactInput(contactTrimmed);
+      setHrEmailInput(hrEmailInput.trim());
       setDefaultSessionDurationInput(defaultSessionDurationInput);
     } catch (error) {
       setSettingsError(
@@ -604,6 +608,27 @@ export default function DashboardPage() {
                         className="h-9 text-sm"
                         onChange={(event) => {
                           setSchoolContactInput(event.target.value);
+                          setSettingsError(null);
+                        }}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="hr-email" className="text-xs font-semibold text-foreground">
+                        HR Admin Email
+                      </Label>
+                      <p className="text-[11px] text-muted-foreground leading-tight">
+                        Email address for staff and teacher alerts.
+                      </p>
+                      <Input
+                        id="hr-email"
+                        type="email"
+                        value={hrEmailInput}
+                        disabled={isSavingSettings}
+                        placeholder="Optional"
+                        className="h-9 text-sm"
+                        onChange={(event) => {
+                          setHrEmailInput(event.target.value);
                           setSettingsError(null);
                         }}
                       />

@@ -45,6 +45,7 @@ def build_school_settings_response(company: Company) -> SchoolSettingsResponse:
         school_phone=company.school_phone,
         school_contact=company.school_contact,
         school_logo=company.school_logo,
+        hr_email=company.hr_email,
         attendance_start_time=company.attendance_start_time,
         check_in_end_time=company.check_in_end_time,
         check_out_end_time=company.check_out_end_time,

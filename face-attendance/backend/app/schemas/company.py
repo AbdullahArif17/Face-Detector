@@ -51,6 +51,7 @@ class SchoolSettingsResponse(BaseModel):
     school_phone: str | None
     school_contact: str | None
     school_logo: str | None
+    hr_email: str | None = None
     attendance_start_time: str = "09:00"
     check_in_end_time: str | None = None
     check_out_end_time: str | None = None
@@ -64,6 +65,11 @@ class SchoolSettingsUpdate(BaseModel):
     school_phone: str | None = Field(default=None, max_length=50)
     school_contact: str | None = Field(default=None, max_length=50)
     school_logo: str | None = Field(default=None, max_length=500)
+    hr_email: str | None = Field(
+        default=None,
+        max_length=255,
+        description="HR Email for staff and teacher notifications",
+    )
     check_in_end_time: str | None = Field(
         default=None,
         pattern=r"^([01]\d|2[0-3]):[0-5]\d$",

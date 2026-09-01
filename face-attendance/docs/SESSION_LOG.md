@@ -1,1 +1,2 @@
 - **2026-09-01**: Completed migration to make student details (roll number, parent name, parent phone) optional. Added parent_email. Updated backend API, frontend forms, and CSV imports to safely handle null constraints.
+- **2026-09-02**: Added HR Email setting to School Settings for organizations to define contact information for staff/teacher email notifications. Generated Alembic migrations, updated the backend Company model and API endpoints, and integrated the new input field into the Next.js admin dashboard.

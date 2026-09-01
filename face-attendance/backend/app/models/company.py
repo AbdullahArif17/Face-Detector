@@ -18,6 +18,7 @@ class Company(Base):
     school_phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
     school_contact: Mapped[str | None] = mapped_column(String(50), nullable=True)
     school_logo: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    hr_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # Retained for zero-downtime compatibility with older deployments. Runtime
     # attendance is session-driven and does not read these legacy values.
     absent_alert_time: Mapped[str] = mapped_column(String(5), default="09:00", nullable=False)
