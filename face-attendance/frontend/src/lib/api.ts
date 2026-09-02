@@ -141,15 +141,15 @@ export interface AttendanceRecord {
 
 export interface AttendanceDashboardRecord {
   attendance_id: number | null;
-  student_id: number;
-  student_name: string;
+  student_id: number | null;
+  student_name: string | null;
   employee_id?: number | null;
   employee_name?: string | null;
   designation: string | null;
-  grade: string;
-  section: string;
-  branch_id: number;
-  class_id: number;
+  grade: string | null;
+  section: string | null;
+  branch_id: number | null;
+  class_id: number | null;
   check_in: string | null;
   check_out: string | null;
   status: string;
@@ -711,7 +711,8 @@ export async function getAttendanceHistory(
       params: {
         start_date: options.startDate || undefined,
         end_date: options.endDate || undefined,
-        student_id: options.studentId ?? options.employeeId ?? undefined,
+        student_id: options.studentId || undefined,
+        employee_id: options.employeeId || undefined,
         class_id: classId || undefined,
         page: options.page ?? 1,
         per_page: options.perPage ?? API_PAGE_SIZE,
@@ -739,7 +740,8 @@ export async function exportAttendanceHistory(
     params: {
       start_date: options.startDate || undefined,
       end_date: options.endDate || undefined,
-      student_id: options.studentId ?? options.employeeId ?? undefined,
+      student_id: options.studentId || undefined,
+      employee_id: options.employeeId || undefined,
       class_id: classId || undefined,
     },
     responseType: "blob",
@@ -751,7 +753,7 @@ export async function getStaffAttendanceToday(): Promise<
   StaffAttendanceRecord[]
 > {
   const response = await api.get<StaffAttendanceRecord[]>(
-    "/attendance/staff/today",
+    "/attendance/today",
   );
   return response.data;
 }
@@ -765,7 +767,7 @@ export async function getStaffAttendanceHistory(options: {
   perPage?: number;
 } = {}): Promise<StaffAttendanceRecord[]> {
   const response = await api.get<StaffAttendanceRecord[]>(
-    "/attendance/staff/history",
+    "/attendance/history",
     {
       params: {
         start_date: options.startDate || undefined,
@@ -786,7 +788,7 @@ export async function exportStaffAttendanceHistory(options: {
   employeeId?: number;
   status?: string;
 } = {}): Promise<Blob> {
-  const response = await api.get<Blob>("/attendance/staff/export", {
+  const response = await api.get<Blob>("/attendance/export", {
     params: {
       start_date: options.startDate || undefined,
       end_date: options.endDate || undefined,
@@ -802,7 +804,7 @@ export async function updateStaffManualAttendance(
   input: AttendanceManualUpdateInput,
 ): Promise<StaffAttendanceRecord> {
   const response = await api.put<StaffAttendanceRecord>(
-    "/attendance/staff/manual",
+    "/attendance/manual",
     input,
   );
   return response.data;

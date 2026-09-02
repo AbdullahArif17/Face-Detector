@@ -90,7 +90,10 @@ export function PwaInstallPrompt() {
   // Render iOS specific manual install instructions
   if (isIos && !deferredPrompt) {
     return (
-      <div className="fixed bottom-4 left-4 right-4 z-[9999] flex flex-col items-center justify-between rounded-xl border bg-background px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-4px_15px_-3px_rgba(0,0,0,0.15)] sm:bottom-4 sm:left-auto sm:right-4 sm:w-auto sm:min-w-[320px] sm:shadow-lg animate-in slide-in-from-bottom-4 fade-in duration-300">
+      <div 
+        className="fixed left-4 right-4 z-[9999] flex flex-col items-center justify-between rounded-xl border bg-background px-4 py-4 shadow-lg sm:bottom-4 sm:left-auto sm:right-4 sm:w-auto sm:min-w-[320px] animate-in slide-in-from-bottom-4 fade-in duration-300"
+        style={{ bottom: "1rem", marginBottom: "env(safe-area-inset-bottom, 0px)" }}
+      >
         <div className="flex w-full items-start justify-between">
           <div className="flex items-center gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded bg-emerald-600 text-white shadow-sm">
@@ -120,7 +123,10 @@ export function PwaInstallPrompt() {
 
   // Render standard install prompt for Android/Desktop
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[9999] flex items-center justify-between border-t bg-background px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-4px_15px_-3px_rgba(0,0,0,0.15)] sm:bottom-4 sm:border-t-0 sm:top-auto sm:left-auto sm:right-4 sm:w-auto sm:min-w-[320px] sm:rounded-xl sm:border sm:shadow-lg animate-in slide-in-from-bottom-2 fade-in duration-300">
+    <div 
+      className="fixed left-4 right-4 z-[9999] flex items-center justify-between rounded-xl border bg-background px-4 py-4 shadow-lg sm:bottom-4 sm:left-auto sm:right-4 sm:w-auto sm:min-w-[320px] animate-in slide-in-from-bottom-2 fade-in duration-300"
+      style={{ bottom: "1rem", marginBottom: "env(safe-area-inset-bottom, 0px)" }}
+    >
       <div className="flex items-center gap-3">
         <button onClick={handleDismiss} className="text-muted-foreground hover:text-foreground p-1 -ml-1">
           <X className="size-5" />

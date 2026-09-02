@@ -219,8 +219,9 @@ export default function DashboardPage() {
       { label: string; present: number; absent: number; late: number }
     >();
     for (const record of todayRecords) {
+      if (record.class_id == null) continue;
       const current = summaries.get(record.class_id) ?? {
-        label: `${record.grade}-${record.section}`,
+        label: `${record.grade ?? ""}-${record.section ?? ""}`,
         present: 0,
         absent: 0,
         late: 0,

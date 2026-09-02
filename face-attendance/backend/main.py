@@ -23,7 +23,6 @@ from app.routers import (
     companies,
     employees,
     face,
-    staff_attendance,
     students,
     users,
     notifications,
@@ -172,7 +171,7 @@ app = FastAPI(
     openapi_url="/openapi.json" if settings.enable_api_docs else None,
 )
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore
 
 app.add_middleware(
     CORSMiddleware,
@@ -251,7 +250,6 @@ app.include_router(auth.router)
 app.include_router(companies.router)
 app.include_router(employees.router)
 app.include_router(students.router)
-app.include_router(staff_attendance.router)
 app.include_router(attendance.router)
 app.include_router(face.router)
 app.include_router(notifications.router)

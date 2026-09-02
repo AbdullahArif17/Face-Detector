@@ -14,9 +14,11 @@ import {
   exportAttendanceHistory,
   getAttendanceHistory,
   getStudents,
+  getAllEmployees,
   updateManualAttendance,
   type AttendanceDashboardRecord,
   type Student,
+  type Employee,
 } from "@/lib/api";
 import { AttendanceChart } from "@/components/charts/AttendanceChart";
 import { DateRangePresets } from "@/components/DateRangePresets";
@@ -122,13 +124,14 @@ function StatCard({
   );
 }
 
-export default function StudentReportsPage() {
+export default function ReportsPage() {
   const { user } = useAuth();
   const canEditAttendance = canManageAttendanceSessions(user);
 
   const [historyRecords, setHistoryRecords] = useState<AttendanceDashboardRecord[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
-  const [selectedStudentId, setSelectedStudentId] = useState("");
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [selectedSubjectId, setSelectedSubjectId] = useState("");
   const [gradeFilter, setGradeFilter] = useState("");
   const [sectionFilter, setSectionFilter] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -148,8 +151,11 @@ export default function StudentReportsPage() {
       const records = await getAttendanceHistory({
         startDate,
         endDate,
-        studentId: selectedStudentId
-          ? Number.parseInt(selectedStudentId, 10)
+        studentId: selectedSubjectId.startsWith("student_")
+          ? Number.parseInt(selectedSubjectId.replace("student_", ""), 10)
+          : undefined,
+        employeeId: selectedSubjectId.startsWith("employee_")
+          ? Number.parseInt(selectedSubjectId.replace("employee_", ""), 10)
           : undefined,
       });
       setHistoryRecords(records);
@@ -159,16 +165,20 @@ export default function StudentReportsPage() {
     } finally {
       setIsHistoryLoading(false);
     }
-  }, [endDate, selectedStudentId, startDate, historyRecords.length]);
+  }, [endDate, selectedSubjectId, startDate, historyRecords.length]);
 
   useEffect(() => {
     let isCancelled = false;
 
     void Promise.resolve().then(async () => {
       try {
-        const studentRecords = await getStudents({ status: "active" });
+        const [studentRecords, employeeRecords] = await Promise.all([
+          getStudents({ status: "active" }),
+          getAllEmployees()
+        ]);
         if (!isCancelled) {
           setStudents(studentRecords);
+          setEmployees(employeeRecords);
         }
       } catch {
         if (!isCancelled) {
@@ -201,7 +211,8 @@ export default function StudentReportsPage() {
       }
       if (searchTerm.trim()) {
         const term = searchTerm.trim().toLowerCase();
-        const nameMatch = record.student_name.toLowerCase().includes(term);
+        const displayName = record.student_name ?? record.employee_name ?? "";
+        const nameMatch = displayName.toLowerCase().includes(term);
         return nameMatch;
       }
       return true;
@@ -220,9 +231,9 @@ export default function StudentReportsPage() {
     return { total, present, absent, excused, rate };
   }, [filteredRecords]);
 
-  // Unique students for the dropdown filtered by grade/section
-  const filteredStudents = useMemo(() => {
-    return students.filter((student) => {
+  // Unique subjects for the dropdown filtered by grade/section (only applies to students)
+  const filteredSubjects = useMemo(() => {
+    const s = students.filter((student) => {
       if (gradeFilter && student.grade !== gradeFilter) {
         return false;
       }
@@ -230,8 +241,13 @@ export default function StudentReportsPage() {
         return false;
       }
       return true;
-    });
-  }, [students, gradeFilter, sectionFilter]);
+    }).map(s => ({ type: "student" as const, id: s.id, name: s.student_name, details: `${s.grade}-${s.section}` }));
+    
+    // If class or section is selected, do not show employees since they don't have classes
+    const e = (gradeFilter || sectionFilter) ? [] : employees.map(emp => ({ type: "employee" as const, id: emp.id, name: emp.name, details: emp.designation || "Staff" }));
+    
+    return [...s, ...e].sort((a, b) => a.name.localeCompare(b.name));
+  }, [students, employees, gradeFilter, sectionFilter]);
 
   function handleEditRecord(record: AttendanceDashboardRecord): void {
     const normalizedStatus = ["present", "absent", "excused"].includes(record.status)
@@ -262,7 +278,8 @@ export default function StudentReportsPage() {
     try {
       await updateManualAttendance({
         attendance_id: editState.record.attendance_id,
-        student_id: editState.record.student_id,
+        student_id: editState.record.student_id ?? undefined,
+        employee_id: editState.record.employee_id ?? undefined,
         attendance_date: editState.record.attendance_date,
         status: editState.status,
         check_in_time: editState.status === "present" ? editState.checkInTime : null,
@@ -288,14 +305,17 @@ export default function StudentReportsPage() {
       const blob = await exportAttendanceHistory({
         startDate,
         endDate,
-        studentId: selectedStudentId
-          ? Number.parseInt(selectedStudentId, 10)
+        studentId: selectedSubjectId.startsWith("student_")
+          ? Number.parseInt(selectedSubjectId.replace("student_", ""), 10)
+          : undefined,
+        employeeId: selectedSubjectId.startsWith("employee_")
+          ? Number.parseInt(selectedSubjectId.replace("employee_", ""), 10)
           : undefined,
       });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `student-attendance-${startDate}-to-${endDate}.csv`;
+      link.download = `attendance-${startDate}-to-${endDate}.csv`;
       link.click();
       window.URL.revokeObjectURL(url);
     } catch {
@@ -303,17 +323,17 @@ export default function StudentReportsPage() {
     }
   }
 
-  const hasActiveFilters = Boolean(gradeFilter || sectionFilter || searchTerm.trim());
+  const hasActiveFilters = Boolean(gradeFilter || sectionFilter || searchTerm.trim() || selectedSubjectId);
 
   return (
     <section className="animate-page-enter space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
-            <span className="text-gradient">Student Reports</span>
+            <span className="text-gradient">Reports</span>
           </h1>
           <p className="mt-2 max-w-2xl text-muted-foreground text-pretty">
-            View, filter, and export student attendance history by date range, class, or individual student.
+            View, filter, and export attendance history by date range, class, or individual.
           </p>
         </div>
       </div>
@@ -363,7 +383,7 @@ export default function StudentReportsPage() {
               value={gradeFilter}
               onChange={(event) => {
                 setGradeFilter(event.target.value);
-                setSelectedStudentId("");
+                setSelectedSubjectId("");
               }}
               className="h-10 rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
             >
@@ -384,7 +404,7 @@ export default function StudentReportsPage() {
               value={sectionFilter}
               onChange={(event) => {
                 setSectionFilter(event.target.value);
-                setSelectedStudentId("");
+                setSelectedSubjectId("");
               }}
               className="h-10 rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
             >
@@ -397,19 +417,19 @@ export default function StudentReportsPage() {
             </select>
           </div>
           <div className="grid gap-2">
-            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" htmlFor="report-student-filter">
-              Student
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" htmlFor="report-subject-filter">
+              Student / Employee
             </label>
             <select
-              id="report-student-filter"
-              value={selectedStudentId}
-              onChange={(event) => setSelectedStudentId(event.target.value)}
+              id="report-subject-filter"
+              value={selectedSubjectId}
+              onChange={(event) => setSelectedSubjectId(event.target.value)}
               className="h-10 rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <option value="">All Students</option>
-              {filteredStudents.map((student) => (
-                <option key={student.id} value={student.id}>
-                  {student.student_name} ({student.grade}-{student.section})
+              <option value="">All Students & Employees</option>
+              {filteredSubjects.map((subject) => (
+                <option key={`${subject.type}_${subject.id}`} value={`${subject.type}_${subject.id}`}>
+                  {subject.name} ({subject.details})
                 </option>
               ))}
             </select>
@@ -424,11 +444,11 @@ export default function StudentReportsPage() {
               className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
             />
             <Input
-              aria-label="Search by student name"
+              aria-label="Search by name"
               className="pl-9"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search by student name..."
+              placeholder="Search by name..."
             />
           </div>
           <Button
@@ -456,7 +476,7 @@ export default function StudentReportsPage() {
                 setGradeFilter("");
                 setSectionFilter("");
                 setSearchTerm("");
-                setSelectedStudentId("");
+                setSelectedSubjectId("");
               }}
             >
               <X aria-hidden="true" className="size-4" />
@@ -495,8 +515,8 @@ export default function StudentReportsPage() {
           <thead className="border-b bg-muted/30">
             <tr>
               <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Date</th>
-              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Student Name</th>
-              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Class</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Name</th>
+              <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Class / Role</th>
               <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Check-in</th>
               <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Check-out</th>
               <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
@@ -529,7 +549,7 @@ export default function StudentReportsPage() {
                   </p>
                   <p className="mt-1 text-xs">
                     {hasActiveFilters
-                      ? "Try adjusting the date range, class, or student filter."
+                      ? "Try adjusting the date range, class, or person filter."
                       : "Records will appear once attendance sessions are completed."}
                   </p>
                 </td>
@@ -539,14 +559,14 @@ export default function StudentReportsPage() {
             {filteredRecords.map((record) => (
               <tr
                 className="transition-colors hover:bg-muted/30"
-                key={`${record.student_id}-${record.attendance_date}-${record.attendance_id ?? "absent"}`}
+                key={`${record.student_id ?? record.employee_id}-${record.attendance_date}-${record.attendance_id ?? "absent"}`}
               >
                 <td className="px-4 py-3.5 tabular-nums">
                   {record.attendance_date}
                 </td>
-                <td className="px-4 py-3.5 font-medium">{record.student_name}</td>
+                <td className="px-4 py-3.5 font-medium">{record.student_name ?? record.employee_name ?? "—"}</td>
                 <td className="px-4 py-3.5">
-                  {record.grade}-{record.section}
+                  {record.grade && record.section ? `${record.grade}-${record.section}` : (record.designation ?? "—")}
                 </td>
                 <td className="px-4 py-3.5 tabular-nums text-muted-foreground">
                   {formatTime(record.check_in)}
@@ -595,8 +615,7 @@ export default function StudentReportsPage() {
                   Edit Attendance
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {editState.record.student_name} · {editState.record.grade}-
-                  {editState.record.section}
+                  {editState.record.student_name ?? editState.record.employee_name ?? "—"} · {editState.record.grade && editState.record.section ? `${editState.record.grade}-${editState.record.section}` : (editState.record.designation ?? "—")}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   Date: {editState.record.attendance_date}

@@ -130,7 +130,7 @@ def resolve_class_query(
 
 
 def build_dashboard_record(
-    student: Student,
+    subject: Student | Employee,
     attendance: Attendance | None,
     attendance_date: date,
 ) -> AttendanceDashboardRecord:
@@ -140,17 +140,19 @@ def build_dashboard_record(
         check_in = None
         check_out = None
 
+    is_student = isinstance(subject, Student)
+    
     return AttendanceDashboardRecord(
         attendance_id=attendance.id if attendance is not None else None,
-        student_id=student.id,
-        student_name=student.student_name,
-        employee_id=student.id,
-        employee_name=student.student_name,
-        designation=f"{student.grade}-{student.section}",
-        grade=student.grade,
-        section=student.section,
-        branch_id=student.class_id,
-        class_id=student.class_id,
+        student_id=subject.id if is_student else None,
+        student_name=subject.student_name if is_student else None,
+        employee_id=subject.id if not is_student else None,
+        employee_name=subject.name if not is_student else None,
+        designation=f"{subject.grade}-{subject.section}" if is_student else (subject.designation or ""),
+        grade=subject.grade if is_student else None,
+        section=subject.section if is_student else None,
+        branch_id=subject.class_id if is_student else None,
+        class_id=subject.class_id if is_student else None,
         check_in=check_in,
         check_out=check_out,
         status=attendance.status if attendance is not None else "absent",
@@ -713,6 +715,32 @@ async def stop_attendance_session(
                 session.add(attendance)
                 await session.flush()
                 
+            # Now mark absent employees
+            absent_employees_result = await session.execute(
+                select(Employee).where(
+                    Employee.company_id == current_user.company_id,
+                    Employee.status == "active",
+                    ~select(Attendance.id).where(
+                        Attendance.employee_id == Employee.id,
+                        Attendance.session_id == attendance_session.id
+                    ).exists()
+                )
+            )
+            absent_employees = absent_employees_result.scalars().all()
+            
+            for employee in absent_employees:
+                attendance = Attendance(
+                    employee_id=employee.id,
+                    company_id=current_user.company_id,
+                    session_id=attendance_session.id,
+                    check_in=datetime.now(timezone.utc),
+                    status="absent",
+                    notification_sent=False,
+                    notification_status="pending",
+                )
+                session.add(attendance)
+                await session.flush()
+                
 
 
     await session.commit()
@@ -1217,22 +1245,46 @@ async def upsert_manual_attendance(
             detail="Status must be present, absent, or excused",
         )
 
-    student = await session.get(Student, payload.student_id)
-    if student is None or student.school_id != current_user.company_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Student not found",
-        )
+    # Resolve subject: either a student or an employee
+    subject: Student | Employee
+    subject_student_id: int | None = None
+    subject_employee_id: int | None = None
+    
+    if payload.student_id is not None:
+        student = await session.get(Student, payload.student_id)
+        if student is None or student.school_id != current_user.company_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Student not found",
+            )
+        subject = student
+        subject_student_id = student.id
+    else:
+        employee = await session.get(Employee, payload.employee_id)
+        if employee is None or employee.company_id != current_user.company_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Employee not found",
+            )
+        subject = employee
+        subject_employee_id = employee.id
 
     day_start, day_end = local_day_bounds(payload.attendance_date)
     attendance: Attendance | None = None
     if payload.attendance_id is not None:
         attendance = await session.get(Attendance, payload.attendance_id)
-        if (
-            attendance is None
-            or attendance.company_id != current_user.company_id
-            or attendance.student_id != student.id
-        ):
+        if attendance is None or attendance.company_id != current_user.company_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Attendance record not found",
+            )
+        # Verify it belongs to the correct subject
+        if subject_student_id and attendance.student_id != subject_student_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Attendance record not found",
+            )
+        if subject_employee_id and attendance.employee_id != subject_employee_id:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Attendance record not found",
@@ -1243,14 +1295,20 @@ async def upsert_manual_attendance(
                 detail="Attendance record does not belong to the selected date",
             )
     else:
+        # Find existing attendance record for today
+        lookup_filter = [
+            Attendance.company_id == current_user.company_id,
+            Attendance.check_in >= day_start,
+            Attendance.check_in < day_end,
+        ]
+        if subject_student_id:
+            lookup_filter.append(Attendance.student_id == subject_student_id)
+        else:
+            lookup_filter.append(Attendance.employee_id == subject_employee_id)
+            
         attendance = await session.scalar(
             select(Attendance)
-            .where(
-                Attendance.company_id == current_user.company_id,
-                Attendance.student_id == student.id,
-                Attendance.check_in >= day_start,
-                Attendance.check_in < day_end,
-            )
+            .where(*lookup_filter)
             .order_by(Attendance.check_in.desc()),
         )
 
@@ -1277,7 +1335,8 @@ async def upsert_manual_attendance(
 
     if attendance is None:
         attendance = Attendance(
-            student_id=student.id,
+            student_id=subject_student_id,
+            employee_id=subject_employee_id,
             company_id=current_user.company_id,
             check_in=check_in,
         )
@@ -1292,7 +1351,7 @@ async def upsert_manual_attendance(
     await session.commit()
     await session.refresh(attendance)
 
-    return build_dashboard_record(student, attendance, payload.attendance_date)
+    return build_dashboard_record(subject, attendance, payload.attendance_date)
 
 
 @router.get("/today", response_model=list[AttendanceDashboardRecord])
@@ -1319,6 +1378,19 @@ async def get_today_attendance(
         students_query = students_query.where(Student.class_id == selected_class_id)
 
     students = list((await session.execute(students_query)).scalars().all())
+    
+    employees = []
+    if selected_class_id is None:
+        employees_query = (
+            select(Employee)
+            .where(
+                Employee.company_id == current_user.company_id,
+                Employee.status == "active",
+            )
+            .order_by(Employee.name)
+        )
+        employees = list((await session.execute(employees_query)).scalars().all())
+
     attendance_result = await session.execute(
         select(Attendance)
         .where(
@@ -1328,19 +1400,37 @@ async def get_today_attendance(
         )
         .order_by(Attendance.check_in.asc()),
     )
+    all_attendance = attendance_result.scalars().all()
+    
     attendance_by_student = {
-        attendance.student_id: attendance
-        for attendance in attendance_result.scalars().all()
+        att.student_id: att
+        for att in all_attendance if att.student_id is not None
+    }
+    attendance_by_employee = {
+        att.employee_id: att
+        for att in all_attendance if att.employee_id is not None
     }
 
-    return [
-        build_dashboard_record(
-            student,
-            attendance_by_student.get(student.id),
-            today,
+    records = []
+    for student in students:
+        records.append(
+            build_dashboard_record(
+                student,
+                attendance_by_student.get(student.id),
+                today,
+            )
         )
-        for student in students
-    ]
+        
+    for employee in employees:
+        records.append(
+            build_dashboard_record(
+                employee,
+                attendance_by_employee.get(employee.id),
+                today,
+            )
+        )
+        
+    return records
 
 
 @router.get("/history", response_model=list[AttendanceDashboardRecord])
@@ -1348,6 +1438,7 @@ async def get_attendance_history(
     start_date: date | None = None,
     end_date: date | None = None,
     student_id: int | None = Query(default=None, gt=0),
+    employee_id: int | None = Query(default=None, gt=0),
     class_id: int | None = Query(default=None, gt=0),
     branch_id: int | None = Query(default=None, gt=0),
     page: int = Query(1, ge=1),
@@ -1369,8 +1460,9 @@ async def get_attendance_history(
     offset = (page - 1) * per_page
 
     query = (
-        select(Attendance, Student)
-        .join(Student, Student.id == Attendance.student_id)
+        select(Attendance, Student, Employee)
+        .outerjoin(Student, Student.id == Attendance.student_id)
+        .outerjoin(Employee, Employee.id == Attendance.employee_id)
         .where(
             Attendance.company_id == current_user.company_id,
             Attendance.check_in >= start,
@@ -1382,14 +1474,22 @@ async def get_attendance_history(
     )
     if student_id is not None:
         query = query.where(Attendance.student_id == student_id)
+    if employee_id is not None:
+        query = query.where(Attendance.employee_id == employee_id)
     if selected_class_id is not None:
         query = query.where(Student.class_id == selected_class_id)
 
     result = await session.execute(query)
-    return [
-        build_dashboard_record(student, attendance, to_local(attendance.check_in).date())
-        for attendance, student in result.all()
-    ]
+    
+    records = []
+    for attendance, student, employee in result.all():
+        subject = student if student is not None else employee
+        if subject is not None:
+            records.append(
+                build_dashboard_record(subject, attendance, to_local(attendance.check_in).date())
+            )
+            
+    return records
 
 
 @router.get("/export")
@@ -1397,6 +1497,7 @@ async def export_attendance_history(
     start_date: date | None = None,
     end_date: date | None = None,
     student_id: int | None = Query(default=None, gt=0),
+    employee_id: int | None = Query(default=None, gt=0),
     class_id: int | None = Query(default=None, gt=0),
     branch_id: int | None = Query(default=None, gt=0),
     session: AsyncSession = Depends(get_db),
@@ -1414,8 +1515,9 @@ async def export_attendance_history(
         )
     start, end = date_bounds(start_date, end_date)
     query = (
-        select(Attendance, Student)
-        .join(Student, Student.id == Attendance.student_id)
+        select(Attendance, Student, Employee)
+        .outerjoin(Student, Student.id == Attendance.student_id)
+        .outerjoin(Employee, Employee.id == Attendance.employee_id)
         .where(
             Attendance.company_id == current_user.company_id,
             Attendance.check_in >= start,
@@ -1426,6 +1528,8 @@ async def export_attendance_history(
     )
     if student_id is not None:
         query = query.where(Attendance.student_id == student_id)
+    if employee_id is not None:
+        query = query.where(Attendance.employee_id == employee_id)
     if selected_class_id is not None:
         query = query.where(Student.class_id == selected_class_id)
 
@@ -1437,21 +1541,25 @@ async def export_attendance_history(
                 f"Export exceeds {EXPORT_MAX_RECORDS} records; narrow the date or class filters"
             ),
         )
-    records = [
-        build_dashboard_record(student, attendance, to_local(attendance.check_in).date())
-        for attendance, student in rows
-    ]
+        
+    records = []
+    for attendance, student, employee in rows:
+        subject = student if student is not None else employee
+        if subject is not None:
+            records.append(
+                build_dashboard_record(subject, attendance, to_local(attendance.check_in).date())
+            )
 
     output = StringIO(newline="")
     writer = csv.writer(output)
     writer.writerow(
-        ["Student", "Class", "Date", "Check In", "Check Out", "Status", "Working Hours"],
+        ["Name", "Designation", "Date", "Check In", "Check Out", "Status", "Working Hours"],
     )
     for record in records:
         writer.writerow(
             [
-                csv_safe(record.student_name),
-                csv_safe(f"{record.grade}-{record.section}"),
+                csv_safe(record.student_name or record.employee_name or ""),
+                csv_safe(record.designation or f"{record.grade}-{record.section}"),
                 record.attendance_date.isoformat(),
                 display_time(record.check_in) if record.check_in else "",
                 display_time(record.check_out) if record.check_out else "",
@@ -1637,6 +1745,32 @@ async def cron_end_sessions(
                 for student in absent_students:
                     attendance = Attendance(
                         student_id=student.id,
+                        company_id=attendance_session.company_id,
+                        session_id=attendance_session.id,
+                        check_in=now,
+                        status="absent",
+                        notification_sent=False,
+                        notification_status="pending",
+                    )
+                    session.add(attendance)
+                    await session.flush()
+
+                # Mark absent employees
+                absent_employees_result = await session.execute(
+                    select(Employee).where(
+                        Employee.company_id == attendance_session.company_id,
+                        Employee.status == "active",
+                        ~select(Attendance.id).where(
+                            Attendance.employee_id == Employee.id,
+                            Attendance.session_id == attendance_session.id
+                        ).exists()
+                    )
+                )
+                absent_employees = absent_employees_result.scalars().all()
+
+                for employee in absent_employees:
+                    attendance = Attendance(
+                        employee_id=employee.id,
                         company_id=attendance_session.company_id,
                         session_id=attendance_session.id,
                         check_in=now,

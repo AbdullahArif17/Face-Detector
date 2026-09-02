@@ -136,15 +136,15 @@ class AttendanceAutoMarkResponse(BaseModel):
 
 class AttendanceDashboardRecord(BaseModel):
     attendance_id: int | None = None
-    student_id: int
-    student_name: str
+    student_id: int | None = None
+    student_name: str | None = None
     employee_id: int | None = None
     employee_name: str | None = None
     designation: str | None = None
-    grade: str
-    section: str
-    branch_id: int
-    class_id: int
+    grade: str | None = None
+    section: str | None = None
+    branch_id: int | None = None
+    class_id: int | None = None
     check_in: datetime | None = None
     check_out: datetime | None = None
     status: str

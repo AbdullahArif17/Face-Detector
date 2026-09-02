@@ -32,8 +32,7 @@ const navigation = [
   { name: "Teachers", href: "/teachers", icon: GraduationCap },
   { name: "Staff", href: "/staff", icon: Briefcase },
   { name: "Attendance", href: "/attendance", icon: CalendarCheck },
-  { name: "Student Reports", href: "/reports", icon: FileText },
-  { name: "Staff Reports", href: "/staff-reports", icon: ClipboardList },
+  { name: "Reports", href: "/reports", icon: FileText },
   { name: "Notifications", href: "/notifications", icon: MessageSquareText },
   { name: "Guide", href: "/guide", icon: BookOpen },
 ] as const;
