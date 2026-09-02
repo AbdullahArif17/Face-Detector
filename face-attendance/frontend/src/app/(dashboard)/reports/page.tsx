@@ -131,6 +131,7 @@ export default function ReportsPage() {
   const [historyRecords, setHistoryRecords] = useState<AttendanceDashboardRecord[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [reportType, setReportType] = useState<"students" | "staff">("students");
   const [selectedSubjectId, setSelectedSubjectId] = useState("");
   const [gradeFilter, setGradeFilter] = useState("");
   const [sectionFilter, setSectionFilter] = useState("");
@@ -203,6 +204,9 @@ export default function ReportsPage() {
   // Filter records by grade, section, and search term
   const filteredRecords = useMemo(() => {
     return historyRecords.filter((record) => {
+      if (reportType === "students" && record.employee_id) return false;
+      if (reportType === "staff" && record.student_id) return false;
+
       if (gradeFilter && record.grade !== gradeFilter) {
         return false;
       }
@@ -217,7 +221,7 @@ export default function ReportsPage() {
       }
       return true;
     });
-  }, [historyRecords, gradeFilter, sectionFilter, searchTerm]);
+  }, [historyRecords, gradeFilter, sectionFilter, searchTerm, reportType]);
 
   // Summary statistics
   const stats = useMemo(() => {
@@ -233,21 +237,26 @@ export default function ReportsPage() {
 
   // Unique subjects for the dropdown filtered by grade/section (only applies to students)
   const filteredSubjects = useMemo(() => {
-    const s = students.filter((student) => {
-      if (gradeFilter && student.grade !== gradeFilter) {
-        return false;
-      }
-      if (sectionFilter && student.section !== sectionFilter) {
-        return false;
-      }
-      return true;
-    }).map(s => ({ type: "student" as const, id: s.id, name: s.student_name, details: `${s.grade}-${s.section}` }));
+    let s: { type: "student" | "employee"; id: number; name: string; details: string }[] = [];
+    if (reportType === "students") {
+      s = students.filter((student) => {
+        if (gradeFilter && student.grade !== gradeFilter) {
+          return false;
+        }
+        if (sectionFilter && student.section !== sectionFilter) {
+          return false;
+        }
+        return true;
+      }).map(st => ({ type: "student" as const, id: st.id, name: st.student_name, details: `${st.grade}-${st.section}` }));
+    }
     
-    // If class or section is selected, do not show employees since they don't have classes
-    const e = (gradeFilter || sectionFilter) ? [] : employees.map(emp => ({ type: "employee" as const, id: emp.id, name: emp.name, details: emp.designation || "Staff" }));
+    let e: { type: "student" | "employee"; id: number; name: string; details: string }[] = [];
+    if (reportType === "staff") {
+      e = employees.map(emp => ({ type: "employee" as const, id: emp.id, name: emp.name, details: emp.designation || "Staff" }));
+    }
     
     return [...s, ...e].sort((a, b) => a.name.localeCompare(b.name));
-  }, [students, employees, gradeFilter, sectionFilter]);
+  }, [students, employees, gradeFilter, sectionFilter, reportType]);
 
   function handleEditRecord(record: AttendanceDashboardRecord): void {
     const normalizedStatus = ["present", "absent", "excused"].includes(record.status)
@@ -340,7 +349,43 @@ export default function ReportsPage() {
 
       {/* Filters */}
       <div className="space-y-4 rounded-lg border bg-card p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {/* Report Type Tabs */}
+        <div className="flex p-1 bg-muted/50 rounded-lg w-fit">
+          <button
+            type="button"
+            onClick={() => {
+              setReportType("students");
+              setSelectedSubjectId("");
+            }}
+            className={cn(
+              "px-4 py-1.5 text-sm font-medium rounded-md transition-all",
+              reportType === "students" 
+                ? "bg-background text-foreground shadow-sm" 
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Students
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setReportType("staff");
+              setSelectedSubjectId("");
+              setGradeFilter("");
+              setSectionFilter("");
+            }}
+            className={cn(
+              "px-4 py-1.5 text-sm font-medium rounded-md transition-all",
+              reportType === "staff" 
+                ? "bg-background text-foreground shadow-sm" 
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Staff
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-2">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
             Filters
           </h2>
@@ -374,51 +419,55 @@ export default function ReportsPage() {
               onChange={(event) => setEndDate(event.target.value)}
             />
           </div>
-          <div className="grid gap-2">
-            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" htmlFor="report-grade-filter">
-              Class / Grade
-            </label>
-            <select
-              id="report-grade-filter"
-              value={gradeFilter}
-              onChange={(event) => {
-                setGradeFilter(event.target.value);
-                setSelectedSubjectId("");
-              }}
-              className="h-10 rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <option value="">All Classes</option>
-              {grades.map((grade) => (
-                <option key={grade} value={grade}>
-                  {grade}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="grid gap-2">
-            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" htmlFor="report-section-filter">
-              Section
-            </label>
-            <select
-              id="report-section-filter"
-              value={sectionFilter}
-              onChange={(event) => {
-                setSectionFilter(event.target.value);
-                setSelectedSubjectId("");
-              }}
-              className="h-10 rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <option value="">All Sections</option>
-              {sections.map((section) => (
-                <option key={section} value={section}>
-                  Section {section}
-                </option>
-              ))}
-            </select>
-          </div>
+          {reportType === "students" ? (
+            <>
+              <div className="grid gap-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" htmlFor="report-grade-filter">
+                  Class / Grade
+                </label>
+                <select
+                  id="report-grade-filter"
+                  value={gradeFilter}
+                  onChange={(event) => {
+                    setGradeFilter(event.target.value);
+                    setSelectedSubjectId("");
+                  }}
+                  className="h-10 rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="">All Classes</option>
+                  {grades.map((grade) => (
+                    <option key={grade} value={grade}>
+                      {grade}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid gap-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" htmlFor="report-section-filter">
+                  Section
+                </label>
+                <select
+                  id="report-section-filter"
+                  value={sectionFilter}
+                  onChange={(event) => {
+                    setSectionFilter(event.target.value);
+                    setSelectedSubjectId("");
+                  }}
+                  className="h-10 rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="">All Sections</option>
+                  {sections.map((section) => (
+                    <option key={section} value={section}>
+                      Section {section}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          ) : null}
           <div className="grid gap-2">
             <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" htmlFor="report-subject-filter">
-              Student / Employee
+              {reportType === "students" ? "Student" : "Employee"}
             </label>
             <select
               id="report-subject-filter"
@@ -426,7 +475,7 @@ export default function ReportsPage() {
               onChange={(event) => setSelectedSubjectId(event.target.value)}
               className="h-10 rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <option value="">All Students & Employees</option>
+              <option value="">All {reportType === "students" ? "Students" : "Employees"}</option>
               {filteredSubjects.map((subject) => (
                 <option key={`${subject.type}_${subject.id}`} value={`${subject.type}_${subject.id}`}>
                   {subject.name} ({subject.details})

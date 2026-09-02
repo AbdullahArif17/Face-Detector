@@ -8,12 +8,26 @@ import { Button } from "@/components/ui/button";
 export function ApkDownloadPanel() {
   const [deferredPrompt, setDeferredPrompt] = useState<Event | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [isIos, setIsIos] = useState(false);
+  const [showIosInstructions, setShowIosInstructions] = useState(false);
 
   useEffect(() => {
     // Check if already installed as PWA
     if (window.matchMedia("(display-mode: standalone)").matches) {
       setIsInstalled(true);
       return;
+    }
+
+    // Check if the event was already captured by the script in layout.tsx
+    if ((window as any).pwaDeferredPrompt) {
+      setDeferredPrompt((window as any).pwaDeferredPrompt);
+    }
+
+    // Detect iOS devices
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
+    if (isIosDevice) {
+      setIsIos(true);
     }
 
     const handler = (e: Event) => {
@@ -26,6 +40,10 @@ export function ApkDownloadPanel() {
   }, []);
 
   const handleInstallPWA = async () => {
+    if (isIos) {
+      setShowIosInstructions(true);
+      return;
+    }
     if (!deferredPrompt) return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const prompt = deferredPrompt as any;
@@ -37,8 +55,8 @@ export function ApkDownloadPanel() {
     setDeferredPrompt(null);
   };
 
-  // Only show the panel if PWA install is available and not already installed
-  if (isInstalled || !deferredPrompt) return null;
+  // Only show the panel if PWA install is available (or iOS) and not already installed
+  if (isInstalled || (!deferredPrompt && !isIos)) return null;
 
   return (
     <div className="mx-4 mb-4 rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 via-sidebar-bg to-sidebar-bg p-4 shadow-sm relative overflow-hidden">
@@ -58,14 +76,22 @@ export function ApkDownloadPanel() {
       </div>
 
       <div className="space-y-2">
-        <Button
-          onClick={handleInstallPWA}
-          className="w-full gap-2 bg-primary hover:bg-primary/90 text-white shadow-sm transition-all hover:scale-[1.02]"
-          size="sm"
-        >
-          <Smartphone className="size-4" />
-          Install App
-        </Button>
+        {showIosInstructions ? (
+          <div className="rounded-lg bg-background/50 p-3 text-xs text-sidebar-fg">
+            <p className="mb-2 font-medium">To install on iOS:</p>
+            <p>1. Tap the Share button</p>
+            <p>2. Select "Add to Home Screen"</p>
+          </div>
+        ) : (
+          <Button
+            onClick={handleInstallPWA}
+            className="w-full gap-2 bg-primary hover:bg-primary/90 text-white shadow-sm transition-all hover:scale-[1.02]"
+            size="sm"
+          >
+            <Smartphone className="size-4" />
+            Install App
+          </Button>
+        )}
       </div>
     </div>
   );
