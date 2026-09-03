@@ -395,7 +395,13 @@ api.interceptors.response.use(
     ) {
       window.localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
       window.localStorage.removeItem(LEGACY_AUTH_USER_KEY);
-      if (!["/login", "/signup"].includes(window.location.pathname)) {
+      const pathname = window.location.pathname;
+      const isExempt =
+        pathname.startsWith("/admin") ||
+        ["/login", "/signup", "/privacy", "/terms", "/data-deletion", "/kiosk"].some(
+          (p) => pathname === p || pathname.startsWith(`${p}/`),
+        );
+      if (!isExempt) {
         window.location.assign("/login");
       }
     }

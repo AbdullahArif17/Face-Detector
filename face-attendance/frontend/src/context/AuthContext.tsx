@@ -57,6 +57,16 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     let isCancelled = false;
 
     async function restoreSession(): Promise<void> {
+      if (
+        typeof window !== "undefined" &&
+        window.location.pathname.startsWith("/admin")
+      ) {
+        if (!isCancelled) {
+          setIsLoading(false);
+        }
+        return;
+      }
+
       try {
         const currentUser = await getCurrentUser();
         if (!isCancelled) {

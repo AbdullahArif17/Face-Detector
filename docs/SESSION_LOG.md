@@ -501,6 +501,7 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
   - Frontend: Created `(admin)` route group with dedicated dark slate UI theme; implemented `PlatformAdminContext` and `admin-api.ts`; created `AdminSidebar`; built `/admin/login` secret key access page; built `/admin` dashboard with 7 live metric cards and recent org table; built `/admin/organizations` searchable table with status filter tabs and confirmation modals; built `/admin/organizations/[id]` comprehensive detail page with tabbed views for students, staff, users, classes, and kiosk settings, plus package/limits editing modal.
   - Architecture: Recorded D-030 in `docs/DECISIONS.md`; updated `PROJECT_CONTEXT.md`.
 - Verified: Added 7 new backend tests in `tests/test_platform_admin.py`, running all 36 backend tests with 0 failures; frontend `npm run typecheck` passed with 0 errors; frontend `npm run lint` passed with 0 errors and 0 warnings; Next.js Turbopack production build succeeded with all 23 static/dynamic routes generated.
+- Bugfix (Admin redirect loop): Exempted `/admin/*` and public routes in `api.ts` response 401 interceptor and skipped tenant session restore in `AuthContext.tsx` when on `/admin` paths, resolving the immediate fallback redirect from `/admin/login` to `/login`.
 
 ## Entry Template
 ```markdown

@@ -16,7 +16,7 @@ function AdminLayoutContent({
   const pathname = usePathname();
   const router = useRouter();
   const { isAuthenticated, isLoading } = usePlatformAdmin();
-  const isLoginPage = pathname === "/admin/login";
+  const isLoginPage = pathname?.startsWith("/admin/login") ?? false;
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated && !isLoginPage) {
