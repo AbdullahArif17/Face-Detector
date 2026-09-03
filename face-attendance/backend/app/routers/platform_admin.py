@@ -194,8 +194,8 @@ async def get_platform_stats(
     day_start, day_end = local_day_bounds()
     today_attendance = await session.scalar(
         select(func.count(Attendance.id)).where(
-            Attendance.timestamp >= day_start,
-            Attendance.timestamp < day_end,
+            Attendance.check_in >= day_start,
+            Attendance.check_in < day_end,
         )
     ) or 0
 
@@ -281,8 +281,8 @@ async def list_organizations(
                 select(Attendance.company_id, func.count(Attendance.id))
                 .where(
                     Attendance.company_id.in_(company_ids),
-                    Attendance.timestamp >= day_start,
-                    Attendance.timestamp < day_end,
+                    Attendance.check_in >= day_start,
+                    Attendance.check_in < day_end,
                 )
                 .group_by(Attendance.company_id)
             )
@@ -342,18 +342,6 @@ async def get_organization_detail(
     ).all()
     class_map = {b.id: b.name for b in classes}
 
-    # Fetch enrolled student face embeddings
-    enrolled_student_ids = set(
-        (
-            await session.scalars(
-                select(FaceEmbedding.student_id).where(
-                    FaceEmbedding.company_id == company_id,
-                    FaceEmbedding.student_id.is_not(None),
-                )
-            )
-        ).all()
-    )
-
     # Fetch students
     students = (
         await session.scalars(
@@ -361,17 +349,18 @@ async def get_organization_detail(
         )
     ).all()
 
-    # Fetch enrolled employee face embeddings
-    enrolled_employee_ids = set(
-        (
-            await session.scalars(
-                select(FaceEmbedding.employee_id).where(
-                    FaceEmbedding.company_id == company_id,
-                    FaceEmbedding.employee_id.is_not(None),
+    # Fetch enrolled student face embeddings
+    enrolled_student_ids = set()
+    if students:
+        enrolled_student_ids = set(
+            (
+                await session.scalars(
+                    select(FaceEmbedding.student_id).where(
+                        FaceEmbedding.student_id.in_([s.id for s in students])
+                    )
                 )
-            )
-        ).all()
-    )
+            ).all()
+        )
 
     # Fetch employees
     employees = (
@@ -379,6 +368,19 @@ async def get_organization_detail(
             select(Employee).where(Employee.company_id == company_id).order_by(Employee.id)
         )
     ).all()
+
+    # Fetch enrolled employee face embeddings
+    enrolled_employee_ids = set()
+    if employees:
+        enrolled_employee_ids = set(
+            (
+                await session.scalars(
+                    select(FaceEmbedding.employee_id).where(
+                        FaceEmbedding.employee_id.in_([e.id for e in employees])
+                    )
+                )
+            ).all()
+        )
 
     # Stats
     day_start, day_end = local_day_bounds()
@@ -394,8 +396,8 @@ async def get_organization_detail(
         await session.scalar(
             select(func.count(Attendance.id)).where(
                 Attendance.company_id == company_id,
-                Attendance.timestamp >= day_start,
-                Attendance.timestamp < day_end,
+                Attendance.check_in >= day_start,
+                Attendance.check_in < day_end,
             )
         )
         or 0
