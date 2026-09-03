@@ -14,7 +14,7 @@ interface WindowWithPwa extends Window {
   pwaDeferredPrompt?: BeforeInstallPromptEvent;
 }
 
-export function ApkDownloadPanel() {
+export function PwaSidebarPanel() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIos, setIsIos] = useState(false);

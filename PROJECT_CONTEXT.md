@@ -16,7 +16,6 @@ Last updated: 2026-09-04
 | `face-attendance/frontend` | Next.js 16, React 19, strict TypeScript, Tailwind | Vercel frontend (`face-detector-seven.vercel.app`) |
 | `face-attendance/backend` | FastAPI, async SQLAlchemy, Alembic, Neon PostgreSQL | Vercel backend (`face-detector-k4dl.vercel.app`) |
 | `face-attendance/ai-service` | Python 3.11, FastAPI, DeepFace ArcFace, RetinaFace/OpenCV, TensorFlow | Hugging Face Docker Space (`abdullah017-face-attendance-ai.hf.space`) |
-| `face-attendance/frontend/android` | Capacitor 6 wrapper + Gradle/Android SDK | GitHub Actions (`android-apk.yml`) builds a Release APK on `v*` tag push; attached to a GitHub Release; downloaded directly from the Dashboard |
 
 The browser calls the same-origin Next.js route `/api/backend/*`; that route proxies to `BACKEND_INTERNAL_URL`. The backend is the only caller of the AI service and authenticates with `X-API-Key`.
 
@@ -76,8 +75,8 @@ The browser calls the same-origin Next.js route `/api/backend/*`; that route pro
 1. Confirm Vercel uses the same `BIOMETRIC_ENCRYPTION_KEY` that encrypted the Neon record; preserve that key in a secure backup.
 2. Apply migration `8b0ac05d29be` to Neon before deploying the new backend code.
 3. Start one class session and perform one real kiosk scan plus a repeat-scan idempotency check. Re-enroll with two or three clear photos if recognition quality is weak.
-4. Enroll one teacher/staff face, scan at the kiosk, and confirm a staff check-in row plus a WhatsApp text to the school number from the Dashboard card.
-5. For the Android app, push a `v*` tag to trigger `.github/workflows/android-apk.yml`; the workflow builds the static-export frontend, syncs Capacitor, accepts the Android SDK licenses, assembles the Release APK, and attaches it to a GitHub Release. The Dashboard APK card fetches that release's `.apk` asset directly from the GitHub API.
+4. Enroll one teacher/staff face, scan at the kiosk, and confirm a staff check-in row plus an alert to the school manager/HR.
+5. Direct users to install the Progressive Web App (PWA) on mobile/tablet devices via the browser install banner or sidebar button.
 6. When WhatsApp work resumes, send one real inbound `STATUS` message and verify inbound, reply, and delivery/read callback rows.
 
 ## External Acceptance / Production Limits
@@ -103,8 +102,6 @@ The browser calls the same-origin Next.js route `/api/backend/*`; that route pro
 | AI dev | `.\\.venv\\Scripts\\python.exe -m uvicorn main:app --reload --port 8001` |
 | AI tests | `.\\.venv\\Scripts\\python.exe -m pytest -q` |
 | AI image | `docker build -t face-attendance-ai .` |
-| Android APK (local) | `cd face-attendance/frontend && npm run build:apk` |
-| Android APK (CI) | Push a `v*` tag; `.github/workflows/android-apk.yml` builds and attaches the APK to the GitHub Release |
 
 ## Memory Rules
 

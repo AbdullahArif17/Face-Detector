@@ -19,7 +19,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 import { BrandLogo } from "@/components/brand-logo";
-import { ApkDownloadPanel } from "@/components/apk-download-panel";
+import { PwaSidebarPanel } from "@/components/pwa-sidebar-panel";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { canManageUsers } from "@/lib/permissions";
@@ -173,7 +173,7 @@ export function Sidebar() {
             >
               {renderNavLinks()}
             </nav>
-            <ApkDownloadPanel />
+            <PwaSidebarPanel />
             {renderAccountPanel()}
           </aside>
         </div>
@@ -190,7 +190,7 @@ export function Sidebar() {
           </div>
           {renderNavLinks()}
         </nav>
-        <ApkDownloadPanel />
+        <PwaSidebarPanel />
         {renderAccountPanel()}
       </aside>
     </>
