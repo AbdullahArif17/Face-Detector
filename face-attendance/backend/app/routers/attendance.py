@@ -1652,6 +1652,7 @@ async def send_absent_notification(
         attendance.notification_sent = False
         return
         
+    
     frontend_url = settings.frontend_origins[0] if settings.frontend_origins else "http://localhost:3000"
     logo_url = f"{frontend_url.rstrip('/')}/images/face-attendance-logo.png"
     contact_html = f"<br><p>If you have any questions, please contact us at <b>{school.school_contact}</b>.</p>" if school.school_contact else ""
@@ -1671,13 +1672,26 @@ async def send_absent_notification(
         f"</div>"
     )
     
+    try:
+        import os
+        logo_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend", "public", "images", "face-attendance-logo.png")
+        inline_images = []
+        if os.path.exists(logo_path):
+            with open(logo_path, 'rb') as img:
+                inline_images.append(("facelogo", img.read(), "png"))
+            body_html = body_html.replace(logo_url, "cid:facelogo")
+    except Exception as e:
+        logger.error(f"Error attaching logo: {e}")
+        inline_images = None
+
     success = await NotificationService.send_email(
         company_id=school.id,
         recipient_email=student.parent_email or "",
         subject=subject,
         body_text=body_text,
         body_html=body_html,
-        event_type="absence_notice"
+        event_type="absence_notice",
+        inline_images=inline_images
     )
     
     if success:
@@ -1912,6 +1926,18 @@ async def cron_weekly_parent_reports(
             f"</div>"
         )
         
+        try:
+            import os
+            logo_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend", "public", "images", "face-attendance-logo.png")
+            inline_images = []
+            if os.path.exists(logo_path):
+                with open(logo_path, 'rb') as img:
+                    inline_images.append(("facelogo", img.read(), "png"))
+                html_body = html_body.replace(logo_url, "cid:facelogo")
+        except Exception as e:
+            logger.error(f"Error attaching logo: {e}")
+            inline_images = None
+
         background_tasks.add_task(
             NotificationService.send_email,
             company_id=student.school_id,
@@ -1919,7 +1945,8 @@ async def cron_weekly_parent_reports(
             subject=f"Weekly Attendance Report: {student.student_name}",
             body_text=f"Weekly Attendance Report for {student.student_name}. Please view this email in an HTML-compatible client.",
             body_html=html_body,
-            event_type="weekly_report"
+            event_type="weekly_report",
+            inline_images=inline_images
         )
         emails_queued += 1
         

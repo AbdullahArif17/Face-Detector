@@ -150,6 +150,7 @@ class NotificationService:
         body_text: str,
         body_html: str | None = None,
         event_type: str = "weekly_report",
+        inline_images: list[tuple[str, bytes, str]] | None = None,
     ) -> bool:
         if not all([settings.smtp_host, settings.smtp_port, settings.smtp_user, settings.smtp_pass, settings.smtp_from_email]):
             logger.error("SMTP configuration is incomplete. Cannot send email.")
@@ -163,6 +164,14 @@ class NotificationService:
         
         if body_html:
             msg.add_alternative(body_html, subtype='html')
+            
+        if inline_images and body_html:
+            for cid, img_data, img_type in inline_images:
+                # Add the image as a related resource to the HTML part
+                payloads = msg.get_payload()
+                html_part = payloads[1] # type: ignore
+                if hasattr(html_part, 'add_related'):
+                    html_part.add_related(img_data, 'image', img_type, cid=f'<{cid}>') # type: ignore
 
         status = "failed"
         error_msg = None
