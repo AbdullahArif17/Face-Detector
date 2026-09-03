@@ -494,6 +494,14 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
   - Frontend: Resolved React 19 / Compiler effect state cascading issues in `FirebaseNotifications`, `PwaInstallPrompt`, and `apk-download-panel` using `queueMicrotask` and typed interfaces; fixed synchronous effect `setState` in `attendance/page.tsx`; escaped raw quotes in `guide/page.tsx` and `apk-download-panel.tsx`; removed unused variables and imports in `dashboard/page.tsx`, `students/page.tsx`, `notifications/page.tsx`, `sidebar.tsx`, `charts/AttendanceChart.tsx`, and `build-apk.mjs`.
 - Verified: Backend pytest 29/29 passed with zero warnings; AI service pytest 6/6 passed; frontend `npm run typecheck` passed (0 errors); frontend `npm run lint` passed with 0 errors and 0 warnings; Next.js production build succeeded; `alembic check` clean with zero schema drift.
 
+## 2026-09-04 — Platform admin panel for multi-tenant monitoring and organization deactivation
+- Completed: Built a full platform operator control plane enabling centralized tracking of all organizations, users, staff, students, and attendance volume, along with instant disable/enable controls.
+- Changed:
+  - Backend: Added `PLATFORM_ADMIN_KEY` config in `app/core/config.py`; created `app/schemas/platform_admin.py` with stats, list, and detail schemas; created `app/routers/platform_admin.py` with secret key auth, JWT cookie sessions (`face_attendance_platform_session`), stats aggregation, organization list with child entity counts, full organization detail drilldown (students with face enrollment badges, staff, portal users, classes), and status toggles (`active` ↔ `suspended`); mounted router and updated CSRF exempt paths in `main.py`.
+  - Frontend: Created `(admin)` route group with dedicated dark slate UI theme; implemented `PlatformAdminContext` and `admin-api.ts`; created `AdminSidebar`; built `/admin/login` secret key access page; built `/admin` dashboard with 7 live metric cards and recent org table; built `/admin/organizations` searchable table with status filter tabs and confirmation modals; built `/admin/organizations/[id]` comprehensive detail page with tabbed views for students, staff, users, classes, and kiosk settings, plus package/limits editing modal.
+  - Architecture: Recorded D-030 in `docs/DECISIONS.md`; updated `PROJECT_CONTEXT.md`.
+- Verified: Added 7 new backend tests in `tests/test_platform_admin.py`, running all 36 backend tests with 0 failures; frontend `npm run typecheck` passed with 0 errors; frontend `npm run lint` passed with 0 errors and 0 warnings; Next.js Turbopack production build succeeded with all 23 static/dynamic routes generated.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

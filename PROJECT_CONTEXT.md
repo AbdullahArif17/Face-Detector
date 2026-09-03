@@ -39,6 +39,7 @@ The browser calls the same-origin Next.js route `/api/backend/*`; that route pro
 - The kiosk is responsive, class scoped, HTTPS-camera aware, automatically polls session state, and offers separate fresh-photo/upload fallbacks. Its company API key remains a bearer credential and must be rotated if a kiosk URL is exposed.
 - Frontend/backend responses include security headers; frontend has a production CSP and HSTS. API responses are non-cacheable. Production startup rejects unsafe origins, secrets, database transport, cookie settings, AI URLs, and invalid encryption keys.
 - CI covers backend migrations/tests/audits, frontend typecheck/lint/build/audit, and lightweight AI tests/audits. Dependabot monitors npm, pip, Docker, and GitHub Actions.
+- **Platform Admin Control Plane (2026-09-04)**: Dedicated operator interface (`/admin/*` frontend, `/platform-admin/*` backend) authenticated via `PLATFORM_ADMIN_KEY` env var secret with isolated cookie sessions (`face_attendance_platform_session`). Provides cross-organization monitoring (total orgs, students, staff, portal users, today's scans, active kiosks), individual org detail drill-down (complete student, staff, user, and class lists), and instant organization status toggling (`active` ↔ `suspended`). Suspended orgs immediately fail tenant portal logins and reject kiosk API scans.
 
 ## Tenant Security and Client UX (2026-07-17)
 

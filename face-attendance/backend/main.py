@@ -26,6 +26,7 @@ from app.routers import (
     students,
     users,
     notifications,
+    platform_admin,
 )
 
 from app.core.config import settings
@@ -37,7 +38,7 @@ logger = logging.getLogger("face_attendance_api")
 logger.setLevel(logging.INFO)
 SAFE_JWT_ALGORITHMS = {"HS256", "HS384", "HS512"}
 STATE_CHANGING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
-CSRF_EXEMPT_PATHS = {"/auth/login", "/auth/signup"}
+CSRF_EXEMPT_PATHS = {"/auth/login", "/auth/signup", "/platform-admin/login", "/platform-admin/logout"}
 
 
 def _is_local_hostname(hostname: str | None) -> bool:
@@ -254,6 +255,7 @@ app.include_router(attendance.router)
 app.include_router(face.router)
 app.include_router(notifications.router)
 app.include_router(users.router)
+app.include_router(platform_admin.router)
 
 @app.get("/health", tags=["health"])
 async def health_check() -> dict[str, str]:

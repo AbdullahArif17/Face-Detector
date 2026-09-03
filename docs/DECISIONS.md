@@ -205,6 +205,13 @@
 - Decision: Add Teachers and Staff management pages, a Staff Attendance page (today, history, manual edit, CSV export), and kiosk recognition of employees alongside students. Employees enroll in the AI service under prefixed IDs (`"e{employee_id}"`) so they cannot collide with student IDs (`"5"`); the backend maps `"e5"` back to employee 5 via `parse_recognition_subject`. Staff check-in/check-out events are sent as free-form WhatsApp text messages to `company.school_phone` (normalized `92...` format; unset/invalid means no notification, attendance still marked), logged in `whatsapp_logs` with `employee_id`. Staff absences are not auto-created or notified; attendance sessions are shared with students (one global session, kiosk scans mark both).
 - Consequences: School settings exposes one new editable field (`school_phone`); invalid numbers silently disable staff notifications rather than failing scans. Employee retries of failed WhatsApp messages reuse stored text (no school message templates yet). Teachers are grouped by a free-form `designation` containing "teacher" (case-insensitive); strict teacher/staff bucketing would need an enum/badge later.
 
+## D-030: Platform admin control plane for multi-tenant monitoring and organization deactivation
+- Date: 2026-09-04
+- Status: Accepted
+- Context: Public signups and general internet access allow any entity to create organizations. The platform owner required centralized monitoring across all organizations (usage metrics, portal users, staff, students, and biometric enrollment status) as well as the ability to disable/enable organizations on demand.
+- Decision: Introduce a dedicated platform admin control plane authenticated via an environment variable secret (`PLATFORM_ADMIN_KEY`). The backend exposes `/platform-admin/*` with isolated JWT cookie sessions (`face_attendance_platform_session`) and `X-Platform-Admin-Key` support. The frontend hosts a dedicated dark-themed route group at `/admin/*` with a separate `PlatformAdminContext`. Suspending an organization sets `companies.status = 'suspended'`, immediately blocking tenant portal authentication and kiosk operations while preserving all biometric and attendance history.
+- Consequences: Platform administration is completely decoupled from tenant-level database roles. No database migration is required since `companies.status` already drives login and kiosk authorization.
+
 ## Decision Template
 ```markdown
 ## D-NNN: Decision title

@@ -44,6 +44,11 @@ class Settings:
     firebase_credentials_path: str | None
     firebase_credentials_json: str | None
 
+    # Platform Admin Configuration
+    platform_admin_key: str | None
+    platform_auth_cookie_name: str
+    platform_admin_email: str | None
+
 
 def normalize_database_url(database_url: str) -> str:
     """Convert a standard PostgreSQL URL into SQLAlchemy's asyncpg format."""
@@ -156,6 +161,15 @@ def get_settings() -> Settings:
         smtp_from_email=os.getenv("SMTP_FROM_EMAIL"),
         firebase_credentials_path=os.getenv("FIREBASE_CREDENTIALS_PATH"),
         firebase_credentials_json=os.getenv("FIREBASE_CREDENTIALS_JSON"),
+        platform_admin_key=os.getenv(
+            "PLATFORM_ADMIN_KEY",
+            "admin-secret-key" if not is_production else None,
+        ),
+        platform_auth_cookie_name=os.getenv(
+            "PLATFORM_AUTH_COOKIE_NAME",
+            "face_attendance_platform_session",
+        ).strip(),
+        platform_admin_email=os.getenv("PLATFORM_ADMIN_EMAIL"),
     )
 
 
