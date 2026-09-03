@@ -237,7 +237,9 @@ export function AddStudentModal({
 
         <div className="grid gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="student-name">Student Full Name</Label>
+            <Label htmlFor="student-name">
+              Student Full Name <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="student-name"
               value={studentName}
@@ -247,7 +249,7 @@ export function AddStudentModal({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="student-code">Roll Number (optional)</Label>
+            <Label htmlFor="student-code">Roll Number</Label>
             <Input
               id="student-code"
               value={studentCode}
@@ -257,7 +259,7 @@ export function AddStudentModal({
           </div>
 
           <div className="grid gap-2">
-            <Label>Student Photo (optional)</Label>
+            <Label>Student Photo</Label>
             <div className="flex flex-col gap-3 rounded-lg border bg-muted/20 p-3 sm:flex-row sm:items-center">
               {profileImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -396,7 +398,9 @@ export function AddStudentModal({
 
           <div className="grid gap-2 sm:grid-cols-2">
             <div className="grid gap-2">
-              <Label htmlFor="student-grade">Grade</Label>
+              <Label htmlFor="student-grade">
+                Grade <span className="text-destructive">*</span>
+              </Label>
               <select
                 id="student-grade"
                 value={grade}
@@ -411,7 +415,9 @@ export function AddStudentModal({
               </select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="student-section">Section</Label>
+              <Label htmlFor="student-section">
+                Section <span className="text-destructive">*</span>
+              </Label>
               <select
                 id="student-section"
                 value={section}
@@ -428,7 +434,7 @@ export function AddStudentModal({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="parent-name">Parent/Guardian Name (optional)</Label>
+            <Label htmlFor="parent-name">Parent/Guardian Name</Label>
             <Input
               id="parent-name"
               value={parentName}
@@ -438,7 +444,7 @@ export function AddStudentModal({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="parent-email">Parent Email (optional)</Label>
+            <Label htmlFor="parent-email">Parent Email</Label>
             <Input
               id="parent-email"
               type="email"
@@ -449,7 +455,7 @@ export function AddStudentModal({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="parent-phone">Parent Phone Number (optional)</Label>
+            <Label htmlFor="parent-phone">Parent Phone Number</Label>
             <Input
               id="parent-phone"
               inputMode="numeric"
@@ -463,7 +469,7 @@ export function AddStudentModal({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="parent-phone-2">Second Parent Number (optional)</Label>
+            <Label htmlFor="parent-phone-2">Second Parent Number</Label>
             <Input
               id="parent-phone-2"
               inputMode="numeric"

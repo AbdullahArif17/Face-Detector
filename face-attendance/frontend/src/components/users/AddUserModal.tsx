@@ -93,7 +93,9 @@ export function AddUserModal({
 
         <div className="grid gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="user-name">Full Name</Label>
+            <Label htmlFor="user-name">
+              Full Name <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="user-name"
               autoComplete="name"
@@ -103,7 +105,9 @@ export function AddUserModal({
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="user-email">Email</Label>
+            <Label htmlFor="user-email">
+              Email <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="user-email"
               type="email"
@@ -114,7 +118,9 @@ export function AddUserModal({
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="user-password">Password</Label>
+            <Label htmlFor="user-password">
+              Password <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="user-password"
               type="password"
@@ -129,7 +135,9 @@ export function AddUserModal({
             </p>
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="user-role">Role</Label>
+            <Label htmlFor="user-role">
+              Role <span className="text-destructive">*</span>
+            </Label>
             <select
               id="user-role"
               value={role}

@@ -903,7 +903,7 @@ export default function AdminOrgDetailPage() {
             <form onSubmit={handleSaveEdit} className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Organization Name
+                  Organization Name <span className="text-violet-400">*</span>
                 </label>
                 <Input
                   value={editName}
@@ -915,7 +915,7 @@ export default function AdminOrgDetailPage() {
 
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Subscription Package
+                  Subscription Package <span className="text-violet-400">*</span>
                 </label>
                 <select
                   value={editPackage}
@@ -931,7 +931,7 @@ export default function AdminOrgDetailPage() {
 
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Portal User Limit
+                  Portal User Limit <span className="text-violet-400">*</span>
                 </label>
                 <Input
                   type="number"

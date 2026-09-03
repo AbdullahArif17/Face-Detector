@@ -286,7 +286,9 @@ export function AddEmployeeModal({
 
         <div className="grid gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="employee-name">Full Name</Label>
+            <Label htmlFor="employee-name">
+              Full Name <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="employee-name"
               value={name}
@@ -297,7 +299,9 @@ export function AddEmployeeModal({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="employee-email">Email</Label>
+            <Label htmlFor="employee-email">
+              Email <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="employee-email"
               type="email"
@@ -320,7 +324,7 @@ export function AddEmployeeModal({
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="employee-branch">Branch ID (optional)</Label>
+              <Label htmlFor="employee-branch">Branch ID</Label>
               <Input
                 id="employee-branch"
                 inputMode="numeric"
@@ -405,7 +409,7 @@ export function AddEmployeeModal({
           {shouldShowInlineFaceEnrollment ? (
             <div className="grid gap-3 rounded-lg border bg-muted/30 p-3">
               <div>
-                <Label>Face enrollment (optional)</Label>
+                <Label>Face enrollment</Label>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Upload a clear front-facing photo now, or enroll later from
                   the employee table.

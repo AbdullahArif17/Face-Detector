@@ -141,7 +141,7 @@ export default function SignupPage() {
           <div className="space-y-3.5 sm:space-y-4" onKeyDown={handleKeyDown}>
             <div className="space-y-1.5 sm:space-y-2">
               <label className="text-sm font-medium" htmlFor="company-name">
-                Organization / School name
+                Organization / School name <span className="text-destructive">*</span>
               </label>
               <Input
                 id="company-name"
@@ -154,7 +154,7 @@ export default function SignupPage() {
             </div>
             <div className="space-y-1.5 sm:space-y-2">
               <label className="text-sm font-medium" htmlFor="name">
-                Your name
+                Your name <span className="text-destructive">*</span>
               </label>
               <Input
                 id="name"
@@ -167,7 +167,7 @@ export default function SignupPage() {
             </div>
             <div className="space-y-1.5 sm:space-y-2">
               <label className="text-sm font-medium" htmlFor="signup-email">
-                Email
+                Email <span className="text-destructive">*</span>
               </label>
               <Input
                 id="signup-email"
@@ -181,7 +181,7 @@ export default function SignupPage() {
             </div>
             <div className="space-y-1.5 sm:space-y-2">
               <label className="text-sm font-medium" htmlFor="signup-password">
-                Password
+                Password <span className="text-destructive">*</span>
               </label>
               <Input
                 id="signup-password"
@@ -198,7 +198,7 @@ export default function SignupPage() {
             </div>
             <div className="space-y-1.5 sm:space-y-2">
               <label className="text-sm font-medium" htmlFor="confirm-password">
-                Confirm password
+                Confirm password <span className="text-destructive">*</span>
               </label>
               <Input
                 id="confirm-password"

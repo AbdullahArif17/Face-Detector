@@ -140,7 +140,7 @@ export default function LoginPage() {
             <div className="space-y-3.5 sm:space-y-4" onKeyDown={handleKeyDown}>
               <div className="space-y-1.5 sm:space-y-2">
                 <label className="text-sm font-medium" htmlFor="organization-name">
-                  Organization or school
+                  Organization or school <span className="text-destructive">*</span>
                 </label>
                 <Input
                   id="organization-name"
@@ -157,7 +157,7 @@ export default function LoginPage() {
 
               <div className="space-y-1.5 sm:space-y-2">
                 <label className="text-sm font-medium" htmlFor="email">
-                  Email address
+                  Email address <span className="text-destructive">*</span>
                 </label>
                 <Input
                   id="email"
@@ -176,7 +176,7 @@ export default function LoginPage() {
 
               <div className="space-y-1.5 sm:space-y-2">
                 <label className="text-sm font-medium" htmlFor="password">
-                  Password
+                  Password <span className="text-destructive">*</span>
                 </label>
                 <div className="relative">
                   <Input

@@ -592,7 +592,7 @@ export default function DashboardPage() {
                         id="school-contact"
                         value={schoolContactInput}
                         disabled={isSavingSettings}
-                        placeholder="Optional"
+                        placeholder="e.g. 03001234567"
                         className="h-9 text-sm"
                         onChange={(event) => {
                           setSchoolContactInput(event.target.value);
@@ -613,7 +613,7 @@ export default function DashboardPage() {
                         type="email"
                         value={hrEmailInput}
                         disabled={isSavingSettings}
-                        placeholder="Optional"
+                        placeholder="e.g. hr@school.com"
                         className="h-9 text-sm"
                         onChange={(event) => {
                           setHrEmailInput(event.target.value);
@@ -628,7 +628,7 @@ export default function DashboardPage() {
 
                     <div className="space-y-1.5">
                       <Label htmlFor="session-duration" className="text-xs font-semibold text-foreground">
-                        Default Session Duration (Minutes)
+                        Default Session Duration (Minutes) <span className="text-destructive">*</span>
                       </Label>
                       <p className="text-[11px] text-muted-foreground leading-tight">
                         How long an attendance session should run by default before expiring.

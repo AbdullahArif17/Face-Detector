@@ -94,7 +94,9 @@ export function EditUserModal({
             </p>
           ) : (
             <div className="grid gap-2">
-              <Label htmlFor="edit-user-role">Role</Label>
+              <Label htmlFor="edit-user-role">
+                Role <span className="text-destructive">*</span>
+              </Label>
               <select
                 id="edit-user-role"
                 value={role}
