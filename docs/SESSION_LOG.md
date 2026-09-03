@@ -504,6 +504,7 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Bugfix (Admin redirect loop): Exempted `/admin/*` and public routes in `api.ts` response 401 interceptor and skipped tenant session restore in `AuthContext.tsx` when on `/admin` paths, resolving the immediate fallback redirect from `/admin/login` to `/login`.
 - Bugfix (Admin stats/organizations 500): Fixed column mismatches in `app/routers/platform_admin.py` — replaced non-existent `Attendance.timestamp` with `Attendance.check_in` and fixed `FaceEmbedding` lookups that incorrectly queried `company_id`.
 - UI/UX Refactor (Form field indicators): Replaced repetitive `(optional)` text across all modals and forms with standard red asterisks `*` on required fields (Student Name, Grade, Section, Employee Name, Email, Role, Login/Signup, Session Duration, Edit Org limits), keeping non-required fields clean.
+- Data Update & Readiness: Set Demo School HR email and all 31 student parent emails to `abdullah0071010@gmail.com` in Neon database; live-tested and verified both Gmail SMTP credentials and Firebase Admin SDK push notification setup.
 
 ## Entry Template
 ```markdown
