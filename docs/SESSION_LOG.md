@@ -506,6 +506,18 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - UI/UX Refactor (Form field indicators): Replaced repetitive `(optional)` text across all modals and forms with standard red asterisks `*` on required fields (Student Name, Grade, Section, Employee Name, Email, Role, Login/Signup, Session Duration, Edit Org limits), keeping non-required fields clean.
 - Data Update & Readiness: Set Demo School HR email and all 31 student parent emails to `abdullah0071010@gmail.com` in Neon database; live-tested and verified both Gmail SMTP credentials and Firebase Admin SDK push notification setup.
 
+## 2026-09-04 — Removal of unnecessary Android APK files and build workflow
+- Completed: Removed unused Android APK artifacts, build scripts, GitHub Actions APK workflow, and legacy Capacitor setup in favor of the Progressive Web App (PWA).
+- Changed:
+  - Removed binary APK files: `app-release-unsigned.apk` (10.35 MB) from Android assets and old static export output `out/`.
+  - Removed APK build scripts & configs: `face-attendance/frontend/build-apk.mjs`, `face-attendance/frontend/next.config.export.mjs`, `face-attendance/frontend/capacitor.config.ts`, `.github/workflows/android-apk.yml`, and root `fail.log`.
+  - Removed tracked Android directory `face-attendance/frontend/android/` (53 files) and removed unused `@capacitor/*` packages (72 packages pruned).
+  - Renamed `apk-download-panel.tsx` to `pwa-sidebar-panel.tsx` and updated sidebar to `PwaSidebarPanel` (preserving PWA "Install App" functionality).
+  - Cleaned `face-attendance/frontend/package.json` (removed `build:apk`, `capacitor:build`, `capacitor:open`) and updated `face-attendance/frontend/.gitignore`.
+  - Updated `PROJECT_CONTEXT.md` to remove Android APK architecture and build commands.
+- Verified: `npm run typecheck` passed (0 errors); `npm run lint` passed (0 errors, 0 warnings); `npm run build` succeeded with all 23 routes generated; backend pytest passed 36/36.
+- Pending: Ready for deployment.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title
@@ -514,3 +526,4 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified:
 - Pending:
 ```
+
