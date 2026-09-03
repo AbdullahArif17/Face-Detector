@@ -44,6 +44,12 @@ export default function NotificationsPage() {
         </div>
       </div>
 
+      {error && (
+        <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
       <div className="rounded-xl border bg-card shadow-card overflow-hidden">
         {loading ? (
           <div className="flex justify-center p-12">

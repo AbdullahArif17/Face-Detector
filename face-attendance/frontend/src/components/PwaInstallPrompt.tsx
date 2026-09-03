@@ -14,6 +14,14 @@ interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
 }
 
+interface WindowWithPwa extends Window {
+  pwaDeferredPrompt?: BeforeInstallPromptEvent;
+}
+
+interface NavigatorWithStandalone {
+  standalone?: boolean;
+}
+
 export function PwaInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
@@ -28,23 +36,28 @@ export function PwaInstallPrompt() {
     const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
     
     // Detect if already installed (standalone mode)
+    const nav = window.navigator as Navigator & NavigatorWithStandalone;
     const isStandalone = 
       window.matchMedia("(display-mode: standalone)").matches || 
-      (window.navigator as any).standalone === true;
+      nav.standalone === true;
 
-    // Show custom prompt for iOS if not installed and not dismissed
-    if (isIosDevice && !isStandalone && hasDismissed !== "true") {
-      setIsIos(true);
-      setShowPrompt(true);
-    }
+    const win = window as unknown as WindowWithPwa;
 
-    // Check if the event was already captured by the script in layout.tsx
-    if ((window as any).pwaDeferredPrompt) {
-      setDeferredPrompt((window as any).pwaDeferredPrompt);
-      if (hasDismissed !== "true") {
+    queueMicrotask(() => {
+      // Show custom prompt for iOS if not installed and not dismissed
+      if (isIosDevice && !isStandalone && hasDismissed !== "true") {
+        setIsIos(true);
         setShowPrompt(true);
       }
-    }
+
+      // Check if the event was already captured by the script in layout.tsx
+      if (win.pwaDeferredPrompt) {
+        setDeferredPrompt(win.pwaDeferredPrompt);
+        if (hasDismissed !== "true") {
+          setShowPrompt(true);
+        }
+      }
+    });
 
     const handleBeforeInstallPrompt = (e: Event) => {
       // Prevent the mini-infobar from appearing on mobile
@@ -72,7 +85,7 @@ export function PwaInstallPrompt() {
     // Show the install prompt
     await deferredPrompt.prompt();
     // Wait for the user to respond to the prompt
-    const { outcome } = await deferredPrompt.userChoice;
+    await deferredPrompt.userChoice;
     // We've used the prompt, and can't use it again, throw it away
     setDeferredPrompt(null);
     setShowPrompt(false);

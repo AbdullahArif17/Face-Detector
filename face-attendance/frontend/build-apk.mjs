@@ -17,14 +17,11 @@ fs.copyFileSync('next.config.export.mjs', 'next.config.mjs');
 const apiPath = path.join(__dirname, 'src/app/api/backend');
 const backupPath = path.join(__dirname, 'src/app/api/_backend');
 
-let apiMoved = false;
-
 try {
   // Temporarily rename the API route to ignore it during static export
   if (fs.existsSync(apiPath)) {
     console.log(`Temporarily renaming API route to bypass Next.js export restriction...`);
     fs.renameSync(apiPath, backupPath);
-    apiMoved = true;
   }
 
   console.log("Building Next.js frontend...");

@@ -9,7 +9,6 @@ import {
   UserX,
   Activity,
   ScanFace,
-  Download
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -36,7 +35,6 @@ import {
   launchAttendanceKiosk,
   updateSchoolSettings,
   type AttendanceDashboardRecord,
-  type SchoolSettings,
   type Student,
   type Employee,
 } from "@/lib/api";
@@ -67,9 +65,6 @@ export default function DashboardPage() {
   const [todayRecords, setTodayRecords] = useState<AttendanceDashboardRecord[]>(
     [],
   );
-  const [schoolSettings, setSchoolSettings] = useState<SchoolSettings | null>(
-    null,
-  );
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [schoolContactInput, setSchoolContactInput] = useState("");
@@ -84,13 +79,6 @@ export default function DashboardPage() {
   >(null);
   const [launchMessage, setLaunchMessage] = useState<string | null>(null);
   const [launchError, setLaunchError] = useState<string | null>(null);
-
-  // APK Download state
-  const apkDownloadUrl = "/app-release-unsigned.apk";
-  const apkVersion = "v1.0.5";
-  const apkSize = 10350596; // 10.3MB
-  const isLoadingApk = false;
-  const apkError = null;
 
   const hasAdminAccess = canManageKiosk(user);
 
@@ -112,7 +100,6 @@ export default function DashboardPage() {
       setStudents(studentRecords);
       setEmployees(employeeRecords);
       setTodayRecords(attendanceRecords);
-      setSchoolSettings(settingsResponse);
       setSchoolContactInput(settingsResponse?.school_contact ?? "");
       setHrEmailInput(settingsResponse?.hr_email ?? "");
       setDefaultSessionDurationInput(settingsResponse?.default_session_duration_minutes?.toString() ?? "60");

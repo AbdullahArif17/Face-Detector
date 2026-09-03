@@ -35,6 +35,8 @@ from app.routers.face import should_update_profile_image, unenroll_face
 from app.routers.companies import ensure_company_access
 from app.routers.users import ensure_can_manage_user, resolve_user_company_id
 from app.schemas.attendance import AttendanceManualUpdate
+from app.schemas.auth import SignupRequest
+from app.schemas.face import FaceEnrollRequest
 from app.schemas.user import UserCreate
 import main as backend_main
 

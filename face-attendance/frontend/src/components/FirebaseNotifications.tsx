@@ -5,28 +5,13 @@ import { requestForToken, messaging } from "@/lib/firebase";
 import { onMessage } from "firebase/messaging";
 import { registerDeviceToken } from "@/lib/api";
 
+interface NavigatorStandalone {
+  standalone?: boolean;
+}
+
 export function FirebaseNotifications() {
   const [permission, setPermission] = useState<NotificationPermission>("default");
   const [isStandalone, setIsStandalone] = useState(false);
-  
-  useEffect(() => {
-    if (typeof window === "undefined" || !("Notification" in window)) {
-      return;
-    }
-    
-    // Detect if already installed (standalone mode)
-    const standalone = 
-      window.matchMedia("(display-mode: standalone)").matches || 
-      (window.navigator as any).standalone === true;
-      
-    setIsStandalone(standalone);
-    
-    setPermission(Notification.permission);
-    
-    if (Notification.permission === "granted") {
-      setupNotifications();
-    }
-  }, []);
 
   const setupNotifications = async () => {
     try {
@@ -53,6 +38,27 @@ export function FirebaseNotifications() {
       console.error("Error setting up notifications:", error);
     }
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      return;
+    }
+    
+    // Detect if already installed (standalone mode)
+    const nav = window.navigator as Navigator & NavigatorStandalone;
+    const standalone = 
+      window.matchMedia("(display-mode: standalone)").matches || 
+      nav.standalone === true;
+      
+    queueMicrotask(() => {
+      setIsStandalone(standalone);
+      setPermission(Notification.permission);
+      
+      if (Notification.permission === "granted") {
+        void setupNotifications();
+      }
+    });
+  }, []);
 
   const requestPermission = async () => {
     if (typeof window === "undefined" || !("Notification" in window)) {

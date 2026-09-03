@@ -38,8 +38,10 @@ export default function AttendancePage() {
   
   const [pendingStopSession, setPendingStopSession] = useState<AttendanceSession | null>(null);
 
-  const loadGlobalSession = useCallback(async (): Promise<void> => {
-    setIsSessionLoading(true);
+  const loadGlobalSession = useCallback(async (showSpinner = false): Promise<void> => {
+    if (showSpinner) {
+      setIsSessionLoading(true);
+    }
     try {
       const status = await getActiveAttendanceSession();
       setGlobalSession(status);
@@ -52,12 +54,33 @@ export default function AttendancePage() {
   }, []);
 
   useEffect(() => {
-    void loadGlobalSession();
-  }, [loadGlobalSession]);
+    let ignore = false;
+    void getActiveAttendanceSession()
+      .then((status) => {
+        if (!ignore) {
+          setGlobalSession(status);
+          setHasError(false);
+        }
+      })
+      .catch(() => {
+        if (!ignore) {
+          setHasError(true);
+        }
+      })
+      .finally(() => {
+        if (!ignore) {
+          setIsSessionLoading(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
-      void loadGlobalSession();
+      void loadGlobalSession(false);
     }, 30_000);
     return () => window.clearInterval(interval);
   }, [loadGlobalSession]);

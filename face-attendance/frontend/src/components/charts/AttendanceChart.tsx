@@ -11,8 +11,6 @@ import {
   YAxis,
 } from "recharts";
 
-import { type AttendanceDashboardRecord } from "@/lib/api";
-
 interface AttendanceChartProps {
   records: {
     attendance_date: string;

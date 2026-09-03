@@ -17,13 +17,6 @@ import { AddStudentModal } from "@/components/students/AddStudentModal";
 import { StudentAvatar } from "@/components/students/StudentAvatar";
 import { StudentFaceEnrollModal } from "@/components/students/StudentFaceEnrollModal";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   deleteStudent,

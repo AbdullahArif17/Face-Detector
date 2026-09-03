@@ -487,6 +487,13 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: Typecheck passed, git commit and push completed, triggering Vercel rebuild to sync the application code with the modified database schema.
 - Pending: Design and implement FCM (Firebase Cloud Messaging) for push notifications and `smtplib` for SMTP-based email reporting.
 
+## 2026-09-04 — Project review and comprehensive test/lint fixes
+- Completed: Comprehensive project review covering Next.js frontend, FastAPI backend, Neon PostgreSQL, and DeepFace AI service. Resolved all backend test failures and cleared 19 ESLint errors and 17 warnings.
+- Changed:
+  - Backend: Added `testpaths = tests` in `pytest.ini` to exclude standalone scripts (`test_firebase.py`); restored missing `FaceEnrollRequest` and `SignupRequest` imports in `tests/test_core.py`; upgraded `NotificationLogResponse` to `ConfigDict` in `schemas/notification.py`.
+  - Frontend: Resolved React 19 / Compiler effect state cascading issues in `FirebaseNotifications`, `PwaInstallPrompt`, and `apk-download-panel` using `queueMicrotask` and typed interfaces; fixed synchronous effect `setState` in `attendance/page.tsx`; escaped raw quotes in `guide/page.tsx` and `apk-download-panel.tsx`; removed unused variables and imports in `dashboard/page.tsx`, `students/page.tsx`, `notifications/page.tsx`, `sidebar.tsx`, `charts/AttendanceChart.tsx`, and `build-apk.mjs`.
+- Verified: Backend pytest 29/29 passed with zero warnings; AI service pytest 6/6 passed; frontend `npm run typecheck` passed (0 errors); frontend `npm run lint` passed with 0 errors and 0 warnings; Next.js production build succeeded; `alembic check` clean with zero schema drift.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

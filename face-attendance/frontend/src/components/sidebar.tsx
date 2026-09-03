@@ -4,7 +4,6 @@ import {
   BookOpen,
   Briefcase,
   CalendarCheck,
-  ClipboardList,
   FileText,
   GraduationCap,
   LayoutDashboard,

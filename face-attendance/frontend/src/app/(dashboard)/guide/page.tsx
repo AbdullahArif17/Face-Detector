@@ -62,7 +62,7 @@ export default function GuidePage() {
             <ul className="space-y-2 text-sm">
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="size-4 mt-0.5 text-primary shrink-0" />
-                <span>In the user list, click the <strong>Camera</strong> icon next to a person's name.</span>
+                <span>In the user list, click the <strong>Camera</strong> icon next to a person&apos;s name.</span>
               </li>
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="size-4 mt-0.5 text-primary shrink-0" />
@@ -89,7 +89,7 @@ export default function GuidePage() {
               <div className="rounded-lg bg-muted/50 p-4 space-y-2">
                 <h3 className="font-medium">Launching the Kiosk</h3>
                 <p className="text-xs text-muted-foreground">
-                  Go to the <strong>Dashboard</strong> or <strong>Attendance</strong> page and click "Launch Check-in Kiosk" or "Launch Check-out Kiosk". This opens a fullscreen camera view in a new tab.
+                  Go to the <strong>Dashboard</strong> or <strong>Attendance</strong> page and click &quot;Launch Check-in Kiosk&quot; or &quot;Launch Check-out Kiosk&quot;. This opens a fullscreen camera view in a new tab.
                 </p>
               </div>
               <div className="rounded-lg bg-muted/50 p-4 space-y-2">
@@ -135,7 +135,7 @@ export default function GuidePage() {
               <h2 className="text-xl font-semibold">5. System Settings</h2>
             </div>
             <p className="text-sm text-muted-foreground">
-              Configure your organization's global attendance rules.
+              Configure your organization&apos;s global attendance rules.
             </p>
             <ul className="space-y-2 text-sm">
               <li className="flex items-start gap-2">

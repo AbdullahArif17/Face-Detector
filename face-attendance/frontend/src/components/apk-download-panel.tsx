@@ -5,8 +5,17 @@ import { Smartphone } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+}
+
+interface WindowWithPwa extends Window {
+  pwaDeferredPrompt?: BeforeInstallPromptEvent;
+}
+
 export function ApkDownloadPanel() {
-  const [deferredPrompt, setDeferredPrompt] = useState<Event | null>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIos, setIsIos] = useState(false);
   const [showIosInstructions, setShowIosInstructions] = useState(false);
@@ -14,25 +23,29 @@ export function ApkDownloadPanel() {
   useEffect(() => {
     // Check if already installed as PWA
     if (window.matchMedia("(display-mode: standalone)").matches) {
-      setIsInstalled(true);
+      queueMicrotask(() => setIsInstalled(true));
       return;
     }
 
-    // Check if the event was already captured by the script in layout.tsx
-    if ((window as any).pwaDeferredPrompt) {
-      setDeferredPrompt((window as any).pwaDeferredPrompt);
-    }
-
-    // Detect iOS devices
+    const win = window as unknown as WindowWithPwa;
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
-    if (isIosDevice) {
-      setIsIos(true);
-    }
+
+    queueMicrotask(() => {
+      // Check if the event was already captured by the script in layout.tsx
+      if (win.pwaDeferredPrompt) {
+        setDeferredPrompt(win.pwaDeferredPrompt);
+      }
+
+      // Detect iOS devices
+      if (isIosDevice) {
+        setIsIos(true);
+      }
+    });
 
     const handler = (e: Event) => {
       e.preventDefault();
-      setDeferredPrompt(e);
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
 
     window.addEventListener("beforeinstallprompt", handler);
@@ -45,10 +58,8 @@ export function ApkDownloadPanel() {
       return;
     }
     if (!deferredPrompt) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const prompt = deferredPrompt as any;
-    prompt.prompt();
-    const result = await prompt.userChoice;
+    await deferredPrompt.prompt();
+    const result = await deferredPrompt.userChoice;
     if (result.outcome === "accepted") {
       setIsInstalled(true);
     }
@@ -80,7 +91,7 @@ export function ApkDownloadPanel() {
           <div className="rounded-lg bg-background/50 p-3 text-xs text-sidebar-fg">
             <p className="mb-2 font-medium">To install on iOS:</p>
             <p>1. Tap the Share button</p>
-            <p>2. Select "Add to Home Screen"</p>
+            <p>2. Select &quot;Add to Home Screen&quot;</p>
           </div>
         ) : (
           <Button
