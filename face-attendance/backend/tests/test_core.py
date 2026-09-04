@@ -430,3 +430,25 @@ def test_manual_attendance_requires_exactly_one_subject() -> None:
             status="present",
             check_in_time="08:00",
         )
+
+
+@pytest.mark.asyncio
+async def test_require_role_allows_super_admin_and_tenant_roles() -> None:
+    from app.dependencies import require_role
+    role_check = require_role("super_admin", "admin", "hr", "branch_manager", "viewer")
+
+    super_admin_user = SimpleNamespace(role="super_admin", company_id=1)
+    admin_user = SimpleNamespace(role="admin", company_id=1)
+    hr_user = SimpleNamespace(role="hr", company_id=1)
+    viewer_user = SimpleNamespace(role="viewer", company_id=1)
+
+    assert await role_check(super_admin_user) == super_admin_user
+    assert await role_check(admin_user) == admin_user
+    assert await role_check(hr_user) == hr_user
+    assert await role_check(viewer_user) == viewer_user
+
+    invalid_user = SimpleNamespace(role="guest", company_id=1)
+    with pytest.raises(HTTPException) as exc_info:
+        await role_check(invalid_user)
+    assert exc_info.value.status_code == 403
+

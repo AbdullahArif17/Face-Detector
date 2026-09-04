@@ -8,13 +8,13 @@ class UserDeviceTokenCreate(BaseModel):
 class NotificationLogResponse(BaseModel):
     id: int
     company_id: int
-    recipient_email: str | None
-    recipient_fcm_token: str | None
+    recipient_email: str | None = None
+    recipient_fcm_token: str | None = None
     notification_type: str
     event_type: str
     status: str
     message_content: str
-    error_message: str | None
+    error_message: str | None = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

@@ -518,6 +518,14 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: `npm run typecheck` passed (0 errors); `npm run lint` passed (0 errors, 0 warnings); `npm run build` succeeded with all 23 routes generated; backend pytest passed 36/36.
 - Pending: Ready for deployment.
 
+## 2026-09-05 — Fix notifications log access permissions and frontend error UX
+- Completed: Resolved the "Failed to load notifications. Please try again later." error on `/notifications`.
+- Changed:
+  - Backend: Updated `get_notification_logs` in `app/routers/notifications.py` from `require_role("owner", "admin")` to `require_role("super_admin", "admin", "hr", "branch_manager", "viewer")`, allowing primary school administrators (`super_admin`) and school staff to view their company's notification logs. Added default `None` for optional fields in `NotificationLogResponse`. Added unit test in `tests/test_core.py`.
+  - Frontend: Overhauled `notifications/page.tsx` with error/retry handling. Added explicit Retry buttons in both the error banner and an error state card, preventing the contradictory "No Notifications Found" empty state from displaying during API failures. Added a manual Refresh button in the header.
+- Verified: Frontend `npm run typecheck` passed (0 errors); `npm run lint` passed (0 errors, 0 warnings); `npm run build` succeeded; backend pytest passed 37/37.
+- Pending: Deploy updates to production Vercel environments.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title
@@ -526,4 +534,5 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified:
 - Pending:
 ```
+
 

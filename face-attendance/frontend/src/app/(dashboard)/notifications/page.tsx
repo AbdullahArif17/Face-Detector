@@ -1,35 +1,45 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import axios from "axios";
 import { 
   Bell, 
   Mail, 
   Smartphone, 
   CheckCircle2, 
   AlertCircle,
-  Loader2
+  Loader2,
+  RotateCw
 } from "lucide-react";
 import { getNotificationLogs, NotificationLog } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 
 export default function NotificationsPage() {
   const [logs, setLogs] = useState<NotificationLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchLogs() {
-      try {
-        const data = await getNotificationLogs({ limit: 100 });
-        setLogs(data);
-      } catch (error) {
-        setError("Failed to load notifications. Please try again later.");
-        console.error("Failed to load notifications:", error);
-      } finally {
-        setLoading(false);
+  const fetchLogs = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getNotificationLogs({ limit: 100 });
+      setLogs(data);
+    } catch (err: unknown) {
+      let message = "Failed to load notifications. Please try again later.";
+      if (axios.isAxiosError(err) && err.response?.data?.detail) {
+        message = String(err.response.data.detail);
       }
+      setError(message);
+      console.error("Failed to load notifications:", err);
+    } finally {
+      setLoading(false);
     }
-    fetchLogs();
   }, []);
+
+  useEffect(() => {
+    void Promise.resolve().then(fetchLogs);
+  }, [fetchLogs]);
 
   return (
     <section className="animate-page-enter space-y-6">
@@ -42,11 +52,33 @@ export default function NotificationsPage() {
             Monitor system-generated emails and push notifications.
           </p>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={fetchLogs}
+          disabled={loading}
+          className="gap-2 self-start lg:self-auto"
+        >
+          <RotateCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
+          Refresh
+        </Button>
       </div>
 
       {error && (
-        <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
-          {error}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="size-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchLogs}
+            disabled={loading}
+            className="border-destructive/30 hover:bg-destructive/10 shrink-0"
+          >
+            Try Again
+          </Button>
         </div>
       )}
 
@@ -54,6 +86,23 @@ export default function NotificationsPage() {
         {loading ? (
           <div className="flex justify-center p-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : error ? (
+          <div className="p-12 text-center">
+            <AlertCircle className="mx-auto h-12 w-12 text-destructive/60 mb-4" />
+            <p className="font-semibold text-foreground">Could not load notifications</p>
+            <p className="mt-1 text-sm text-muted-foreground max-w-sm mx-auto">
+              There was an issue connecting to the notification service. Please try again.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchLogs}
+              className="mt-4 gap-2"
+            >
+              <RotateCw className="size-3.5" />
+              Retry
+            </Button>
           </div>
         ) : logs.length === 0 ? (
           <div className="p-12 text-center">
