@@ -543,6 +543,18 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
     - Added "Send Weekly Reports" button and modal on `/reports` page allowing admins/HR to trigger weekly reports for all, students only, or staff only with confirmation and immediate feedback.
   - Tests: Added unit tests for weekly report logo attachment and cron authorization in `tests/test_core.py`.
 - Verified: Backend pytest 39/39 passed with zero failures; frontend `npm run typecheck` passed (0 errors); frontend `npm run lint` passed (0 errors, 0 warnings); Next.js Turbopack production build succeeded with all 23 routes generated.
+## 2026-09-05 — SEO and professional optimization
+- Completed: Full SEO and polish pass across the frontend.
+- Changed:
+  - Root layout: Rebranded from "Face Detector" to "Face Attendance" across all metadata (title, description, applicationName, appleWebApp). Added Open Graph, Twitter card, keyword meta, `metadataBase`, title template (`%s | Face Attendance`), responsive `themeColor` (light/dark), and enabled user zoom (`userScalable: true`, `maximumScale: 5`).
+  - PWA manifest: Renamed `name`/`short_name`/`description` to "Face Attendance" / "Attendance" / professional description.
+  - Sidebar: Restructured navigation into grouped sections (Overview, Management/Insights, Resources) with section labels. Added `aria-current="page"` for active links, active indicator bar, gradient avatar initials, and destructive-tinted sign-out hover for visual consistency.
+  - Dashboard layout: Replaced plain "Checking authentication..." text with a branded `BrandLogo` pulse animation + fade-in text. Added `animate-page-enter` to main content.
+  - Error page: Upgraded with `AlertTriangle` icon, retry icon button, improved copy and visual hierarchy.
+  - Not-found page: Created professional 404 page with brand logo, gradient heading, helpful copy, and CTA link.
+  - robots.txt: Created with allow rules for public pages and disallow for authenticated/API routes.
+  - CSP: Added `fonts.googleapis.com` (style-src) and `fonts.gstatic.com` (font-src) to Content-Security-Policy to properly load Inter.
+- Verified: `tsc --noEmit` passed (0 errors); ESLint passed (0 errors); Next.js production build succeeded (23 routes generated).
 - Pending: Ready for deployment.
 
 ## Entry Template
@@ -553,5 +565,3 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified:
 - Pending:
 ```
-
-

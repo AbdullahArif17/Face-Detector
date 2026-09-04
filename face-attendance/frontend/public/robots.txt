@@ -1,0 +1,19 @@
+# Face Attendance - robots.txt
+# Dashboard, kiosk, and API routes are behind auth and should not be indexed.
+User-agent: *
+Allow: /login
+Allow: /privacy
+Allow: /terms
+Allow: /data-deletion
+Disallow: /dashboard
+Disallow: /students
+Disallow: /teachers
+Disallow: /staff
+Disallow: /attendance
+Disallow: /reports
+Disallow: /notifications
+Disallow: /users
+Disallow: /guide
+Disallow: /kiosk
+Disallow: /api/
+Disallow: /admin/
