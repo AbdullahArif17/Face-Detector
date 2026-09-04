@@ -526,6 +526,25 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: Frontend `npm run typecheck` passed (0 errors); `npm run lint` passed (0 errors, 0 warnings); `npm run build` succeeded; backend pytest passed 37/37.
 - Pending: Deploy updates to production Vercel environments.
 
+## 2026-09-05 — Attendance notification specifications and weekly reporting system
+- Completed: Aligned attendance notifications with specifications: student daily check-in/out emails and pushes removed in favor of weekly reports to parents; staff check-in/out daily emails removed and replaced with admin/manager mobile FCM push notifications; staff weekly attendance summaries sent to HR.
+- Changed:
+  - Backend:
+    - Updated `send_company_fcm` in `app/services/notification_service.py` to filter recipient devices to admin/management roles (`super_admin`, `admin`, `hr`, `branch_manager`) by default.
+    - Removed daily email and push notification dispatches for student check-in and check-out in `app/routers/attendance.py`.
+    - Removed daily email dispatches to HR for staff check-in and check-out in `app/routers/attendance.py` while retaining FCM push alerts to admins.
+    - Suppressed immediate daily absence email alerts on session end in `/cron/end-sessions` so absences are delivered exclusively via the weekly report.
+    - Implemented reusable weekly report helpers `send_weekly_student_reports_internal` and `send_weekly_staff_reports_internal`.
+    - Added weekly staff report cron (`POST /attendance/cron/weekly-staff-reports`) and unified weekly cron (`POST /attendance/cron/weekly-reports`).
+    - Added authenticated on-demand dispatch endpoint `POST /attendance/reports/send-weekly-reports` with role check `require_role("super_admin", "admin", "hr")`.
+    - Scheduled `/api/backend/attendance/cron/weekly-reports` in `face-attendance/backend/vercel.json` (`0 18 * * 0`).
+  - Frontend:
+    - Exported `sendWeeklyReports` in `src/lib/api.ts`.
+    - Added "Send Weekly Reports" button and modal on `/reports` page allowing admins/HR to trigger weekly reports for all, students only, or staff only with confirmation and immediate feedback.
+  - Tests: Added unit tests for weekly report logo attachment and cron authorization in `tests/test_core.py`.
+- Verified: Backend pytest 39/39 passed with zero failures; frontend `npm run typecheck` passed (0 errors); frontend `npm run lint` passed (0 errors, 0 warnings); Next.js Turbopack production build succeeded with all 23 routes generated.
+- Pending: Ready for deployment.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

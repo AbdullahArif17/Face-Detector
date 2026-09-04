@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Pencil, Search, X } from "lucide-react";
+import { CheckCircle2, Download, Mail, Pencil, Search, Send, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ApiError } from "@/components/api-error";
@@ -15,6 +15,7 @@ import {
   getAttendanceHistory,
   getStudents,
   getAllEmployees,
+  sendWeeklyReports,
   updateManualAttendance,
   type AttendanceDashboardRecord,
   type Student,
@@ -143,6 +144,31 @@ export default function ReportsPage() {
 
   const [editState, setEditState] = useState<AttendanceEditState | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  const [showWeeklyModal, setShowWeeklyModal] = useState(false);
+  const [weeklyReportType, setWeeklyReportType] = useState<"all" | "students" | "staff">("all");
+  const [isSendingWeekly, setIsSendingWeekly] = useState(false);
+  const [weeklyFeedback, setWeeklyFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const canSendReports = Boolean(user && ["super_admin", "admin", "hr"].includes(user.role));
+
+  async function handleSendWeeklyReports(): Promise<void> {
+    setIsSendingWeekly(true);
+    setWeeklyFeedback(null);
+    try {
+      const res = await sendWeeklyReports(weeklyReportType);
+      setWeeklyFeedback({
+        type: "success",
+        message: `Weekly reports dispatched successfully! Queued ${res.student_reports_queued} student report(s) to parents and ${res.staff_reports_queued} staff report(s) to HR.`,
+      });
+    } catch (err) {
+      setWeeklyFeedback({
+        type: "error",
+        message: getApiErrorMessage(err, "Failed to dispatch weekly reports."),
+      });
+    } finally {
+      setIsSendingWeekly(false);
+    }
+  }
 
   const loadHistory = useCallback(async (): Promise<void> => {
     if (historyRecords.length === 0) {
@@ -345,6 +371,22 @@ export default function ReportsPage() {
             View, filter, and export attendance history by date range, class, or individual.
           </p>
         </div>
+        {canSendReports ? (
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setWeeklyFeedback(null);
+                setShowWeeklyModal(true);
+              }}
+              className="gap-2 shadow-sm border-primary/30 text-primary hover:bg-primary/5"
+            >
+              <Mail aria-hidden="true" className="size-4" />
+              Send Weekly Reports
+            </Button>
+          </div>
+        ) : null}
       </div>
 
       {/* Filters */}
@@ -776,6 +818,148 @@ export default function ReportsPage() {
                 onClick={() => void handleSaveAttendanceEdit()}
               >
                 {isSavingEdit ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showWeeklyModal ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="weekly-reports-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm animate-fade-in"
+        >
+          <div className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-xl animate-scale-in">
+            <div className="flex items-center justify-between border-b pb-4">
+              <div className="flex items-center gap-2">
+                <div className="rounded-lg bg-primary/10 p-2 text-primary">
+                  <Mail className="size-5" />
+                </div>
+                <div>
+                  <h2 id="weekly-reports-title" className="text-lg font-bold">
+                    Send Weekly Reports
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    Attendance summary of the past 7 days
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowWeeklyModal(false)}
+              >
+                <X aria-hidden="true" className="size-4" />
+              </Button>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Select Recipients
+                </label>
+                <div className="grid gap-2">
+                  <label className={cn(
+                    "flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors",
+                    weeklyReportType === "all" ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+                  )}>
+                    <input
+                      type="radio"
+                      name="weeklyReportType"
+                      value="all"
+                      checked={weeklyReportType === "all"}
+                      onChange={() => setWeeklyReportType("all")}
+                      className="mt-0.5 text-primary focus:ring-primary"
+                    />
+                    <div>
+                      <p className="text-sm font-semibold">All Reports</p>
+                      <p className="text-xs text-muted-foreground">
+                        Student reports to parent emails + Staff summary to HR email
+                      </p>
+                    </div>
+                  </label>
+
+                  <label className={cn(
+                    "flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors",
+                    weeklyReportType === "students" ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+                  )}>
+                    <input
+                      type="radio"
+                      name="weeklyReportType"
+                      value="students"
+                      checked={weeklyReportType === "students"}
+                      onChange={() => setWeeklyReportType("students")}
+                      className="mt-0.5 text-primary focus:ring-primary"
+                    />
+                    <div>
+                      <p className="text-sm font-semibold">Students Only</p>
+                      <p className="text-xs text-muted-foreground">
+                        Individual 7-day attendance reports to parent emails
+                      </p>
+                    </div>
+                  </label>
+
+                  <label className={cn(
+                    "flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors",
+                    weeklyReportType === "staff" ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+                  )}>
+                    <input
+                      type="radio"
+                      name="weeklyReportType"
+                      value="staff"
+                      checked={weeklyReportType === "staff"}
+                      onChange={() => setWeeklyReportType("staff")}
+                      className="mt-0.5 text-primary focus:ring-primary"
+                    />
+                    <div>
+                      <p className="text-sm font-semibold">Staff Summary Only</p>
+                      <p className="text-xs text-muted-foreground">
+                        Consolidated 7-day attendance summary to HR email
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {weeklyFeedback ? (
+                <div
+                  className={cn(
+                    "flex items-start gap-2.5 rounded-xl border p-3 text-sm animate-fade-in",
+                    weeklyFeedback.type === "success"
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      : "border-red-200 bg-red-50 text-red-800"
+                  )}
+                >
+                  {weeklyFeedback.type === "success" ? (
+                    <CheckCircle2 className="size-5 shrink-0 text-emerald-600 mt-0.5" />
+                  ) : (
+                    <X className="size-5 shrink-0 text-red-600 mt-0.5" />
+                  )}
+                  <p className="leading-snug">{weeklyFeedback.message}</p>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                className="shadow-sm"
+                onClick={() => setShowWeeklyModal(false)}
+              >
+                Close
+              </Button>
+              <Button
+                type="button"
+                className="shadow-md gap-2"
+                disabled={isSendingWeekly}
+                onClick={() => void handleSendWeeklyReports()}
+              >
+                <Send className="size-4" />
+                {isSendingWeekly ? "Dispatching..." : "Send Reports Now"}
               </Button>
             </div>
           </div>

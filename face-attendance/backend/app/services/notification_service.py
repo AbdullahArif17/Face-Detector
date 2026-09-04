@@ -118,17 +118,24 @@ class NotificationService:
         body: str,
         event_type: str,
         data: dict | None = None,
+        roles: list[str] | None = None,
     ):
         from sqlalchemy import select
         from app.core.database import SessionLocal
         from app.models.user_device_token import UserDeviceToken
         from app.models.user import User
 
+        target_roles = roles if roles is not None else ["super_admin", "admin", "hr", "branch_manager"]
+
         async with SessionLocal() as db:
             result = await db.execute(
                 select(UserDeviceToken.fcm_token)
                 .join(User, User.id == UserDeviceToken.user_id)
-                .where(User.company_id == company_id, User.is_active == True)
+                .where(
+                    User.company_id == company_id,
+                    User.is_active == True,
+                    User.role.in_(target_roles),
+                )
             )
             tokens = result.scalars().all()
             

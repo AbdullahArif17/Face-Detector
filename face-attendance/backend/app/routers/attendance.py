@@ -940,25 +940,6 @@ async def auto_mark_attendance(
             
         today_attendance.check_out = now
         await session.commit()
-        
-        background_tasks.add_task(
-            NotificationService.send_company_fcm,
-            company.id,
-            "Student Checked Out",
-            f"{student.student_name} has checked out.",
-            "student_checkout",
-            {"student_id": str(student.id)}
-        )
-        if student.parent_email:
-            background_tasks.add_task(
-                NotificationService.send_email,
-                company_id=company.id,
-                recipient_email=student.parent_email or "",
-                subject="Student Check-Out Notification",
-                body_text=f"Hello,\n\n{student.student_name} has checked out at {display_time(now)}.",
-                body_html=f"<p>Hello,</p><p><b>{student.student_name}</b> has checked out at {display_time(now)}.</p>",
-                event_type="student_checkout",
-            )
 
         return AttendanceAutoMarkResponse(
             matched=True,
@@ -1021,25 +1002,6 @@ async def auto_mark_attendance(
         )
 
     await session.refresh(attendance)
-
-    background_tasks.add_task(
-        NotificationService.send_company_fcm,
-        company.id,
-        "Student Checked In",
-        f"{student.student_name} has checked in.",
-        "student_checkin",
-        {"student_id": str(student.id)}
-    )
-    if student.parent_email:
-        background_tasks.add_task(
-            NotificationService.send_email,
-            company_id=company.id,
-            recipient_email=student.parent_email or "",
-            subject="Student Check-In Notification",
-            body_text=f"Hello,\n\n{student.student_name} has checked in at {display_time(now)}.",
-            body_html=f"<p>Hello,</p><p><b>{student.student_name}</b> has checked in at {display_time(now)}.</p>",
-            event_type="student_checkin",
-        )
 
     return AttendanceAutoMarkResponse(
         matched=True,
@@ -1122,16 +1084,6 @@ async def _auto_mark_employee(
             {"employee_id": str(employee.id)}
         )
 
-        if company.hr_email:
-            background_tasks.add_task(
-                NotificationService.send_email,
-                company_id=company.id,
-                recipient_email=company.hr_email,
-                subject="Staff Check-Out Notification",
-                body_text=f"Hello HR,\n\n{employee.name} has checked out at {display_time(now)}.",
-                event_type="employee_checkout",
-            )
-
         return AttendanceAutoMarkResponse(
             matched=True,
             employee=response_employee,
@@ -1210,16 +1162,6 @@ async def _auto_mark_employee(
         "employee_checkin",
         {"employee_id": str(employee.id)}
     )
-
-    if company.hr_email:
-        background_tasks.add_task(
-            NotificationService.send_email,
-            company_id=company.id,
-            recipient_email=company.hr_email,
-            subject="Staff Check-In Notification",
-            body_text=f"Hello HR,\n\n{employee.name} has checked in at {display_time(now)}{status_msg}.",
-            event_type="employee_checkin",
-        )
 
     return AttendanceAutoMarkResponse(
         matched=True,
@@ -1764,10 +1706,9 @@ async def cron_end_sessions(
                         check_in=now,
                         status="absent",
                         notification_sent=False,
-                        notification_status="pending",
+                        notification_status="suppressed",
                     )
                     session.add(attendance)
-                    await session.flush()
 
                 # Mark absent employees
                 absent_employees_result = await session.execute(
@@ -1790,92 +1731,91 @@ async def cron_end_sessions(
                         check_in=now,
                         status="absent",
                         notification_sent=False,
-                        notification_status="pending",
+                        notification_status="suppressed",
                     )
                     session.add(attendance)
-                    await session.flush()
-
-                    try:
-                        await send_absent_notification(
-                            session=session,
-                            attendance=attendance,
-                            student=student,
-                            school=company,
-                            event_time=attendance_session.started_at,
-                        )
-                        if attendance.notification_sent:
-                            absent_notifications_sent += 1
-                    except Exception:
-                        logger.exception("Failed to send absent notification during cron end-session")
-                        attendance.notification_status = "failed"
-                        attendance.notification_sent = False
 
     await session.commit()
     return {
         "ended_sessions": ended_count,
-        "absent_notifications_sent": absent_notifications_sent,
+        "absent_notifications_sent": 0,
         "timestamp": now.isoformat(),
     }
 
-@router.post("/cron/weekly-parent-reports", status_code=status.HTTP_200_OK)
-async def cron_weekly_parent_reports(
-    request: Request,
-    background_tasks: BackgroundTasks,
-    session: AsyncSession = Depends(get_db),
-) -> dict[str, Any]:
-    """Cron job to send weekly attendance reports to parents.
-    
-    Protected by CRON_SECRET header. Runs once weekly and sends the past 7 days 
-    of attendance to the parent_email.
-    """
-    cron_secret = settings.cron_secret
-    if cron_secret:
-        provided_secret = request.headers.get("X-Cron-Secret") or request.headers.get("Authorization", "").removeprefix("Bearer ")
-        if not hmac.compare_digest(provided_secret or "", cron_secret):
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid cron secret")
+def get_report_inline_logo(html_body: str, logo_url: str) -> tuple[str, list[tuple[str, bytes, str]] | None]:
+    try:
+        import os
+        logo_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend", "public", "images", "face-attendance-logo.png")
+        if os.path.exists(logo_path):
+            with open(logo_path, "rb") as img:
+                inline_images = [("facelogo", img.read(), "png")]
+            return html_body.replace(logo_url, "cid:facelogo"), inline_images
+    except Exception as e:
+        logger.error(f"Error attaching logo: {e}")
+    return html_body, None
 
+
+async def send_weekly_student_reports_internal(
+    session: AsyncSession,
+    background_tasks: BackgroundTasks,
+    company_id: int | None = None,
+) -> int:
     now_utc = datetime.now(timezone.utc)
     end_date = to_local(now_utc).date()
     start_date = end_date - timedelta(days=7)
-    
     start_time, end_time = date_bounds(start_date, end_date)
-    
-    students_result = await session.execute(
-        select(Student).where(
-            Student.status == "active",
-            Student.parent_email.is_not(None),
-            Student.parent_email != ""
-        )
+
+    stmt = select(Student).where(
+        Student.status == "active",
+        Student.parent_email.is_not(None),
+        Student.parent_email != "",
     )
+    if company_id is not None:
+        stmt = stmt.where(Student.school_id == company_id)
+
+    students_result = await session.execute(stmt)
     students = students_result.scalars().all()
-    
-    companies_result = await session.execute(select(Company))
+    if not students:
+        return 0
+
+    comp_stmt = select(Company)
+    if company_id is not None:
+        comp_stmt = comp_stmt.where(Company.id == company_id)
+    companies_result = await session.execute(comp_stmt)
     company_by_id = {c.id: c for c in companies_result.scalars().all()}
-    
-    attendance_result = await session.execute(
-        select(Attendance, Student).join(Student).where(
+
+    att_stmt = (
+        select(Attendance, Student)
+        .join(Student)
+        .where(
             Attendance.check_in >= start_time,
             Attendance.check_in < end_time,
             Student.status == "active",
             Student.parent_email.is_not(None),
-            Student.parent_email != ""
-        ).order_by(Attendance.check_in.asc())
+            Student.parent_email != "",
+        )
     )
-    
+    if company_id is not None:
+        att_stmt = att_stmt.where(Student.school_id == company_id)
+    att_stmt = att_stmt.order_by(Attendance.check_in.asc())
+
+    attendance_result = await session.execute(att_stmt)
     rows = attendance_result.all()
-    attendance_by_student = {}
+    attendance_by_student: dict[int, list[Attendance]] = {}
     for att, stu in rows:
         if stu.id not in attendance_by_student:
             attendance_by_student[stu.id] = []
         attendance_by_student[stu.id].append(att)
-        
+
     emails_queued = 0
-    
+    frontend_url = settings.frontend_origins[0] if settings.frontend_origins else "http://localhost:3000"
+    logo_url = f"{frontend_url.rstrip('/')}/images/face-attendance-logo.png"
+
     for student in students:
         records = attendance_by_student.get(student.id, [])
         if not records:
             continue
-            
+
         table_rows = []
         for rec in records:
             local_ci = to_local(rec.check_in)
@@ -1891,7 +1831,7 @@ async def cron_weekly_parent_reports(
                 f"<td style='padding:8px;border:1px solid #ccc;'>{out_str}</td>"
                 f"</tr>"
             )
-            
+
         table_html = (
             "<table style='border-collapse:collapse;width:100%;max-width:600px;'>"
             "<thead><tr style='background-color:#f3f4f6;'>"
@@ -1903,9 +1843,6 @@ async def cron_weekly_parent_reports(
             + "".join(table_rows) +
             "</tbody></table>"
         )
-        
-        frontend_url = settings.frontend_origins[0] if settings.frontend_origins else "http://localhost:3000"
-        logo_url = f"{frontend_url.rstrip('/')}/images/face-attendance-logo.png"
 
         company = company_by_id.get(student.school_id)
         contact_html = ""
@@ -1917,7 +1854,7 @@ async def cron_weekly_parent_reports(
             f"<div style='text-align:center;margin-bottom:20px;'>"
             f"  <img src='{logo_url}' alt='Face Detector Logo' style='max-width:150px;height:auto;'>"
             f"</div>"
-            f"<h2>Weekly Attendance Report</h2>"
+            f"<h2>Weekly Student Attendance Report</h2>"
             f"<p>Hello,</p>"
             f"<p>Here is the attendance report for <b>{student.student_name}</b> for the week of {start_date.strftime('%b %d')} - {(end_date - timedelta(days=1)).strftime('%b %d')}.</p>"
             f"{table_html}"
@@ -1925,18 +1862,8 @@ async def cron_weekly_parent_reports(
             f"<br><p>Best regards,<br>School Administration</p>"
             f"</div>"
         )
-        
-        try:
-            import os
-            logo_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend", "public", "images", "face-attendance-logo.png")
-            inline_images = []
-            if os.path.exists(logo_path):
-                with open(logo_path, 'rb') as img:
-                    inline_images.append(("facelogo", img.read(), "png"))
-                html_body = html_body.replace(logo_url, "cid:facelogo")
-        except Exception as e:
-            logger.error(f"Error attaching logo: {e}")
-            inline_images = None
+
+        final_html, inline_images = get_report_inline_logo(html_body, logo_url)
 
         background_tasks.add_task(
             NotificationService.send_email,
@@ -1944,14 +1871,232 @@ async def cron_weekly_parent_reports(
             recipient_email=student.parent_email or "",
             subject=f"Weekly Attendance Report: {student.student_name}",
             body_text=f"Weekly Attendance Report for {student.student_name}. Please view this email in an HTML-compatible client.",
-            body_html=html_body,
+            body_html=final_html,
             event_type="weekly_report",
-            inline_images=inline_images
+            inline_images=inline_images,
         )
         emails_queued += 1
-        
+
+    return emails_queued
+
+
+async def send_weekly_staff_reports_internal(
+    session: AsyncSession,
+    background_tasks: BackgroundTasks,
+    company_id: int | None = None,
+) -> int:
+    now_utc = datetime.now(timezone.utc)
+    end_date = to_local(now_utc).date()
+    start_date = end_date - timedelta(days=7)
+    start_time, end_time = date_bounds(start_date, end_date)
+
+    comp_stmt = select(Company).where(
+        Company.hr_email.is_not(None),
+        Company.hr_email != "",
+    )
+    if company_id is not None:
+        comp_stmt = comp_stmt.where(Company.id == company_id)
+
+    companies = (await session.execute(comp_stmt)).scalars().all()
+    if not companies:
+        return 0
+
+    frontend_url = settings.frontend_origins[0] if settings.frontend_origins else "http://localhost:3000"
+    logo_url = f"{frontend_url.rstrip('/')}/images/face-attendance-logo.png"
+
+    emails_queued = 0
+
+    for company in companies:
+        emp_stmt = select(Employee).where(
+            Employee.company_id == company.id,
+            Employee.status == "active",
+        ).order_by(Employee.name.asc())
+        employees = (await session.execute(emp_stmt)).scalars().all()
+        if not employees:
+            continue
+
+        emp_ids = [e.id for e in employees]
+
+        att_stmt = select(Attendance).where(
+            Attendance.company_id == company.id,
+            Attendance.employee_id.in_(emp_ids),
+            Attendance.check_in >= start_time,
+            Attendance.check_in < end_time,
+        ).order_by(Attendance.check_in.asc())
+
+        att_records = (await session.execute(att_stmt)).scalars().all()
+        records_by_emp: dict[int, list[Attendance]] = {eid: [] for eid in emp_ids}
+        for rec in att_records:
+            if rec.employee_id in records_by_emp:
+                records_by_emp[rec.employee_id].append(rec)
+
+        table_rows = []
+        for emp in employees:
+            recs = records_by_emp.get(emp.id, [])
+            present_count = sum(1 for r in recs if r.status in ("present", "late"))
+            late_count = sum(1 for r in recs if r.status == "late")
+            absent_count = sum(1 for r in recs if r.status == "absent")
+
+            total_seconds = 0.0
+            for r in recs:
+                if r.check_in and r.check_out:
+                    diff = (r.check_out - r.check_in).total_seconds()
+                    if diff > 0:
+                        total_seconds += diff
+
+            total_hours_str = f"{total_seconds / 3600:.1f} hrs" if total_seconds > 0 else "-"
+            dept_desig = emp.designation or emp.department or "-"
+
+            table_rows.append(
+                f"<tr>"
+                f"<td style='padding:8px;border:1px solid #ccc;'><b>{emp.name}</b></td>"
+                f"<td style='padding:8px;border:1px solid #ccc;'>{dept_desig}</td>"
+                f"<td style='padding:8px;border:1px solid #ccc;text-align:center;'>{present_count}</td>"
+                f"<td style='padding:8px;border:1px solid #ccc;text-align:center;'>{late_count}</td>"
+                f"<td style='padding:8px;border:1px solid #ccc;text-align:center;'>{absent_count}</td>"
+                f"<td style='padding:8px;border:1px solid #ccc;text-align:right;'>{total_hours_str}</td>"
+                f"</tr>"
+            )
+
+        table_html = (
+            "<table style='border-collapse:collapse;width:100%;max-width:700px;'>"
+            "<thead><tr style='background-color:#f3f4f6;'>"
+            "<th style='padding:8px;border:1px solid #ccc;text-align:left;'>Staff Member</th>"
+            "<th style='padding:8px;border:1px solid #ccc;text-align:left;'>Role / Dept</th>"
+            "<th style='padding:8px;border:1px solid #ccc;text-align:center;'>Present</th>"
+            "<th style='padding:8px;border:1px solid #ccc;text-align:center;'>Late</th>"
+            "<th style='padding:8px;border:1px solid #ccc;text-align:center;'>Absent</th>"
+            "<th style='padding:8px;border:1px solid #ccc;text-align:right;'>Total Hours</th>"
+            "</tr></thead><tbody>"
+            + "".join(table_rows) +
+            "</tbody></table>"
+        )
+
+        contact_html = ""
+        if company.school_contact:
+            contact_html = f"<br><p>For inquiries or adjustments, contact: <b>{company.school_contact}</b>.</p>"
+
+        html_body = (
+            f"<div style='font-family:sans-serif;color:#333;'>"
+            f"<div style='text-align:center;margin-bottom:20px;'>"
+            f"  <img src='{logo_url}' alt='Face Detector Logo' style='max-width:150px;height:auto;'>"
+            f"</div>"
+            f"<h2>Weekly Staff Attendance Summary</h2>"
+            f"<p>Hello HR,</p>"
+            f"<p>Here is the weekly staff attendance summary for <b>{company.name}</b> for the week of {start_date.strftime('%b %d')} - {(end_date - timedelta(days=1)).strftime('%b %d')}.</p>"
+            f"{table_html}"
+            f"<p style='margin-top:12px;font-size:13px;color:#666;'>Total active staff members: <b>{len(employees)}</b></p>"
+            f"{contact_html}"
+            f"<br><p>Best regards,<br>Attendance Administration</p>"
+            f"</div>"
+        )
+
+        final_html, inline_images = get_report_inline_logo(html_body, logo_url)
+
+        background_tasks.add_task(
+            NotificationService.send_email,
+            company_id=company.id,
+            recipient_email=company.hr_email,
+            subject=f"Weekly Staff Attendance Summary: {company.name}",
+            body_text=f"Weekly Staff Attendance Summary for {company.name}. Please view in an HTML-compatible client.",
+            body_html=final_html,
+            event_type="weekly_staff_report",
+            inline_images=inline_images,
+        )
+        emails_queued += 1
+
+    return emails_queued
+
+
+def _check_cron_auth(request: Request) -> None:
+    cron_secret = settings.cron_secret
+    if cron_secret:
+        provided_secret = request.headers.get("X-Cron-Secret") or request.headers.get("Authorization", "").removeprefix("Bearer ")
+        if not hmac.compare_digest(provided_secret or "", cron_secret):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid cron secret")
+
+
+@router.post("/cron/weekly-parent-reports", status_code=status.HTTP_200_OK)
+async def cron_weekly_parent_reports(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Cron job to send weekly attendance reports to parents."""
+    _check_cron_auth(request)
+    count = await send_weekly_student_reports_internal(session, background_tasks)
     return {
-        "reports_queued": emails_queued,
-        "timestamp": now_utc.isoformat(),
-        "date_range": f"{start_date} to {end_date}"
+        "status": "success",
+        "reports_queued": count,
+        "student_reports_queued": count,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.post("/cron/weekly-staff-reports", status_code=status.HTTP_200_OK)
+async def cron_weekly_staff_reports(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Cron job to send weekly attendance reports to HR."""
+    _check_cron_auth(request)
+    count = await send_weekly_staff_reports_internal(session, background_tasks)
+    return {
+        "status": "success",
+        "staff_reports_queued": count,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.post("/cron/weekly-reports", status_code=status.HTTP_200_OK)
+async def cron_weekly_reports(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Unified cron job to send both weekly student reports to parents and staff reports to HR."""
+    _check_cron_auth(request)
+    student_count = await send_weekly_student_reports_internal(session, background_tasks)
+    staff_count = await send_weekly_staff_reports_internal(session, background_tasks)
+    return {
+        "status": "success",
+        "student_reports_queued": student_count,
+        "staff_reports_queued": staff_count,
+        "total_queued": student_count + staff_count,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.post("/reports/send-weekly-reports", status_code=status.HTTP_200_OK)
+async def send_weekly_reports_manual(
+    background_tasks: BackgroundTasks,
+    report_type: str = Query("all", pattern="^(all|students|staff)$"),
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("super_admin", "admin", "hr")),
+) -> dict[str, Any]:
+    """Manually trigger sending weekly reports for the current organization."""
+    target_company_id = current_user.company_id
+
+    student_count = 0
+    staff_count = 0
+
+    if report_type in ("all", "students"):
+        student_count = await send_weekly_student_reports_internal(
+            session, background_tasks, company_id=target_company_id
+        )
+
+    if report_type in ("all", "staff"):
+        staff_count = await send_weekly_staff_reports_internal(
+            session, background_tasks, company_id=target_company_id
+        )
+
+    return {
+        "status": "success",
+        "company_id": target_company_id,
+        "report_type": report_type,
+        "student_reports_queued": student_count,
+        "staff_reports_queued": staff_count,
+        "total_queued": student_count + staff_count,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }

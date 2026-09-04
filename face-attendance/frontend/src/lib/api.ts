@@ -949,4 +949,27 @@ export async function removeDeviceToken(fcmToken: string): Promise<void> {
   await api.delete(`/notifications/device-tokens/${fcmToken}`);
 }
 
+export interface SendWeeklyReportsResponse {
+  status: string;
+  company_id: number;
+  report_type: string;
+  student_reports_queued: number;
+  staff_reports_queued: number;
+  total_queued: number;
+  timestamp: string;
+}
+
+export async function sendWeeklyReports(
+  reportType: "all" | "students" | "staff" = "all"
+): Promise<SendWeeklyReportsResponse> {
+  const response = await api.post<SendWeeklyReportsResponse>(
+    "/attendance/reports/send-weekly-reports",
+    null,
+    {
+      params: { report_type: reportType },
+    }
+  );
+  return response.data;
+}
+
 export default api;

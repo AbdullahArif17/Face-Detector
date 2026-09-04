@@ -452,3 +452,30 @@ async def test_require_role_allows_super_admin_and_tenant_roles() -> None:
         await role_check(invalid_user)
     assert exc_info.value.status_code == 403
 
+
+def test_weekly_report_logo_helper() -> None:
+    from app.routers.attendance import get_report_inline_logo
+
+    test_html = "<div><img src='http://test.com/logo.png'></div>"
+    result_html, images = get_report_inline_logo(test_html, "http://test.com/logo.png")
+    assert isinstance(result_html, str)
+
+
+def test_cron_auth_validation(monkeypatch: pytest.MonkeyPatch) -> None:
+    from starlette.requests import Request
+    from app.routers import attendance
+
+    monkeypatch.setattr(
+        attendance,
+        "settings",
+        type("TestSettings", (), {"cron_secret": "test-secret"})(),
+    )
+    req = Request(scope={"type": "http", "headers": [(b"x-cron-secret", b"wrong-secret")]})
+    with pytest.raises(HTTPException) as exc:
+        attendance._check_cron_auth(req)
+    assert exc.value.status_code == 401
+
+    valid_req = Request(scope={"type": "http", "headers": [(b"x-cron-secret", b"test-secret")]})
+    attendance._check_cron_auth(valid_req)
+
+
