@@ -9,6 +9,7 @@ from app.models.user import User
 from app.models.notification_log import NotificationLog
 from app.models.user_device_token import UserDeviceToken
 from app.schemas.notification import NotificationLogResponse, UserDeviceTokenCreate
+from app.services.notification_service import NotificationService
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
@@ -91,3 +92,48 @@ async def get_notification_logs(
         .offset(offset)
     )
     return result.scalars().all()
+
+
+@router.post("/test", status_code=status.HTTP_200_OK)
+async def send_test_notification(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Send a test FCM push notification to the current user's registered devices.
+    """
+    if current_user.role == "viewer":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Viewers do not receive staff attendance notifications.",
+        )
+
+    result = await db.execute(
+        select(UserDeviceToken.fcm_token)
+        .where(UserDeviceToken.user_id == current_user.id)
+    )
+    tokens = result.scalars().all()
+    if not tokens:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No registered devices found for your account. Please allow and register notifications on this device first.",
+        )
+
+    success_count = 0
+    for token in tokens:
+        sent = await NotificationService.send_fcm_push(
+            company_id=current_user.company_id,
+            token=token,
+            title="Test Notification",
+            body=f"Push notifications are active for {current_user.name} ({current_user.role.replace('_', ' ').title()}).",
+            event_type="test_notification",
+            data={"user_id": str(current_user.id)},
+        )
+        if sent:
+            success_count += 1
+
+    return {
+        "message": f"Test notification dispatched to {success_count} of {len(tokens)} device(s).",
+        "devices_targeted": len(tokens),
+        "devices_reached": success_count,
+    }

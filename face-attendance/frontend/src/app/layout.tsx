@@ -83,10 +83,12 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <AuthProvider>{children}</AuthProvider>
-        <ServiceWorkerRegistration />
-        <PwaInstallPrompt />
-        <FirebaseNotifications />
+        <AuthProvider>
+          {children}
+          <ServiceWorkerRegistration />
+          <PwaInstallPrompt />
+          <FirebaseNotifications />
+        </AuthProvider>
       </body>
     </html>
   );

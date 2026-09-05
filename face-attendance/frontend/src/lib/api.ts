@@ -952,6 +952,19 @@ export async function removeDeviceToken(fcmToken: string): Promise<void> {
   await api.delete(`/notifications/device-tokens/${fcmToken}`);
 }
 
+export async function sendTestNotification(): Promise<{
+  message: string;
+  devices_targeted: number;
+  devices_reached: number;
+}> {
+  const response = await api.post<{
+    message: string;
+    devices_targeted: number;
+    devices_reached: number;
+  }>("/notifications/test");
+  return response.data;
+}
+
 export interface SendWeeklyReportsResponse {
   status: string;
   company_id: number;

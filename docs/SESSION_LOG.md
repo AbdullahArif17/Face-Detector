@@ -599,6 +599,35 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
   - Frontend production build: `next build` succeeded with all 23 routes generated.
   - Database verification: Tested company 8 with active ongoing check-out session 37; verified all active staff are returned with live statuses.
 
+## 2026-09-06 — Staff push notifications for all organization users except viewer
+- Completed: Updated push notification distribution and settings so every active organization user receives staff check-in and check-out alerts, with viewers explicitly excluded.
+- Changed:
+  - `face-attendance/backend/app/services/notification_service.py`:
+    - Updated `send_company_fcm` default query: replaced hardcoded admin roles (`["super_admin", "admin", "hr", "branch_manager"]`) with `User.role != "viewer"` (and `User.is_active == True`), allowing all active staff/users in the organization to receive alerts while strictly excluding `viewer`.
+  - `face-attendance/backend/app/routers/notifications.py`:
+    - Added `POST /notifications/test` endpoint allowing non-viewer authenticated users to send a test FCM push notification to their registered devices. Returns 403 Forbidden for viewers.
+  - `face-attendance/backend/tests/test_core.py`:
+    - Added `test_viewer_excluded_from_push_notifications` verifying viewer 403 restriction.
+  - `face-attendance/frontend/src/context/AuthContext.tsx`:
+    - Added `useOptionalAuth` hook to safely read authentication state without throwing outside `AuthProvider`.
+  - `face-attendance/frontend/src/lib/api.ts`:
+    - Exported `sendTestNotification` function.
+  - `face-attendance/frontend/src/components/FirebaseNotifications.tsx`:
+    - Integrated `useOptionalAuth` to safely skip viewers and logged-out users.
+    - Allowed browser-based users on mobile/desktop to register for push notifications.
+  - `face-attendance/frontend/src/app/layout.tsx`:
+    - Wrapped layout body children and notification prompts inside `AuthProvider`.
+  - `face-attendance/frontend/src/app/(dashboard)/notifications/page.tsx`:
+    - Added a dedicated "Staff Check-In & Check-Out Notifications" device settings card.
+    - Shows device registration status (Active, Not enabled, Blocked).
+    - Added "Enable Push Notifications" and "Send Test Notification" actions.
+    - Added clear role badge and explanation indicating all org users receive alerts while viewers are read-only.
+- Verified:
+  - Backend tests: `pytest` passed (40/40 passed in 2.40s).
+  - Frontend lint: `npm run lint` passed (0 errors, 0 warnings).
+  - Frontend typecheck: `npm run typecheck` passed (0 errors).
+  - Frontend production build: `npm run build` succeeded with all 23 routes generated.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

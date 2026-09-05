@@ -125,18 +125,22 @@ class NotificationService:
         from app.models.user_device_token import UserDeviceToken
         from app.models.user import User
 
-        target_roles = roles if roles is not None else ["super_admin", "admin", "hr", "branch_manager"]
-
         async with SessionLocal() as db:
-            result = await db.execute(
+            query = (
                 select(UserDeviceToken.fcm_token)
                 .join(User, User.id == UserDeviceToken.user_id)
                 .where(
                     User.company_id == company_id,
                     User.is_active == True,
-                    User.role.in_(target_roles),
                 )
             )
+            if roles is not None:
+                query = query.where(User.role.in_(roles))
+            else:
+                # Every user in org gets push notifications except viewer
+                query = query.where(User.role != "viewer")
+
+            result = await db.execute(query)
             tokens = result.scalars().all()
             
         for token in tokens:

@@ -479,3 +479,13 @@ def test_cron_auth_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     attendance._check_cron_auth(valid_req)
 
 
+@pytest.mark.asyncio
+async def test_viewer_excluded_from_push_notifications() -> None:
+    from app.routers.notifications import send_test_notification
+    from app.models.user import User
+
+    viewer = User(id=99, company_id=1, role="viewer", name="Viewer Test")
+    with pytest.raises(HTTPException) as exc_info:
+        await send_test_notification(current_user=viewer, db=None)  # type: ignore[arg-type]
+    assert exc_info.value.status_code == 403
+    assert "Viewers do not receive" in exc_info.value.detail

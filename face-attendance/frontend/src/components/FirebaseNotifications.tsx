@@ -1,33 +1,44 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { requestForToken, messaging } from "@/lib/firebase";
 import { onMessage } from "firebase/messaging";
 import { registerDeviceToken } from "@/lib/api";
-
-interface NavigatorStandalone {
-  standalone?: boolean;
-}
+import { useOptionalAuth } from "@/context/AuthContext";
 
 export function FirebaseNotifications() {
-  const [permission, setPermission] = useState<NotificationPermission>("default");
-  const [isStandalone, setIsStandalone] = useState(false);
+  const auth = useOptionalAuth();
+  const user = auth?.user ?? null;
+  const [permission, setPermission] = useState<NotificationPermission>(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      return Notification.permission;
+    }
+    return "default";
+  });
+  const [isDismissed, setIsDismissed] = useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("fcm_prompt_dismissed") === "true";
+    }
+    return false;
+  });
 
-  const setupNotifications = async () => {
+  const setupNotifications = useCallback(async () => {
+    if (!user || user.role === "viewer") {
+      return;
+    }
     try {
       const token = await requestForToken();
       if (token) {
-        // Send to backend
+        // Send to backend for current user
         await registerDeviceToken(token);
       }
       
       // Handle foreground messages
       if (messaging) {
         onMessage(messaging, (payload) => {
-          console.log("Message received in foreground: ", payload);
           // Show foreground notification
           if (payload.notification) {
-            new Notification(payload.notification.title || "Notification", {
+            new Notification(payload.notification.title || "Attendance Alert", {
               body: payload.notification.body,
               icon: payload.notification.image || "/images/face-attendance-logo.png",
             });
@@ -37,28 +48,21 @@ export function FirebaseNotifications() {
     } catch (error) {
       console.error("Error setting up notifications:", error);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("Notification" in window)) {
       return;
     }
-    
-    // Detect if already installed (standalone mode)
-    const nav = window.navigator as Navigator & NavigatorStandalone;
-    const standalone = 
-      window.matchMedia("(display-mode: standalone)").matches || 
-      nav.standalone === true;
-      
-    queueMicrotask(() => {
-      setIsStandalone(standalone);
-      setPermission(Notification.permission);
-      
-      if (Notification.permission === "granted") {
-        void setupNotifications();
-      }
-    });
-  }, []);
+
+    if (!user || user.role === "viewer") {
+      return;
+    }
+
+    if (Notification.permission === "granted") {
+      void setupNotifications();
+    }
+  }, [user, setupNotifications]);
 
   const requestPermission = async () => {
     if (typeof window === "undefined" || !("Notification" in window)) {
@@ -76,7 +80,17 @@ export function FirebaseNotifications() {
     }
   };
 
-  if (!isStandalone || permission === "denied" || permission === "granted") {
+  const handleDismiss = () => {
+    setIsDismissed(true);
+    try {
+      sessionStorage.setItem("fcm_prompt_dismissed", "true");
+    } catch {
+      // Ignore storage errors
+    }
+  };
+
+  // Do not show for viewers, logged-out users, or if already granted/denied/dismissed
+  if (!user || user.role === "viewer" || isDismissed || permission === "denied" || permission === "granted") {
     return null;
   }
 
@@ -86,7 +100,7 @@ export function FirebaseNotifications() {
       style={{ bottom: "1rem", marginBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
       <div className="flex items-center gap-3">
-        <button className="-ml-2 flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted" onClick={() => setPermission("denied")}>
+        <button className="-ml-2 flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted" onClick={handleDismiss}>
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
           <span className="sr-only">Dismiss</span>
         </button>
