@@ -404,6 +404,41 @@ export default function KioskPage() {
     setCameraAttempt((attempt) => attempt + 1);
   }
 
+  const handleBack = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    // 1. If this was opened as a popup or new window by script with an opener, try closing it
+    if (window.opener && !window.opener.closed) {
+      try {
+        window.close();
+      } catch {
+        // Ignored if browser blocks window.close()
+      }
+    }
+
+    // 2. Check if we have browser history to go back to within our app
+    const hasAppHistory =
+      window.history.length > 1 &&
+      document.referrer &&
+      document.referrer.startsWith(window.location.origin);
+
+    if (hasAppHistory) {
+      router.back();
+      // If router.back() did not leave /kiosk after a short interval
+      const timer = window.setTimeout(() => {
+        if (window.location.pathname === "/kiosk") {
+          router.push("/dashboard");
+        }
+      }, 300);
+      return () => window.clearTimeout(timer);
+    }
+
+    // 3. Fallback: navigate directly to dashboard
+    router.push("/dashboard");
+  }, [router]);
+
   const hasValidConfig = Boolean(apiKey);
   const attendanceActive = kioskInfo?.attendance_active ?? false;
   const liveCameraBlocked = isSecureContext === false;
@@ -507,23 +542,24 @@ export default function KioskPage() {
       </div>
 
       {/* Top Header Overlay */}
-      <header className="relative z-10 flex w-full flex-col sm:flex-row sm:items-center sm:justify-between p-4 sm:p-6 lg:p-8 gap-4">
-        <div className="flex items-center gap-4">
+      <header className="relative z-10 flex w-full items-center justify-between p-3.5 sm:p-6 lg:p-8 gap-2 sm:gap-4">
+        <div className="flex items-center gap-2.5 sm:gap-4 min-w-0 flex-1">
           <Button
             variant="ghost"
             size="icon"
-            className="rounded-full bg-black/40 text-white/90 backdrop-blur-md hover:bg-black/60 hover:text-white"
-            onClick={() => router.back()}
-            title="Go Back"
+            className="size-9 sm:size-10 shrink-0 rounded-full bg-black/50 text-white/90 backdrop-blur-md hover:bg-black/70 hover:text-white border border-white/15 shadow-lg transition-transform active:scale-95"
+            onClick={handleBack}
+            title="Back to Dashboard"
+            aria-label="Back to Dashboard"
           >
-            <ChevronLeft aria-hidden="true" className="size-6" />
+            <ChevronLeft aria-hidden="true" className="size-5 sm:size-6" />
           </Button>
           <BrandLogo
             showName={false}
-            markClassName="size-12 rounded-2xl shadow-xl ring-2 ring-white/20"
+            markClassName="size-9 sm:size-12 shrink-0 rounded-xl sm:rounded-2xl shadow-xl ring-2 ring-white/20"
           />
-          <div className="hidden sm:block">
-            <h1 className="text-xl font-bold tracking-tight drop-shadow-md">
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-sm sm:text-xl font-bold tracking-tight text-white drop-shadow-md">
               {kioskInfo?.name ??
                 (isKioskInfoLoading
                   ? "Loading organization..."
@@ -531,47 +567,50 @@ export default function KioskPage() {
                     ? "Kiosk unavailable"
                     : "Face Attendance")}
             </h1>
-            <div className="mt-1 flex items-center gap-2">
+            <div className="mt-0.5 sm:mt-1 flex flex-wrap items-center gap-1.5 sm:gap-2">
               <span
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold backdrop-blur-md",
+                  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] sm:text-xs font-semibold backdrop-blur-md border",
                   attendanceActive
-                    ? "bg-emerald-500/20 text-emerald-300"
-                    : "bg-amber-500/20 text-amber-300",
+                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                    : "bg-amber-500/20 text-amber-300 border-amber-500/30",
                 )}
               >
                 <span
                   className={cn(
                     "size-1.5 rounded-full",
-                    attendanceActive ? "bg-emerald-400" : "bg-amber-400",
+                    attendanceActive ? "bg-emerald-400 animate-pulse" : "bg-amber-400",
                   )}
                 />
-                {attendanceActive ? "Session Open" : "Session Closed"}
+                <span className="hidden min-[380px]:inline">Session </span>
+                {attendanceActive ? "Open" : "Closed"}
               </span>
-              {kioskInfo ? (
-                <span className="rounded-full bg-black/40 px-2.5 py-0.5 text-xs font-medium text-white/90 backdrop-blur-md">
-                  {kioskInfo.student_count} students
+
+              {/* Prominent Session Remaining Countdown Timer */}
+              {remainingText ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 border border-amber-400/40 px-2 py-0.5 text-[10px] sm:text-xs font-bold text-amber-300 backdrop-blur-md shadow-sm">
+                  <Clock3 aria-hidden="true" className="size-3 animate-pulse text-amber-300" />
+                  <span>{remainingText}</span>
                 </span>
               ) : null}
-              {remainingText ? (
-                <span className="flex items-center gap-1.5 rounded-full bg-black/40 px-2.5 py-0.5 text-xs font-medium text-amber-300 backdrop-blur-md">
-                  <Clock3 aria-hidden="true" className="size-3" />
-                  {remainingText}
+
+              {kioskInfo ? (
+                <span className="hidden sm:inline-flex rounded-full bg-black/40 border border-white/10 px-2 py-0.5 text-xs font-medium text-white/90 backdrop-blur-md">
+                  {kioskInfo.student_count} students
                 </span>
               ) : null}
             </div>
           </div>
         </div>
 
-
-
-        <div className="hidden items-center gap-3 text-right drop-shadow-md md:flex">
-          <div>
-            <p className="text-sm font-medium text-white/80">{formatDate(clock)}</p>
-            <p className="text-2xl font-bold tabular-nums">
-              {formatTime(clock)}
-            </p>
-          </div>
+        {/* Live Clock on Right */}
+        <div className="shrink-0 text-right drop-shadow-md">
+          <p className="hidden md:block text-xs font-medium text-white/80">
+            {formatDate(clock)}
+          </p>
+          <p className="text-xs sm:text-2xl font-bold tabular-nums text-white bg-black/40 sm:bg-transparent px-2 sm:px-0 py-1 sm:py-0 rounded-md backdrop-blur-sm sm:backdrop-blur-none border border-white/10 sm:border-none">
+            {formatTime(clock)}
+          </p>
         </div>
       </header>
 

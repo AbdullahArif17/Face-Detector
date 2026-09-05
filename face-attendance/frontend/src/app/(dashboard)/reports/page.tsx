@@ -42,7 +42,11 @@ const timeFormatter = new Intl.DateTimeFormat("en-US", {
 });
 
 function todayInputValue(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 
@@ -171,19 +175,19 @@ export default function ReportsPage() {
   }
 
   const loadHistory = useCallback(async (): Promise<void> => {
-    if (historyRecords.length === 0) {
-      setIsHistoryLoading(true);
-    }
+    setIsHistoryLoading(true);
     try {
       const records = await getAttendanceHistory({
         startDate,
         endDate,
+        subjectType: reportType === "staff" ? "employee" : "student",
         studentId: selectedSubjectId.startsWith("student_")
           ? Number.parseInt(selectedSubjectId.replace("student_", ""), 10)
           : undefined,
         employeeId: selectedSubjectId.startsWith("employee_")
           ? Number.parseInt(selectedSubjectId.replace("employee_", ""), 10)
           : undefined,
+        perPage: 500,
       });
       setHistoryRecords(records);
       setHasError(false);
@@ -192,7 +196,7 @@ export default function ReportsPage() {
     } finally {
       setIsHistoryLoading(false);
     }
-  }, [endDate, selectedSubjectId, startDate, historyRecords.length]);
+  }, [endDate, reportType, selectedSubjectId, startDate]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -340,6 +344,7 @@ export default function ReportsPage() {
       const blob = await exportAttendanceHistory({
         startDate,
         endDate,
+        subjectType: reportType === "staff" ? "employee" : "student",
         studentId: selectedSubjectId.startsWith("student_")
           ? Number.parseInt(selectedSubjectId.replace("student_", ""), 10)
           : undefined,
@@ -350,7 +355,7 @@ export default function ReportsPage() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `attendance-${startDate}-to-${endDate}.csv`;
+      link.download = `${reportType}-attendance-${startDate}-to-${endDate}.csv`;
       link.click();
       window.URL.revokeObjectURL(url);
     } catch {

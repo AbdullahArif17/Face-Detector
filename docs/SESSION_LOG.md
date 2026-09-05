@@ -557,6 +557,48 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified: `tsc --noEmit` passed (0 errors); ESLint passed (0 errors); Next.js production build succeeded (23 routes generated).
 - Pending: Ready for deployment.
 
+## 2026-09-06 — Kiosk mobile responsive timer and back button fix
+- Completed: Resolved kiosk header layout on small screens and made the back button functional across all contexts.
+- Changed:
+  - `face-attendance/frontend/src/app/kiosk/page.tsx`:
+    - Replaced silent `router.back()` with `handleBack` which attempts `window.close()` if opened via script popup, calls `router.back()` when in-app navigation history is detected, and safely falls back to `router.push("/dashboard")` when opened in a new tab/directly.
+    - Redesigned the kiosk header into a single responsive flex bar that does not hide information on mobile screens.
+    - Kept company name, session status badge, and the active session countdown timer (`remainingText`) visible on small viewports with an amber badge and pulsating clock icon.
+    - Preserved real-time digital clock display on mobile viewports via a compact glass pill.
+  - `face-attendance/frontend/src/app/(dashboard)/dashboard/page.tsx`:
+    - Switched `window.open` from `noopener,noreferrer` to `noopener` so that `document.referrer` is retained when opening the kiosk.
+  - `face-attendance/frontend/src/components/kiosk-settings.tsx`:
+    - Switched check-in and check-out kiosk links from `rel="noreferrer"` to `rel="noopener"` to retain `document.referrer`.
+- Verified: `npm run typecheck` passed (0 errors); `npm run lint` passed (0 errors).
+- Pending: Verify Next.js build.
+
+## 2026-09-06 — Fix live staff reports during ongoing sessions and dashboard visibility
+- Completed: Fixed staff attendance reports not appearing during ongoing sessions in `/reports` and added live staff presence to `/dashboard`.
+- Changed:
+  - `face-attendance/backend/app/routers/attendance.py`:
+    - Updated `get_attendance_history` and `export_attendance_history` to accept `subject_type: str | None = Query(default=None)`.
+    - Added live roster compilation for today queries (`is_today_only`): queries all active employees and correlates with today's scans, ensuring all active staff are accounted for (present with check-in time, or absent if pending scan) while an attendance session is ongoing.
+    - Added `subject_type` filtering on historical queries so employee records are never crowded out by student records.
+  - `face-attendance/frontend/src/lib/api.ts`:
+    - Added `subjectType?: "student" | "employee" | string` to `AttendanceHistoryOptions`.
+    - Forwarded `subject_type: options.subjectType || undefined` in `getAttendanceHistory` and `exportAttendanceHistory`.
+  - `face-attendance/frontend/src/app/(dashboard)/reports/page.tsx`:
+    - Replaced UTC `toISOString().slice(0, 10)` with local calendar date formatting (`formatLocalDate`) in `todayInputValue()` to eliminate UTC timezone drift before 5:00 AM PKT.
+    - Updated `loadHistory` to pass `subjectType: reportType === "staff" ? "employee" : "student"` and `perPage: 500`.
+    - Added `reportType` to the `useCallback` dependency array for `loadHistory` so clicking the "Staff" tab immediately refetches staff records from the API.
+    - Updated `handleExport` to pass `subjectType` and download `${reportType}-attendance-...csv`.
+  - `face-attendance/frontend/src/components/DateRangePresets.tsx`:
+    - Replaced `toISOString().slice(0, 10)` with local calendar date formatting.
+  - `face-attendance/frontend/src/app/(dashboard)/dashboard/page.tsx`:
+    - Added `staffRecordsToday` and `staffAttendanceSummary` memos.
+    - Added a dedicated "Staff Attendance Today" card directly beneath "Class Attendance Today" showing live teacher/staff presence, check-in / check-out times, and status badges during ongoing sessions.
+- Verified:
+  - Backend tests: `pytest` passed (39/39 passed in 3.19s).
+  - Frontend typecheck: `tsc --noEmit` passed (0 errors).
+  - Frontend lint: `eslint` passed (0 errors, 0 warnings).
+  - Frontend production build: `next build` succeeded with all 23 routes generated.
+  - Database verification: Tested company 8 with active ongoing check-out session 37; verified all active staff are returned with live statuses.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

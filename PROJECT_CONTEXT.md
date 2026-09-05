@@ -1,6 +1,6 @@
 # Project Context
 
-Last updated: 2026-09-04
+Last updated: 2026-09-06
 
 ## Product
 
@@ -8,6 +8,10 @@ Last updated: 2026-09-04
 - Objective: Multi-tenant school attendance SaaS using class-scoped face-recognition sessions, FCM push notifications for arrival/checkout, and weekly email reports for students, staff, and HR/managers.
 - Active domain model: organizations/schools, portal users, classes, students, employees (teachers and staff), attendance sessions, attendance marks, and face embeddings.
 - Teachers and staff mirror the student experience: face enrollment (AI key `e{employee_id}`), kiosk check-in/check-out, and a Staff Attendance page (today, history, manual edit, CSV export). Their check-in/check-out alerts are sent via FCM/Emails. Staff absences are not auto-created or notified; the attendance session is shared with students. Each employee has an optional `expected_arrival_time` (drives on-time/late check-in classification) and an optional `expected_departure_time`.
+- Live Attendance & Reporting:
+  - During ongoing attendance sessions, both the `/reports` page (Staff tab) and `/dashboard` (Staff Attendance Today section) display real-time live staff presence (present with scan timestamps, or pending/absent before check-in).
+  - The backend endpoints `/attendance/history` and `/attendance/export` support `subject_type` filtering (`employee` vs `student`) and automatically compile live rosters during active session days so unscanned staff are accounted for alongside scanned records.
+  - Date inputs utilize local client timezones (`formatLocalDate`) preventing UTC boundary misalignments.
 
 ## Architecture
 

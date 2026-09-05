@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import {
   getAttendanceToday,
@@ -228,6 +229,18 @@ export default function DashboardPage() {
     );
   }, [todayRecords]);
 
+  const staffRecordsToday = useMemo(
+    () => todayRecords.filter((record) => record.employee_id != null),
+    [todayRecords],
+  );
+
+  const staffAttendanceSummary = useMemo(() => {
+    const present = staffRecordsToday.filter((r) => r.status !== "absent").length;
+    const absent = staffRecordsToday.filter((r) => r.status === "absent").length;
+    const late = staffRecordsToday.filter((r) => r.status === "late").length;
+    return { present, absent, late, total: staffRecordsToday.length };
+  }, [staffRecordsToday]);
+
 
 
   async function handleSaveSettings(): Promise<void> {
@@ -276,7 +289,7 @@ export default function DashboardPage() {
       const kioskUrl = `${baseUrl}/kiosk?key=${encodeURIComponent(
         api_key,
       )}&action=${sessionType}`;
-      window.open(kioskUrl, "_blank", "noopener,noreferrer");
+      window.open(kioskUrl, "_blank", "noopener");
       setLaunchMessage(
         sessionType === "check_in"
           ? "Check-in session started and the kiosk opened in a new tab."
@@ -439,6 +452,122 @@ export default function DashboardPage() {
                   </div>
                   <p className="mt-4 text-sm font-medium text-foreground">No active classes</p>
                   <p className="text-sm text-muted-foreground">Class data will appear here once students check in.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Staff Attendance Today */}
+          <Card className="card-hover overflow-hidden">
+            <CardHeader className="border-b bg-muted/20 pb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <ShieldCheck className="size-5 text-indigo-600" />
+                    Staff Attendance Today
+                  </CardTitle>
+                  <CardDescription className="mt-1.5">
+                    Real-time overview of teacher and staff presence.
+                  </CardDescription>
+                </div>
+                <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+                  <Link href="/reports">View full reports</Link>
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {isLoading ? (
+                <div className="p-6">
+                  <div className="skeleton h-24 w-full" />
+                </div>
+              ) : staffRecordsToday.length ? (
+                <div>
+                  <div className="flex flex-wrap items-center gap-6 border-b bg-muted/10 px-6 py-3 text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground text-xs uppercase tracking-wider">Total Staff</span>
+                      <span className="font-semibold">{staffAttendanceSummary.total}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground text-xs uppercase tracking-wider">Present</span>
+                      <span className="font-semibold text-emerald-600">{staffAttendanceSummary.present}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground text-xs uppercase tracking-wider">Absent</span>
+                      <span className="font-semibold text-rose-600">{staffAttendanceSummary.absent}</span>
+                    </div>
+                    {staffAttendanceSummary.late > 0 && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground text-xs uppercase tracking-wider">Late</span>
+                        <span className="font-semibold text-amber-600">{staffAttendanceSummary.late}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="divide-y max-h-72 overflow-y-auto">
+                    {staffRecordsToday.map((record) => (
+                      <div
+                        key={record.employee_id}
+                        className="flex items-center justify-between px-6 py-3.5 transition-colors hover:bg-muted/10"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex size-9 items-center justify-center rounded-full bg-indigo-50 font-semibold text-indigo-700 text-xs dark:bg-indigo-950 dark:text-indigo-300">
+                            {(record.employee_name ?? "S")
+                              .split(" ")
+                              .map((n) => n[0])
+                              .slice(0, 2)
+                              .join("")
+                              .toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm text-foreground">
+                              {record.employee_name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {record.designation || "Staff"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          {record.check_in && (
+                            <span className="hidden sm:inline text-xs text-muted-foreground tabular-nums">
+                              In: {new Date(record.check_in).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          )}
+                          {record.check_out && (
+                            <span className="hidden sm:inline text-xs text-muted-foreground tabular-nums">
+                              Out: {new Date(record.check_out).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          )}
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize",
+                              record.status === "present"
+                                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/10 dark:bg-emerald-950 dark:text-emerald-400"
+                                : record.status === "late"
+                                  ? "bg-amber-50 text-amber-700 ring-1 ring-amber-600/10 dark:bg-amber-950 dark:text-amber-400"
+                                  : "bg-rose-50 text-rose-700 ring-1 ring-rose-600/10 dark:bg-rose-950 dark:text-rose-400",
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "size-1.5 rounded-full",
+                                record.status === "present"
+                                  ? "bg-emerald-500"
+                                  : record.status === "late"
+                                    ? "bg-amber-500"
+                                    : "bg-rose-500",
+                              )}
+                            />
+                            {record.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-8 text-center">
+                  <p className="text-sm font-medium text-foreground">No staff records</p>
+                  <p className="text-xs text-muted-foreground mt-1">Staff attendance will show here when active.</p>
                 </div>
               )}
             </CardContent>

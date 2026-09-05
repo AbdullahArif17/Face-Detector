@@ -696,13 +696,14 @@ export async function stopAttendanceSession(
   return response.data;
 }
 
-interface AttendanceHistoryOptions {
+export interface AttendanceHistoryOptions {
   startDate?: string;
   endDate?: string;
   studentId?: number;
   employeeId?: number;
   classId?: number;
   branchId?: number;
+  subjectType?: "student" | "employee" | string;
   page?: number;
   perPage?: number;
 }
@@ -720,6 +721,7 @@ export async function getAttendanceHistory(
         student_id: options.studentId || undefined,
         employee_id: options.employeeId || undefined,
         class_id: classId || undefined,
+        subject_type: options.subjectType || undefined,
         page: options.page ?? 1,
         per_page: options.perPage ?? API_PAGE_SIZE,
       },
@@ -749,6 +751,7 @@ export async function exportAttendanceHistory(
       student_id: options.studentId || undefined,
       employee_id: options.employeeId || undefined,
       class_id: classId || undefined,
+      subject_type: options.subjectType || undefined,
     },
     responseType: "blob",
   });

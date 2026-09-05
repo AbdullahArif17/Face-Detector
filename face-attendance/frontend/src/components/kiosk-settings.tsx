@@ -290,7 +290,7 @@ export function KioskSettings() {
                   </Button>
                   {checkInKioskUrl ? (
                     <Button asChild variant="outline" className="gap-2 shadow-sm lg:w-auto">
-                      <a href={checkInKioskUrl} target="_blank" rel="noreferrer">
+                      <a href={checkInKioskUrl} target="_blank" rel="noopener">
                         <ExternalLink aria-hidden="true" className="size-4" />
                         Open Kiosk
                       </a>
@@ -336,7 +336,7 @@ export function KioskSettings() {
                   </Button>
                   {checkOutKioskUrl ? (
                     <Button asChild variant="outline" className="gap-2 shadow-sm lg:w-auto">
-                      <a href={checkOutKioskUrl} target="_blank" rel="noreferrer">
+                      <a href={checkOutKioskUrl} target="_blank" rel="noopener">
                         <ExternalLink aria-hidden="true" className="size-4" />
                         Open Kiosk
                       </a>

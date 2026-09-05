@@ -1383,24 +1383,99 @@ async def get_attendance_history(
     employee_id: int | None = Query(default=None, gt=0),
     class_id: int | None = Query(default=None, gt=0),
     branch_id: int | None = Query(default=None, gt=0),
+    subject_type: str | None = Query(default=None),
     page: int = Query(1, ge=1),
-    per_page: int = Query(25, ge=1, le=100),
+    per_page: int = Query(100, ge=1, le=500),
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(
         require_role("super_admin", "admin", "hr", "branch_manager", "viewer"),
     ),
 ) -> list[AttendanceDashboardRecord]:
     selected_class_id = resolve_class_query(class_id=class_id, branch_id=branch_id)
-    end_date = end_date or local_now().date()
+    today = local_now().date()
+    end_date = end_date or today
     start_date = start_date or (end_date - timedelta(days=30))
     if start_date > end_date:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="start_date cannot be after end_date",
         )
-    start, end = date_bounds(start_date, end_date)
-    offset = (page - 1) * per_page
 
+    # For today-only queries, provide the live roster view showing who is present and who has not checked in yet
+    is_today_only = (start_date == today and end_date == today)
+    start, end = date_bounds(start_date, end_date)
+
+    if is_today_only:
+        records: list[AttendanceDashboardRecord] = []
+
+        # 1. Staff / Employee records
+        if subject_type in ("employee", "staff") or (subject_type is None and selected_class_id is None):
+            emp_query = (
+                select(Employee)
+                .where(
+                    Employee.company_id == current_user.company_id,
+                    Employee.status == "active",
+                )
+                .order_by(Employee.name)
+            )
+            if employee_id is not None:
+                emp_query = emp_query.where(Employee.id == employee_id)
+            employees = list((await session.execute(emp_query)).scalars().all())
+
+            att_emp_res = await session.execute(
+                select(Attendance)
+                .where(
+                    Attendance.company_id == current_user.company_id,
+                    Attendance.employee_id.isnot(None),
+                    Attendance.check_in >= start,
+                    Attendance.check_in < end,
+                )
+                .order_by(Attendance.check_in.asc())
+            )
+            att_by_employee = {att.employee_id: att for att in att_emp_res.scalars().all()}
+
+            for emp in employees:
+                records.append(
+                    build_dashboard_record(emp, att_by_employee.get(emp.id), today)
+                )
+
+        # 2. Student records
+        if subject_type in ("student", "students") or (subject_type is None and employee_id is None):
+            st_query = (
+                select(Student)
+                .where(
+                    Student.school_id == current_user.company_id,
+                    Student.status == "active",
+                )
+                .order_by(Student.student_name)
+            )
+            if selected_class_id is not None:
+                st_query = st_query.where(Student.class_id == selected_class_id)
+            if student_id is not None:
+                st_query = st_query.where(Student.id == student_id)
+            students = list((await session.execute(st_query)).scalars().all())
+
+            att_st_res = await session.execute(
+                select(Attendance)
+                .where(
+                    Attendance.company_id == current_user.company_id,
+                    Attendance.student_id.isnot(None),
+                    Attendance.check_in >= start,
+                    Attendance.check_in < end,
+                )
+                .order_by(Attendance.check_in.asc())
+            )
+            att_by_student = {att.student_id: att for att in att_st_res.scalars().all()}
+
+            for st in students:
+                records.append(
+                    build_dashboard_record(st, att_by_student.get(st.id), today)
+                )
+
+        return records
+
+    # Historical date range queries
+    offset = (page - 1) * per_page
     query = (
         select(Attendance, Student, Employee)
         .outerjoin(Student, Student.id == Attendance.student_id)
@@ -1414,6 +1489,11 @@ async def get_attendance_history(
         .offset(offset)
         .limit(per_page)
     )
+    if subject_type in ("employee", "staff"):
+        query = query.where(Attendance.employee_id.isnot(None))
+    elif subject_type in ("student", "students"):
+        query = query.where(Attendance.student_id.isnot(None))
+
     if student_id is not None:
         query = query.where(Attendance.student_id == student_id)
     if employee_id is not None:
@@ -1442,13 +1522,15 @@ async def export_attendance_history(
     employee_id: int | None = Query(default=None, gt=0),
     class_id: int | None = Query(default=None, gt=0),
     branch_id: int | None = Query(default=None, gt=0),
+    subject_type: str | None = Query(default=None),
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(
         require_role("super_admin", "admin", "hr", "branch_manager", "viewer"),
     ),
 ) -> StreamingResponse:
     selected_class_id = resolve_class_query(class_id=class_id, branch_id=branch_id)
-    end_date = end_date or local_now().date()
+    today = local_now().date()
+    end_date = end_date or today
     start_date = start_date or (end_date - timedelta(days=30))
     if start_date > end_date:
         raise HTTPException(
@@ -1456,41 +1538,62 @@ async def export_attendance_history(
             detail="start_date cannot be after end_date",
         )
     start, end = date_bounds(start_date, end_date)
-    query = (
-        select(Attendance, Student, Employee)
-        .outerjoin(Student, Student.id == Attendance.student_id)
-        .outerjoin(Employee, Employee.id == Attendance.employee_id)
-        .where(
-            Attendance.company_id == current_user.company_id,
-            Attendance.check_in >= start,
-            Attendance.check_in < end,
-        )
-        .order_by(Attendance.check_in.desc())
-        .limit(EXPORT_MAX_RECORDS + 1)
-    )
-    if student_id is not None:
-        query = query.where(Attendance.student_id == student_id)
-    if employee_id is not None:
-        query = query.where(Attendance.employee_id == employee_id)
-    if selected_class_id is not None:
-        query = query.where(Student.class_id == selected_class_id)
 
-    rows = (await session.execute(query)).all()
-    if len(rows) > EXPORT_MAX_RECORDS:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=(
-                f"Export exceeds {EXPORT_MAX_RECORDS} records; narrow the date or class filters"
-            ),
+    is_today_only = (start_date == today and end_date == today)
+    if is_today_only:
+        records = await get_attendance_history(
+            start_date=start_date,
+            end_date=end_date,
+            student_id=student_id,
+            employee_id=employee_id,
+            class_id=selected_class_id,
+            subject_type=subject_type,
+            page=1,
+            per_page=500,
+            session=session,
+            current_user=current_user,
         )
-        
-    records = []
-    for attendance, student, employee in rows:
-        subject = student if student is not None else employee
-        if subject is not None:
-            records.append(
-                build_dashboard_record(subject, attendance, to_local(attendance.check_in).date())
+    else:
+        query = (
+            select(Attendance, Student, Employee)
+            .outerjoin(Student, Student.id == Attendance.student_id)
+            .outerjoin(Employee, Employee.id == Attendance.employee_id)
+            .where(
+                Attendance.company_id == current_user.company_id,
+                Attendance.check_in >= start,
+                Attendance.check_in < end,
             )
+            .order_by(Attendance.check_in.desc())
+            .limit(EXPORT_MAX_RECORDS + 1)
+        )
+        if subject_type in ("employee", "staff"):
+            query = query.where(Attendance.employee_id.isnot(None))
+        elif subject_type in ("student", "students"):
+            query = query.where(Attendance.student_id.isnot(None))
+
+        if student_id is not None:
+            query = query.where(Attendance.student_id == student_id)
+        if employee_id is not None:
+            query = query.where(Attendance.employee_id == employee_id)
+        if selected_class_id is not None:
+            query = query.where(Student.class_id == selected_class_id)
+
+        rows = (await session.execute(query)).all()
+        if len(rows) > EXPORT_MAX_RECORDS:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=(
+                    f"Export exceeds {EXPORT_MAX_RECORDS} records; narrow the date or class filters"
+                ),
+            )
+
+        records = []
+        for attendance, student, employee in rows:
+            subject = student if student is not None else employee
+            if subject is not None:
+                records.append(
+                    build_dashboard_record(subject, attendance, to_local(attendance.check_in).date())
+                )
 
     output = StringIO(newline="")
     writer = csv.writer(output)
@@ -1506,15 +1609,15 @@ async def export_attendance_history(
                 display_time(record.check_in) if record.check_in else "",
                 display_time(record.check_out) if record.check_out else "",
                 csv_safe(record.status),
-                csv_safe(record.notification_status or ""),
                 csv_safe(record.working_hours),
             ],
         )
     output.seek(0)
+    filename = f"attendance-export-{start_date}-to-{end_date}.csv"
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=student-attendance.csv"},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
