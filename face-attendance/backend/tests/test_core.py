@@ -1,6 +1,7 @@
 import base64
 from datetime import date
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from cryptography.fernet import Fernet
@@ -459,6 +460,9 @@ def test_weekly_report_logo_helper() -> None:
     test_html = "<div><img src='http://test.com/logo.png'></div>"
     result_html, images = get_report_inline_logo(test_html, "http://test.com/logo.png")
     assert isinstance(result_html, str)
+    assert images is not None
+    assert images[0][0] == "facelogo"
+    assert "cid:facelogo" in result_html
 
 
 def test_cron_auth_validation(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -489,3 +493,41 @@ async def test_viewer_excluded_from_push_notifications() -> None:
         await send_test_notification(current_user=viewer, db=None)  # type: ignore[arg-type]
     assert exc_info.value.status_code == 403
     assert "Viewers do not receive" in exc_info.value.detail
+
+
+@pytest.mark.asyncio
+async def test_fcm_push_async_in_thread(monkeypatch: pytest.MonkeyPatch) -> None:
+    import threading
+    from app.services.notification_service import NotificationService
+    import app.services.notification_service as notif_module
+
+    # Mock init_firebase to avoid needing real credentials
+    monkeypatch.setattr(notif_module, "_firebase_initialized", True)
+
+    thread_ids = []
+
+    def mock_send(msg: Any) -> str:
+        thread_ids.append(threading.get_ident())
+        return "projects/test/messages/123"
+
+    from firebase_admin import messaging
+    monkeypatch.setattr(messaging, "send", mock_send)
+
+    # Mock log_notification to avoid DB requirement
+    async def mock_log(*args: Any, **kwargs: Any) -> None:
+        pass
+    monkeypatch.setattr(NotificationService, "log_notification", mock_log)
+
+    main_thread = threading.get_ident()
+    success = await NotificationService.send_fcm_push(
+        company_id=1,
+        token="mock_token",
+        title="Test Title",
+        body="Test Body",
+        event_type="test",
+    )
+    assert success is True
+    assert len(thread_ids) == 1
+    # Ensure messaging.send was executed in an asyncio worker thread, not on main event loop thread
+    assert thread_ids[0] != main_thread
+

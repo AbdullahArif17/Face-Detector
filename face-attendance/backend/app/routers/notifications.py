@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from typing import List
@@ -74,8 +74,8 @@ async def remove_device_token(
 
 @router.get("/logs", response_model=List[NotificationLogResponse])
 async def get_notification_logs(
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     current_user: User = Depends(
         require_role("super_admin", "admin", "hr", "branch_manager", "viewer")
     ),

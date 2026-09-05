@@ -628,6 +628,36 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
   - Frontend typecheck: `npm run typecheck` passed (0 errors).
   - Frontend production build: `npm run build` succeeded with all 23 routes generated.
 
+## 2026-09-06 — Pre-client delivery audit fixes and reliability polish
+- Completed: Implemented all fixes and improvements from the approved pre-client audit plan (B-1 through B-4, I-1 through I-6, P-1 and P-2).
+- Changed:
+  - `face-attendance/backend/vercel.json`:
+    - Corrected Vercel cron paths from `/api/backend/attendance/cron/*` to `/attendance/cron/*` to avoid 404s on backend serverless routing.
+  - `face-attendance/backend/app/services/notification_service.py`:
+    - Wrapped synchronous `messaging.send` in `asyncio.to_thread` preventing event loop stalls.
+    - Updated `send_company_fcm` to dispatch pushes concurrently with `asyncio.gather(*tasks, return_exceptions=True)` across unique tokens.
+    - Updated `log_notification` to accept an optional `db` AsyncSession parameter to avoid redundant session creation during transaction flows.
+  - `face-attendance/frontend/src/components/FirebaseNotifications.tsx`:
+    - Separated `onMessage` foreground listener into a dedicated `useEffect` with an unsubscribe cleanup return, avoiding duplicate listener stacking across re-renders.
+  - `face-attendance/backend/app/routers/attendance.py`:
+    - Centralized `_check_cron_auth` before `cron_end_sessions` and eliminated duplicate inline HMAC verification.
+    - Added `absent_notifications_suppressed: True` to cron session-end return dictionary.
+    - Packaged `face-attendance-logo.png` in `face-attendance/backend/app/static/images/` and enhanced `get_report_inline_logo` to search both local backend static assets and frontend directory before falling back to external URLs.
+    - Replaced all email template alt texts `'Face Detector Logo'` with `'Face Attendance Logo'`.
+    - Removed `employee=response_student` leak from student auto-mark responses.
+  - `face-attendance/backend/app/routers/notifications.py`:
+    - Added validation bounds to `/notifications/logs`: `limit` (1 to 200, default 50) and `offset` (>= 0).
+  - `face-attendance/backend/scripts/test_firebase.py`:
+    - Moved standalone test script into `scripts/` directory out of root.
+  - `face-attendance/backend/tests/test_core.py`:
+    - Added unit test `test_fcm_push_async_in_thread` asserting that FCM `messaging.send` is executed off the main thread.
+- Verified:
+  - Backend tests: `pytest` passed (41/41 passed in 2.43s).
+  - Alembic check: `alembic check` reported no schema drift.
+  - Frontend typecheck: `tsc --noEmit` passed (0 errors).
+  - Frontend lint: `eslint` passed (0 errors, 0 warnings).
+  - Frontend production build: `next build` succeeded with all 23 routes generated.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title
@@ -636,3 +666,4 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified:
 - Pending:
 ```
+

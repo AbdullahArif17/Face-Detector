@@ -32,19 +32,6 @@ export function FirebaseNotifications() {
         // Send to backend for current user
         await registerDeviceToken(token);
       }
-      
-      // Handle foreground messages
-      if (messaging) {
-        onMessage(messaging, (payload) => {
-          // Show foreground notification
-          if (payload.notification) {
-            new Notification(payload.notification.title || "Attendance Alert", {
-              body: payload.notification.body,
-              icon: payload.notification.image || "/images/face-attendance-logo.png",
-            });
-          }
-        });
-      }
     } catch (error) {
       console.error("Error setting up notifications:", error);
     }
@@ -63,6 +50,29 @@ export function FirebaseNotifications() {
       void setupNotifications();
     }
   }, [user, setupNotifications]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window) || !messaging) {
+      return;
+    }
+
+    if (!user || user.role === "viewer") {
+      return;
+    }
+
+    const unsubscribe = onMessage(messaging, (payload) => {
+      if (Notification.permission === "granted" && payload.notification) {
+        new Notification(payload.notification.title || "Attendance Alert", {
+          body: payload.notification.body,
+          icon: payload.notification.image || "/images/face-attendance-logo.png",
+        });
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [user]);
 
   const requestPermission = async () => {
     if (typeof window === "undefined" || !("Notification" in window)) {

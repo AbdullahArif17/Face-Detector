@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import smtplib
@@ -48,22 +49,27 @@ class NotificationService:
         recipient_email: str | None = None,
         recipient_fcm_token: str | None = None,
         error_message: str | None = None,
+        db: AsyncSession | None = None,
     ):
-        from app.core.database import SessionLocal
-        async with SessionLocal() as db:
-            log = NotificationLog(
-                company_id=company_id,
-                notification_type=notification_type,
-                event_type=event_type,
-                status=status,
-                message_content=message_content,
-                recipient_email=recipient_email,
-                recipient_fcm_token=recipient_fcm_token,
-                error_message=error_message,
-                created_at=datetime.now(timezone.utc),
-            )
+        log = NotificationLog(
+            company_id=company_id,
+            notification_type=notification_type,
+            event_type=event_type,
+            status=status,
+            message_content=message_content,
+            recipient_email=recipient_email,
+            recipient_fcm_token=recipient_fcm_token,
+            error_message=error_message,
+            created_at=datetime.now(timezone.utc),
+        )
+        if db is not None:
             db.add(log)
             await db.commit()
+        else:
+            from app.core.database import SessionLocal
+            async with SessionLocal() as session:
+                session.add(log)
+                await session.commit()
 
     @staticmethod
     async def send_fcm_push(
@@ -73,6 +79,7 @@ class NotificationService:
         body: str,
         event_type: str,
         data: dict | None = None,
+        db: AsyncSession | None = None,
     ) -> bool:
         init_firebase()
         if not _firebase_initialized:
@@ -91,7 +98,7 @@ class NotificationService:
         status = "failed"
         error_msg = None
         try:
-            response = messaging.send(message)
+            response = await asyncio.to_thread(messaging.send, message)
             status = "sent"
             logger.info(f"Successfully sent message: {response}")
             success = True
@@ -108,6 +115,7 @@ class NotificationService:
             message_content=f"Title: {title} | Body: {body}",
             recipient_fcm_token=token,
             error_message=error_msg,
+            db=db,
         )
         return success
 
@@ -143,8 +151,12 @@ class NotificationService:
             result = await db.execute(query)
             tokens = result.scalars().all()
             
-        for token in tokens:
-            await NotificationService.send_fcm_push(
+        if not tokens:
+            return
+
+        unique_tokens = list(dict.fromkeys(tokens))
+        tasks = [
+            NotificationService.send_fcm_push(
                 company_id=company_id,
                 token=token,
                 title=title,
@@ -152,6 +164,9 @@ class NotificationService:
                 event_type=event_type,
                 data=data,
             )
+            for token in unique_tokens
+        ]
+        await asyncio.gather(*tasks, return_exceptions=True)
 
     @staticmethod
     async def send_email(
@@ -162,6 +177,7 @@ class NotificationService:
         body_html: str | None = None,
         event_type: str = "weekly_report",
         inline_images: list[tuple[str, bytes, str]] | None = None,
+        db: AsyncSession | None = None,
     ) -> bool:
         if not all([settings.smtp_host, settings.smtp_port, settings.smtp_user, settings.smtp_pass, settings.smtp_from_email]):
             logger.error("SMTP configuration is incomplete. Cannot send email.")
@@ -187,10 +203,6 @@ class NotificationService:
         status = "failed"
         error_msg = None
         try:
-            # We use smtplib blocking call, ideally run in a thread pool for true async
-            # But for simplicity, we do it directly here
-            import asyncio
-            
             def _send():
                 host = settings.smtp_host or ""
                 port = settings.smtp_port or 587
@@ -216,5 +228,6 @@ class NotificationService:
             message_content=f"Subject: {subject} | Body: {body_text}",
             recipient_email=recipient_email,
             error_message=error_msg,
+            db=db,
         )
         return success

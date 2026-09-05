@@ -923,7 +923,6 @@ async def auto_mark_attendance(
             return AttendanceAutoMarkResponse(
                 matched=True,
                 student=response_student,
-                employee=response_student,
                 action="already_done",
                 message=f"{student.student_name} hasn\u2019t checked in yet.",
             )
@@ -932,7 +931,6 @@ async def auto_mark_attendance(
             return AttendanceAutoMarkResponse(
                 matched=True,
                 student=response_student,
-                employee=response_student,
                 action="already_done",
                 time=display_time(today_attendance.check_out),
                 message=f"{student.student_name} has already checked out.",
@@ -944,7 +942,6 @@ async def auto_mark_attendance(
         return AttendanceAutoMarkResponse(
             matched=True,
             student=response_student,
-            employee=response_student,
             action="check_out",
             time=display_time(now),
             confidence_score=confidence,
@@ -955,7 +952,6 @@ async def auto_mark_attendance(
         return AttendanceAutoMarkResponse(
             matched=True,
             student=response_student,
-            employee=response_student,
             action="already_done",
             time=display_time(existing_attendance.check_in),
             confidence_score=confidence,
@@ -993,7 +989,6 @@ async def auto_mark_attendance(
         return AttendanceAutoMarkResponse(
             matched=True,
             student=response_student,
-            employee=response_student,
             action="already_done",
             time=display_time(existing_attendance.check_in),
             confidence_score=confidence,
@@ -1006,7 +1001,6 @@ async def auto_mark_attendance(
     return AttendanceAutoMarkResponse(
         matched=True,
         student=response_student,
-        employee=response_student,
         action="check_in",
         time=display_time(now),
         confidence_score=confidence,
@@ -1747,6 +1741,14 @@ async def send_absent_notification(
         attendance.notification_status = "failed"
 
 
+def _check_cron_auth(request: Request) -> None:
+    cron_secret = settings.cron_secret
+    if cron_secret:
+        provided_secret = request.headers.get("X-Cron-Secret") or request.headers.get("Authorization", "").removeprefix("Bearer ")
+        if not hmac.compare_digest(provided_secret or "", cron_secret):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid cron secret")
+
+
 @router.post("/cron/end-sessions", status_code=status.HTTP_200_OK)
 async def cron_end_sessions(
     request: Request,
@@ -1758,12 +1760,7 @@ async def cron_end_sessions(
     AND session_end_time <= NOW(), marks them as 'ended', and triggers
     absent-alert logic for students not checked in.
     """
-    # Verify CRON_SECRET
-    cron_secret = settings.cron_secret
-    if cron_secret:
-        provided_secret = request.headers.get("X-Cron-Secret") or request.headers.get("Authorization", "").removeprefix("Bearer ")
-        if not hmac.compare_digest(provided_secret or "", cron_secret):
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid cron secret")
+    _check_cron_auth(request)
 
     now = datetime.now(timezone.utc)
     sessions_to_end_result = await session.execute(
@@ -1842,17 +1839,22 @@ async def cron_end_sessions(
     return {
         "ended_sessions": ended_count,
         "absent_notifications_sent": 0,
+        "absent_notifications_suppressed": True,
         "timestamp": now.isoformat(),
     }
 
 def get_report_inline_logo(html_body: str, logo_url: str) -> tuple[str, list[tuple[str, bytes, str]] | None]:
     try:
         import os
-        logo_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend", "public", "images", "face-attendance-logo.png")
-        if os.path.exists(logo_path):
-            with open(logo_path, "rb") as img:
-                inline_images = [("facelogo", img.read(), "png")]
-            return html_body.replace(logo_url, "cid:facelogo"), inline_images
+        candidates = [
+            os.path.join(os.path.dirname(__file__), "..", "static", "images", "face-attendance-logo.png"),
+            os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend", "public", "images", "face-attendance-logo.png"),
+        ]
+        for logo_path in candidates:
+            if os.path.exists(logo_path):
+                with open(logo_path, "rb") as img:
+                    inline_images = [("facelogo", img.read(), "png")]
+                return html_body.replace(logo_url, "cid:facelogo"), inline_images
     except Exception as e:
         logger.error(f"Error attaching logo: {e}")
     return html_body, None
@@ -1955,7 +1957,7 @@ async def send_weekly_student_reports_internal(
         html_body = (
             f"<div style='font-family:sans-serif;color:#333;'>"
             f"<div style='text-align:center;margin-bottom:20px;'>"
-            f"  <img src='{logo_url}' alt='Face Detector Logo' style='max-width:150px;height:auto;'>"
+            f"  <img src='{logo_url}' alt='Face Attendance Logo' style='max-width:150px;height:auto;'>"
             f"</div>"
             f"<h2>Weekly Student Attendance Report</h2>"
             f"<p>Hello,</p>"
@@ -2082,7 +2084,7 @@ async def send_weekly_staff_reports_internal(
         html_body = (
             f"<div style='font-family:sans-serif;color:#333;'>"
             f"<div style='text-align:center;margin-bottom:20px;'>"
-            f"  <img src='{logo_url}' alt='Face Detector Logo' style='max-width:150px;height:auto;'>"
+            f"  <img src='{logo_url}' alt='Face Attendance Logo' style='max-width:150px;height:auto;'>"
             f"</div>"
             f"<h2>Weekly Staff Attendance Summary</h2>"
             f"<p>Hello HR,</p>"
@@ -2109,14 +2111,6 @@ async def send_weekly_staff_reports_internal(
         emails_queued += 1
 
     return emails_queued
-
-
-def _check_cron_auth(request: Request) -> None:
-    cron_secret = settings.cron_secret
-    if cron_secret:
-        provided_secret = request.headers.get("X-Cron-Secret") or request.headers.get("Authorization", "").removeprefix("Bearer ")
-        if not hmac.compare_digest(provided_secret or "", cron_secret):
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid cron secret")
 
 
 @router.post("/cron/weekly-parent-reports", status_code=status.HTTP_200_OK)

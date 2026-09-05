@@ -8,11 +8,11 @@
   },
   "crons": [
     {
-      "path": "/api/backend/attendance/cron/end-sessions",
+      "path": "/attendance/cron/end-sessions",
       "schedule": "0 1 * * *"
     },
     {
-      "path": "/api/backend/attendance/cron/weekly-reports",
+      "path": "/attendance/cron/weekly-reports",
       "schedule": "0 18 * * 0"
     }
   ]
