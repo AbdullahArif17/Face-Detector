@@ -952,6 +952,17 @@ export async function removeDeviceToken(fcmToken: string): Promise<void> {
   await api.delete(`/notifications/device-tokens/${fcmToken}`);
 }
 
+export interface DeviceStatusResponse {
+  user_id: number;
+  device_count: number;
+  is_registered: boolean;
+}
+
+export async function getDeviceStatus(): Promise<DeviceStatusResponse> {
+  const response = await api.get<DeviceStatusResponse>("/notifications/device-status");
+  return response.data;
+}
+
 export async function sendTestNotification(): Promise<{
   message: string;
   devices_targeted: number;

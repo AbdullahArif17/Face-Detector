@@ -9,13 +9,39 @@ importScripts(
 );
 
 // Initialize Firebase in the service worker
-// The actual config values are injected by the client when it activates messaging
-firebase.initializeApp({
-  apiKey: "placeholder",
-  projectId: "placeholder",
-  messagingSenderId: "placeholder",
-  appId: "placeholder",
-});
+// Query params override or fallback to project configuration
+let firebaseConfig = {
+  apiKey: "AIzaSyAQk7QtMwV5DVoIIdzAHWUfJFeWtWqYLNg",
+  authDomain: "face-detector-a401b.firebaseapp.com",
+  projectId: "face-detector-a401b",
+  storageBucket: "face-detector-a401b.firebasestorage.app",
+  messagingSenderId: "105856043784",
+  appId: "1:105856043784:web:99dc89ab65e5725f07babd",
+};
+
+try {
+  const urlParams = new URL(self.location.href).searchParams;
+  const apiKey = urlParams.get("apiKey");
+  const projectId = urlParams.get("projectId");
+  const messagingSenderId = urlParams.get("messagingSenderId");
+  const appId = urlParams.get("appId");
+  if (apiKey && projectId && messagingSenderId) {
+    firebaseConfig = {
+      apiKey,
+      authDomain: urlParams.get("authDomain") || firebaseConfig.authDomain,
+      projectId,
+      storageBucket: urlParams.get("storageBucket") || firebaseConfig.storageBucket,
+      messagingSenderId,
+      appId: appId || firebaseConfig.appId,
+    };
+  }
+} catch {
+  // Use default config
+}
+
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
 
 const messaging = firebase.messaging();
 

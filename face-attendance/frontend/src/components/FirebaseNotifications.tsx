@@ -5,6 +5,7 @@ import { requestForToken, messaging } from "@/lib/firebase";
 import { onMessage } from "firebase/messaging";
 import { registerDeviceToken } from "@/lib/api";
 import { useOptionalAuth } from "@/context/AuthContext";
+import { BrandLogo } from "@/components/brand-logo";
 
 export function FirebaseNotifications() {
   const auth = useOptionalAuth();
@@ -115,9 +116,7 @@ export function FirebaseNotifications() {
           <span className="sr-only">Dismiss</span>
         </button>
         <div className="flex items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded bg-blue-600 text-white shadow-sm">
-             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-          </div>
+          <BrandLogo showName={false} markClassName="size-10 rounded-xl shadow-sm" />
           <div className="flex flex-col">
             <p className="text-base font-semibold leading-tight text-foreground">Notifications</p>
             <p className="mt-0.5 text-xs text-muted-foreground">Get real-time updates</p>

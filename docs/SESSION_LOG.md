@@ -658,6 +658,33 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
   - Frontend lint: `eslint` passed (0 errors, 0 warnings).
   - Frontend production build: `next build` succeeded with all 23 routes generated.
 
+## 2026-09-08 — FCM device registration fix and pop-up logo branding
+- Completed: Fixed push notification device registration failure on mobile and updated prompts to display brand logo.
+- Changed:
+  - `face-attendance/frontend/src/components/PwaInstallPrompt.tsx`:
+    - Replaced generic download icon in install prompt banner with `BrandLogo`.
+  - `face-attendance/frontend/src/components/FirebaseNotifications.tsx`:
+    - Replaced blue bell SVG box with `BrandLogo` in the foreground notifications banner.
+  - `face-attendance/frontend/public/firebase-messaging-sw.js`:
+    - Replaced placeholder Firebase config with the actual project client credentials (`face-detector-a401b`, sender ID `105856043784`) and dynamic URL query parameter fallback, enabling the service worker to successfully initialize FCM.
+  - `face-attendance/frontend/src/lib/firebase.ts`:
+    - Added `getOrRegisterServiceWorker` ensuring `/firebase-messaging-sw.js` is registered and active before calling `getToken`.
+    - Passed `serviceWorkerRegistration` to `getToken` for reliable token generation on Chrome/Android.
+  - `face-attendance/backend/app/routers/notifications.py`:
+    - Added `GET /notifications/device-status` endpoint returning `device_count` and `is_registered` status for the authenticated user.
+  - `face-attendance/frontend/src/lib/api.ts`:
+    - Exported `getDeviceStatus` and `DeviceStatusResponse`.
+  - `face-attendance/frontend/src/app/(dashboard)/notifications/page.tsx`:
+    - Auto-registers device token on page load when notification permission is granted.
+    - Ensures device token registration before dispatching test push notifications.
+    - Added a dedicated "Re-sync Device" button.
+    - Updated Device Status to accurately report registered device count from backend rather than inferring from browser permission alone.
+- Verified:
+  - Backend tests: `pytest` passed (41/41 passed).
+  - Frontend typecheck: `tsc --noEmit` passed (0 errors).
+  - Frontend lint: `eslint` passed (0 errors, 0 warnings).
+  - Frontend build: `next build` succeeded with all 23 routes generated.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title
@@ -666,4 +693,5 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified:
 - Pending:
 ```
+
 

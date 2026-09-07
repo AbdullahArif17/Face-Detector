@@ -14,7 +14,13 @@ import {
   BellRing,
   ShieldAlert,
 } from "lucide-react";
-import { getNotificationLogs, registerDeviceToken, sendTestNotification, NotificationLog } from "@/lib/api";
+import { 
+  getNotificationLogs, 
+  registerDeviceToken, 
+  sendTestNotification, 
+  getDeviceStatus, 
+  NotificationLog 
+} from "@/lib/api";
 import { requestForToken } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
@@ -33,9 +39,52 @@ export default function NotificationsPage() {
     }
     return "default";
   });
+  const [registeredDeviceCount, setRegisteredDeviceCount] = useState<number | null>(null);
   const [isEnablingPush, setIsEnablingPush] = useState(false);
   const [isTestingPush, setIsTestingPush] = useState(false);
   const [pushFeedback, setPushFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  const syncDeviceStatus = useCallback(async () => {
+    try {
+      const res = await getDeviceStatus();
+      setRegisteredDeviceCount(res.device_count);
+      return res;
+    } catch (err) {
+      console.warn("Could not check device registration count:", err);
+      return null;
+    }
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const initDeviceSync = async () => {
+      try {
+        const res = await getDeviceStatus();
+        if (isMounted) {
+          setRegisteredDeviceCount(res.device_count);
+        }
+
+        if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+          const token = await requestForToken();
+          if (token && isMounted) {
+            await registerDeviceToken(token);
+            const updated = await getDeviceStatus();
+            if (isMounted) {
+              setRegisteredDeviceCount(updated.device_count);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Background device sync failed:", err);
+      }
+    };
+
+    void initDeviceSync();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleEnablePush = async () => {
     if (typeof window === "undefined" || !("Notification" in window)) {
@@ -55,9 +104,10 @@ export default function NotificationsPage() {
         const token = await requestForToken();
         if (token) {
           await registerDeviceToken(token);
+          await syncDeviceStatus();
           setPushFeedback({
             type: "success",
-            message: "Push notifications enabled! This device will now receive staff check-in and check-out alerts.",
+            message: "Push notifications enabled and device synced! This device will now receive staff check-in and check-out alerts.",
           });
         } else {
           setPushFeedback({
@@ -85,15 +135,30 @@ export default function NotificationsPage() {
     setIsTestingPush(true);
     setPushFeedback(null);
     try {
+      // 1. Ensure current device token is active in backend database
+      try {
+        const token = await requestForToken();
+        if (token) {
+          await registerDeviceToken(token);
+          await syncDeviceStatus();
+        }
+      } catch (tokenErr) {
+        console.warn("Could not sync token prior to test push:", tokenErr);
+      }
+
+      // 2. Dispatch the test notification
       const res = await sendTestNotification();
       setPushFeedback({
         type: "success",
         message: res.message || "Test push notification sent successfully!",
       });
+      await syncDeviceStatus();
     } catch (err: unknown) {
       let msg = "Failed to dispatch test notification.";
       if (axios.isAxiosError(err) && err.response?.data?.detail) {
         msg = String(err.response.data.detail);
+      } else if (err instanceof Error) {
+        msg = err.message;
       }
       setPushFeedback({
         type: "error",
@@ -192,16 +257,27 @@ export default function NotificationsPage() {
                   {isEnablingPush ? "Enabling..." : "Enable Push Notifications"}
                 </Button>
               ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => void handleSendTestPush()}
-                  disabled={isTestingPush}
-                  className="gap-2 shadow-sm border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-950"
-                >
-                  <Send className={`size-4 ${isTestingPush ? "animate-pulse" : ""}`} />
-                  {isTestingPush ? "Sending..." : "Send Test Notification"}
-                </Button>
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void handleEnablePush()}
+                    disabled={isEnablingPush || isTestingPush}
+                    className="gap-2 shadow-sm"
+                  >
+                    <RotateCw className={`size-4 ${isEnablingPush ? "animate-spin" : ""}`} />
+                    {isEnablingPush ? "Syncing..." : "Re-sync Device"}
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => void handleSendTestPush()}
+                    disabled={isTestingPush || isEnablingPush}
+                    className="gap-2 shadow-sm bg-indigo-600 hover:bg-indigo-700 text-white"
+                  >
+                    <Send className={`size-4 ${isTestingPush ? "animate-pulse" : ""}`} />
+                    {isTestingPush ? "Sending..." : "Send Test Notification"}
+                  </Button>
+                </>
               )}
             </div>
           )}
@@ -216,13 +292,20 @@ export default function NotificationsPage() {
           </div>
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-xs text-muted-foreground">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium text-foreground">Device Status:</span>
               {devicePermission === "granted" ? (
-                <span className="inline-flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
-                  <span className="size-1.5 rounded-full bg-emerald-500" />
-                  Active on this device
-                </span>
+                registeredDeviceCount && registeredDeviceCount > 0 ? (
+                  <span className="inline-flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
+                    <span className="size-1.5 rounded-full bg-emerald-500" />
+                    Active ({registeredDeviceCount} device{registeredDeviceCount === 1 ? "" : "s"} registered)
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 font-medium text-amber-600 dark:text-amber-400">
+                    <span className="size-1.5 rounded-full bg-amber-500" />
+                    Browser allowed — click &ldquo;Send Test Notification&rdquo; or &ldquo;Re-sync Device&rdquo; to complete setup
+                  </span>
+                )
               ) : devicePermission === "denied" ? (
                 <span className="inline-flex items-center gap-1.5 font-medium text-rose-600 dark:text-rose-400">
                   <span className="size-1.5 rounded-full bg-rose-500" />

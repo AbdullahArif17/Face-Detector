@@ -1,40 +1,81 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
-import { getMessaging, getToken, Messaging } from "firebase/messaging";
+import { getMessaging, getToken, isSupported, Messaging } from "firebase/messaging";
 
 // Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyAQk7QtMwV5DVoIIdzAHWUfJFeWtWqYLNg",
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "face-detector-a401b.firebaseapp.com",
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "face-detector-a401b",
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "face-detector-a401b.firebasestorage.app",
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "105856043784",
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:105856043784:web:99dc89ab65e5725f07babd",
 };
 
 let app: FirebaseApp | null = null;
 let messaging: Messaging | null = null;
 
-if (
-  typeof window !== "undefined" && 
-  firebaseConfig.apiKey && 
-  firebaseConfig.projectId && 
-  firebaseConfig.messagingSenderId
-) {
+if (typeof window !== "undefined") {
   try {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-    messaging = getMessaging(app);
   } catch (error) {
-    console.error("Firebase initialization error", error);
+    console.error("Firebase initialization error:", error);
   }
 }
 
-export const requestForToken = async (): Promise<string | null> => {
-  if (!messaging) return null;
+export const getOrRegisterServiceWorker = async (): Promise<ServiceWorkerRegistration | null> => {
+  if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
+    return null;
+  }
 
   try {
+    const query = new URLSearchParams({
+      apiKey: firebaseConfig.apiKey || "",
+      projectId: firebaseConfig.projectId || "",
+      messagingSenderId: firebaseConfig.messagingSenderId || "",
+      appId: firebaseConfig.appId || "",
+    }).toString();
+
+    const swUrl = `/firebase-messaging-sw.js?${query}`;
+    const registration = await navigator.serviceWorker.register(swUrl, {
+      scope: "/",
+    });
+    
+    // Wait for the service worker to become active if it's installing
+    await navigator.serviceWorker.ready;
+    return registration;
+  } catch (err) {
+    console.warn("Service worker registration error:", err);
+    return null;
+  }
+};
+
+export const requestForToken = async (): Promise<string | null> => {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const supported = await isSupported().catch(() => false);
+    if (!supported) {
+      console.warn("Firebase messaging is not supported in this browser environment.");
+      return null;
+    }
+
+    if (!app) {
+      app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+    }
+    if (!messaging && app) {
+      messaging = getMessaging(app);
+    }
+    if (!messaging) return null;
+
+    const swRegistration = await getOrRegisterServiceWorker();
+
+    const vapidKey =
+      process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY ||
+      "BBqhdovTyApLjCA6bf8ayaMI26TBGBaqAfWQ9qR5lBBViwX8XcqOj9L8zBj0LXHLlMHgW_P3NxkXiZEL-zwB4dQ";
+
     const currentToken = await getToken(messaging, {
-      vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
+      vapidKey,
+      serviceWorkerRegistration: swRegistration || undefined,
     });
     
     if (currentToken) {
@@ -44,8 +85,8 @@ export const requestForToken = async (): Promise<string | null> => {
       return null;
     }
   } catch (err) {
-    console.error("An error occurred while retrieving token. ", err);
-    return null;
+    console.error("An error occurred while retrieving token: ", err);
+    throw err;
   }
 };
 

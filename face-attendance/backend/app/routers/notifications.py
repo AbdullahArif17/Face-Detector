@@ -94,6 +94,26 @@ async def get_notification_logs(
     return result.scalars().all()
 
 
+@router.get("/device-status")
+async def get_device_status(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get registered device count for the current user.
+    """
+    result = await db.execute(
+        select(UserDeviceToken.fcm_token)
+        .where(UserDeviceToken.user_id == current_user.id)
+    )
+    tokens = result.scalars().all()
+    return {
+        "user_id": current_user.id,
+        "device_count": len(tokens),
+        "is_registered": len(tokens) > 0,
+    }
+
+
 @router.post("/test", status_code=status.HTTP_200_OK)
 async def send_test_notification(
     current_user: User = Depends(get_current_user),
