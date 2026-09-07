@@ -1,0 +1,17 @@
+# Heavy ML / Vision backend (deployed separately on HuggingFace / Modal / Docker)
+face-attendance/ai-service/
+face-attendance/backend/
+hf-face-attendance-ai/
+.venv/
+*/.venv/
+
+# Docs & local tools
+docs/
+.agents/
+.cursor/
+.codex-remote-attachments/
+.playwright-mcp/
+
+# Python caches
+__pycache__/
+*.pyc
