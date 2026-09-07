@@ -3,18 +3,23 @@ import { getMessaging, getToken, isSupported, Messaging } from "firebase/messagi
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyAQk7QtMwV5DVoIIdzAHWUfJFeWtWqYLNg",
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "face-detector-a401b.firebaseapp.com",
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "face-detector-a401b",
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "face-detector-a401b.firebasestorage.app",
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "105856043784",
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:105856043784:web:99dc89ab65e5725f07babd",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
 let app: FirebaseApp | null = null;
 let messaging: Messaging | null = null;
 
-if (typeof window !== "undefined") {
+if (
+  typeof window !== "undefined" &&
+  firebaseConfig.apiKey &&
+  firebaseConfig.projectId &&
+  firebaseConfig.messagingSenderId
+) {
   try {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
   } catch (error) {
@@ -30,7 +35,9 @@ export const getOrRegisterServiceWorker = async (): Promise<ServiceWorkerRegistr
   try {
     const query = new URLSearchParams({
       apiKey: firebaseConfig.apiKey || "",
+      authDomain: firebaseConfig.authDomain || "",
       projectId: firebaseConfig.projectId || "",
+      storageBucket: firebaseConfig.storageBucket || "",
       messagingSenderId: firebaseConfig.messagingSenderId || "",
       appId: firebaseConfig.appId || "",
     }).toString();
@@ -59,7 +66,7 @@ export const requestForToken = async (): Promise<string | null> => {
       return null;
     }
 
-    if (!app) {
+    if (!app && firebaseConfig.apiKey) {
       app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
     }
     if (!messaging && app) {
@@ -68,13 +75,10 @@ export const requestForToken = async (): Promise<string | null> => {
     if (!messaging) return null;
 
     const swRegistration = await getOrRegisterServiceWorker();
-
-    const vapidKey =
-      process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY ||
-      "BBqhdovTyApLjCA6bf8ayaMI26TBGBaqAfWQ9qR5lBBViwX8XcqOj9L8zBj0LXHLlMHgW_P3NxkXiZEL-zwB4dQ";
+    const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
 
     const currentToken = await getToken(messaging, {
-      vapidKey,
+      vapidKey: vapidKey || undefined,
       serviceWorkerRegistration: swRegistration || undefined,
     });
     

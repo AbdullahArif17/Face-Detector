@@ -1,6 +1,5 @@
-# Heavy ML / Vision backend (deployed separately on HuggingFace / Modal / Docker)
+# Heavy ML / Vision AI service (deployed separately on Hugging Face Docker Space)
 face-attendance/ai-service/
-face-attendance/backend/
 hf-face-attendance-ai/
 .venv/
 */.venv/

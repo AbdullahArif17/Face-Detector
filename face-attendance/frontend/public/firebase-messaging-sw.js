@@ -9,15 +9,8 @@ importScripts(
 );
 
 // Initialize Firebase in the service worker
-// Query params override or fallback to project configuration
-let firebaseConfig = {
-  apiKey: "AIzaSyAQk7QtMwV5DVoIIdzAHWUfJFeWtWqYLNg",
-  authDomain: "face-detector-a401b.firebaseapp.com",
-  projectId: "face-detector-a401b",
-  storageBucket: "face-detector-a401b.firebasestorage.app",
-  messagingSenderId: "105856043784",
-  appId: "1:105856043784:web:99dc89ab65e5725f07babd",
-};
+// Configuration is injected via query parameters upon service worker registration
+let messaging = null;
 
 try {
   const urlParams = new URL(self.location.href).searchParams;
@@ -25,41 +18,46 @@ try {
   const projectId = urlParams.get("projectId");
   const messagingSenderId = urlParams.get("messagingSenderId");
   const appId = urlParams.get("appId");
+  const authDomain = urlParams.get("authDomain");
+  const storageBucket = urlParams.get("storageBucket");
+
   if (apiKey && projectId && messagingSenderId) {
-    firebaseConfig = {
-      apiKey,
-      authDomain: urlParams.get("authDomain") || firebaseConfig.authDomain,
-      projectId,
-      storageBucket: urlParams.get("storageBucket") || firebaseConfig.storageBucket,
-      messagingSenderId,
-      appId: appId || firebaseConfig.appId,
-    };
+    if (!firebase.apps.length) {
+      firebase.initializeApp({
+        apiKey,
+        authDomain: authDomain || undefined,
+        projectId,
+        storageBucket: storageBucket || undefined,
+        messagingSenderId,
+        appId: appId || undefined,
+      });
+    }
   }
-} catch {
-  // Use default config
-}
 
-if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
+  if (firebase.apps.length) {
+    messaging = firebase.messaging();
+  }
+} catch (err) {
+  console.warn("[firebase-messaging-sw] Initialization notice:", err);
 }
-
-const messaging = firebase.messaging();
 
 // Handle background messages
-messaging.onBackgroundMessage((payload) => {
-  console.log("[firebase-messaging-sw] Background message received:", payload);
+if (messaging) {
+  messaging.onBackgroundMessage((payload) => {
+    console.log("[firebase-messaging-sw] Background message received:", payload);
 
-  const notificationTitle =
-    payload.notification?.title ?? "Face Attendance";
-  const notificationOptions = {
-    body: payload.notification?.body ?? "",
-    icon: "/images/face-attendance-logo.png",
-    badge: "/images/face-attendance-logo.png",
-    data: payload.data,
-  };
+    const notificationTitle =
+      payload.notification?.title ?? "Face Attendance";
+    const notificationOptions = {
+      body: payload.notification?.body ?? "",
+      icon: "/images/face-attendance-logo.png",
+      badge: "/images/face-attendance-logo.png",
+      data: payload.data,
+    };
 
-  self.registration.showNotification(notificationTitle, notificationOptions);
-});
+    self.registration.showNotification(notificationTitle, notificationOptions);
+  });
+}
 
 // Handle notification click
 self.addEventListener("notificationclick", (event) => {

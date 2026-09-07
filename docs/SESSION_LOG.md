@@ -685,6 +685,27 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
   - Frontend lint: `eslint` passed (0 errors, 0 warnings).
   - Frontend build: `next build` succeeded with all 23 routes generated.
 
+## 2026-09-08 — GitHub Secret Scanning Alert & Vercel Build Failure Resolution
+- Completed:
+  - Resolved GitHub Secret Scanning alert for Google API Key exposed in `face-attendance/frontend/src/lib/firebase.ts`.
+  - Resolved Vercel production deployment build error on project `face-detector-k4dl`.
+- Changed:
+  - `.vercelignore`:
+    - Removed `face-attendance/backend/` exclusion. Root `.vercelignore` applies repo-wide across all Vercel projects; ignoring backend prevented `face-detector-k4dl` from building its Python serverless deployment.
+  - `face-attendance/frontend/src/lib/firebase.ts`:
+    - Removed all hardcoded fallback API keys, project IDs, and VAPID keys. Configuration is now strictly loaded from `NEXT_PUBLIC_FIREBASE_*` environment variables.
+  - `face-attendance/frontend/public/firebase-messaging-sw.js`:
+    - Removed hardcoded credentials fallback. The service worker dynamically initializes from query parameters passed during registration (`/firebase-messaging-sw.js?apiKey=...`), keeping secrets out of static repository assets.
+    - Added null checks to avoid errors if service worker is initialized without active messaging params.
+- Verified:
+  - Full codebase grep for `AIzaSy` returned 0 matches across all files.
+  - Full codebase grep for `BBqhdov` returned 0 matches across all files.
+  - Backend tests: `pytest` passed (41/41 passed).
+  - Frontend typecheck: `npm run typecheck` passed (0 errors).
+  - Frontend production build: `npm run build` completed successfully (exit code 0, 23 routes generated).
+- Pending:
+  - Rotate Google/Firebase Web API key in Google Cloud Console / Firebase Console and dismiss the GitHub secret scanning alert.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title
