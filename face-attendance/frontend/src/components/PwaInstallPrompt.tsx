@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download, Share, PlusSquare, X } from "lucide-react";
+import { Share, PlusSquare, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BrandLogo } from "@/components/brand-logo";
 
 // Define the BeforeInstallPromptEvent interface
 interface BeforeInstallPromptEvent extends Event {
@@ -109,9 +110,7 @@ export function PwaInstallPrompt() {
       >
         <div className="flex w-full items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded bg-emerald-600 text-white shadow-sm">
-               <Download className="size-5" />
-            </div>
+            <BrandLogo showName={false} markClassName="size-10 rounded-xl shadow-sm" />
             <div className="flex flex-col">
               <span className="text-base font-semibold leading-tight text-foreground">Install App</span>
               <span className="text-xs text-muted-foreground mt-0.5">Add Face Attendance to Home Screen</span>
@@ -146,9 +145,7 @@ export function PwaInstallPrompt() {
           <span className="sr-only">Dismiss</span>
         </button>
         <div className="flex items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded bg-emerald-600 text-white shadow-sm">
-             <Download className="size-5" />
-          </div>
+          <BrandLogo showName={false} markClassName="size-10 rounded-xl shadow-sm" />
           <div className="flex flex-col">
             <span className="text-base font-semibold leading-tight text-foreground">Face Attendance</span>
             <span className="text-xs text-muted-foreground mt-0.5">Install app for better experience</span>
