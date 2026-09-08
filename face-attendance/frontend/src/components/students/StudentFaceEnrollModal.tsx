@@ -5,6 +5,7 @@ import Webcam from "react-webcam";
 import { SwitchCamera } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -248,22 +249,25 @@ export function StudentFaceEnrollModal({
                     );
                   }}
                 />
-                {isCameraReady ? (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    className="absolute right-2 top-2 gap-1.5 bg-black/60 text-white backdrop-blur-md hover:bg-black/80"
-                    onClick={() => {
-                      setFacingMode((prev) => (prev === "user" ? "environment" : "user"));
-                      setIsCameraReady(false);
-                    }}
-                    title="Flip camera"
-                  >
-                    <SwitchCamera className="size-4" />
-                    <span>{facingMode === "environment" ? "Back" : "Front"}</span>
-                  </Button>
-                ) : null}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFacingMode((prev) => (prev === "user" ? "environment" : "user"));
+                    setIsCameraReady(false);
+                  }}
+                  className="group absolute right-2.5 top-2.5 z-10 inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-black/65 px-2.5 py-1 text-xs font-semibold text-white shadow-lg backdrop-blur-md transition-all hover:bg-black/80 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                  title={facingMode === "user" ? "Switch to back camera" : "Switch to front camera"}
+                  aria-label={facingMode === "user" ? "Switch to back camera" : "Switch to front camera"}
+                >
+                  <SwitchCamera aria-hidden="true" className="size-3.5 text-cyan-300 transition-transform duration-300 group-hover:text-cyan-200 group-active:rotate-180" />
+                  <span>{facingMode === "environment" ? "Back" : "Front"}</span>
+                  <span
+                    className={cn(
+                      "size-1.5 rounded-full ml-0.5",
+                      facingMode === "environment" ? "bg-cyan-400" : "bg-emerald-400"
+                    )}
+                  />
+                </button>
               </>
             ) : previewImage ? (
               // eslint-disable-next-line @next/next/no-img-element

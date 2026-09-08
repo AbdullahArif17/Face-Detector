@@ -765,6 +765,27 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
   - Frontend lint: `eslint` passed (0 errors, 0 warnings).
   - Frontend build: `next build` passed (23 routes generated, exit code 0).
 
+## 2026-09-09 — Standard Camera Switch UI & Small Screen Support
+- Completed:
+  - Enhanced camera flip button across all screen sizes (mobile phones, tablets, kiosks) in `/kiosk`, `StudentFaceEnrollModal`, and `FaceEnrollModal`.
+  - Replaced ad-hoc buttons with industry-standard mobile camera UI: circular frosted glass action button (`bg-black/65`, high-contrast border, `backdrop-blur-xl`), active 180° rotation on tap, lens status dot indicator (cyan for back, emerald for front).
+  - Ensured camera flip controls remain permanently visible and accessible even before kiosk session starts or while camera initializes.
+  - Added responsive header pill labels ("Back"/"Front" on <400px devices, "Back Camera"/"Front Camera" on >=400px devices) with safe-area inset margins.
+- Changed:
+  - `face-attendance/frontend/src/app/kiosk/page.tsx`:
+    - Decoupled floating camera switch button from `attendanceActive` so operators can set lens orientation anytime.
+    - Added standard circular floating action button (`size-12 sm:size-14`, tactile tap feedback, lens dot).
+    - Made header camera pill responsive with condensed labels for ultra-narrow mobile viewports.
+  - `face-attendance/frontend/src/components/students/StudentFaceEnrollModal.tsx`:
+    - Updated overlay flip button to standard camera badge with rotating icon and live lens status indicator dot.
+    - Removed `isCameraReady` hiding guard so the toggle remains visible during lens switching.
+  - `face-attendance/frontend/src/components/employees/FaceEnrollModal.tsx`:
+    - Updated overlay flip button to matching standard camera badge.
+- Verified:
+  - Frontend typecheck: `tsc --noEmit` passed (0 errors).
+  - Frontend lint: `eslint .` passed (0 errors, 0 warnings).
+  - Frontend build: `next build` passed (23 routes generated, exit code 0).
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

@@ -622,15 +622,25 @@ export default function KioskPage() {
                 </span>
               ) : null}
 
-              {/* Camera Switch Pill Button */}
+              {/* Standard Camera Switch Header Pill (Visible and responsive on all screen sizes) */}
               <button
                 type="button"
                 onClick={toggleCameraFacingMode}
-                className="inline-flex items-center gap-1 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 px-2 py-0.5 text-[10px] sm:text-xs font-medium text-white/90 backdrop-blur-md transition-all active:scale-95"
+                className="inline-flex items-center gap-1.5 rounded-full bg-black/50 hover:bg-black/70 border border-white/25 px-2.5 py-1 text-[11px] sm:text-xs font-semibold text-white backdrop-blur-md shadow-md transition-all active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
                 title={facingMode === "user" ? "Switch to Back Camera" : "Switch to Front Camera"}
+                aria-label={facingMode === "user" ? "Switch to Back Camera" : "Switch to Front Camera"}
               >
-                <SwitchCamera aria-hidden="true" className="size-3 text-cyan-300" />
-                <span>{facingMode === "environment" ? "Back Camera" : "Front Camera"}</span>
+                <SwitchCamera aria-hidden="true" className="size-3.5 text-cyan-300 transition-transform duration-300 active:rotate-180" />
+                <span className="hidden min-[400px]:inline">
+                  {facingMode === "environment" ? "Back Camera" : "Front Camera"}
+                </span>
+                <span className="min-[400px]:hidden">
+                  {facingMode === "environment" ? "Back" : "Front"}
+                </span>
+                <span className={cn(
+                  "size-1.5 rounded-full ml-0.5",
+                  facingMode === "environment" ? "bg-cyan-400" : "bg-emerald-400"
+                )} />
               </button>
             </div>
           </div>
@@ -673,42 +683,61 @@ export default function KioskPage() {
         />
       </div>
 
-      {/* Bottom Floating Action Buttons */}
-      {attendanceActive && (
-        <div className="absolute bottom-6 right-6 z-20 flex flex-col gap-3 sm:flex-row">
-          <Button
-            type="button"
-            disabled={fallbackDisabled}
-            size="icon"
-            className="size-12 rounded-full bg-white/20 text-white shadow-xl backdrop-blur-md hover:bg-white/30 transition-transform active:scale-95"
-            onClick={toggleCameraFacingMode}
-            title={facingMode === "user" ? "Switch to Back Camera" : "Switch to Front Camera"}
-            aria-label={facingMode === "user" ? "Switch to Back Camera" : "Switch to Front Camera"}
-          >
-            <SwitchCamera aria-hidden="true" className="size-5" />
-          </Button>
-          <Button
-            type="button"
-            disabled={fallbackDisabled}
-            size="icon"
-            className="size-12 rounded-full bg-white/20 text-white shadow-xl backdrop-blur-md hover:bg-white/30"
-            onClick={() => uploadInputRef.current?.click()}
-            title="Upload image"
-          >
-            <Upload aria-hidden="true" className="size-5" />
-          </Button>
-          <Button
-            type="button"
-            disabled={fallbackDisabled}
-            size="icon"
-            className="size-12 rounded-full bg-white/20 text-white shadow-xl backdrop-blur-md hover:bg-white/30"
-            onClick={() => captureInputRef.current?.click()}
-            title="Take photo manually"
-          >
-            <Camera aria-hidden="true" className="size-5" />
-          </Button>
-        </div>
-      )}
+      {/* Bottom Floating Action Controls — Fully accessible and optimized for small screens */}
+      <div
+        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-30 flex items-center gap-2.5 sm:gap-3.5"
+        style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
+      >
+        {/* Standard Camera Switch Floating Action Button (Industry-standard mobile camera style) */}
+        <button
+          type="button"
+          onClick={toggleCameraFacingMode}
+          className="group relative flex size-12 sm:size-14 items-center justify-center rounded-full border border-white/30 bg-black/65 sm:bg-black/55 text-white shadow-2xl backdrop-blur-xl transition-all duration-200 hover:scale-105 hover:bg-black/80 hover:border-white/50 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+          title={facingMode === "user" ? "Switch to Back Camera" : "Switch to Front Camera"}
+          aria-label={facingMode === "user" ? "Switch to Back Camera" : "Switch to Front Camera"}
+        >
+          <SwitchCamera
+            aria-hidden="true"
+            className="size-5 sm:size-6 text-white transition-transform duration-300 group-hover:text-cyan-300 group-active:rotate-180"
+          />
+          {/* Active Camera Lens Indicator Dot */}
+          <span
+            className={cn(
+              "absolute -top-0.5 -right-0.5 size-3.5 rounded-full border-2 border-black/90 shadow-sm transition-colors",
+              facingMode === "environment" ? "bg-cyan-400" : "bg-emerald-400"
+            )}
+            title={facingMode === "environment" ? "Back Camera Active" : "Front Camera Active"}
+          />
+          <span className="sr-only">
+            {facingMode === "user" ? "Switch to Back Camera" : "Switch to Front Camera"}
+          </span>
+        </button>
+
+        {attendanceActive && (
+          <>
+            <Button
+              type="button"
+              disabled={fallbackDisabled}
+              size="icon"
+              className="size-12 sm:size-14 rounded-full border border-white/20 bg-black/55 sm:bg-black/45 text-white shadow-xl backdrop-blur-xl hover:bg-black/75 hover:border-white/40 transition-transform active:scale-95"
+              onClick={() => uploadInputRef.current?.click()}
+              title="Upload image"
+            >
+              <Upload aria-hidden="true" className="size-5 sm:size-6" />
+            </Button>
+            <Button
+              type="button"
+              disabled={fallbackDisabled}
+              size="icon"
+              className="size-12 sm:size-14 rounded-full border border-white/20 bg-black/55 sm:bg-black/45 text-white shadow-xl backdrop-blur-xl hover:bg-black/75 hover:border-white/40 transition-transform active:scale-95"
+              onClick={() => captureInputRef.current?.click()}
+              title="Take photo manually"
+            >
+              <Camera aria-hidden="true" className="size-5 sm:size-6" />
+            </Button>
+          </>
+        )}
+      </div>
     </main>
   );
 }
