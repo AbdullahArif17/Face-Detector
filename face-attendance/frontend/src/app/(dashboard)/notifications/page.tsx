@@ -88,6 +88,15 @@ export default function NotificationsPage() {
 
   const handleEnablePush = async () => {
     if (typeof window === "undefined" || !("Notification" in window)) {
+      const isIos = typeof window !== "undefined" && /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
+      if (isIos) {
+        setPushFeedback({
+          type: "error",
+          message:
+            "On iPhone, push notifications require adding the app to your Home Screen first. Tap the Share button in Safari, select 'Add to Home Screen', and launch the app from your Home Screen.",
+        });
+        return;
+      }
       setPushFeedback({
         type: "error",
         message: "Push notifications are not supported by this browser.",
@@ -103,11 +112,29 @@ export default function NotificationsPage() {
       if (permissionResult === "granted") {
         const token = await requestForToken();
         if (token) {
-          await registerDeviceToken(token);
+          let deviceName = "Web Browser";
+          const ua = window.navigator.userAgent;
+          const isIos = /iphone|ipad|ipod/i.test(ua);
+          const isAndroid = /android/i.test(ua);
+          const isStandalone =
+            window.matchMedia("(display-mode: standalone)").matches ||
+            (window.navigator as unknown as { standalone?: boolean }).standalone === true;
+
+          if (isIos) {
+            deviceName = isStandalone ? "iPhone (App)" : "iPhone (Safari)";
+          } else if (isAndroid) {
+            deviceName = isStandalone ? "Android (App)" : "Android (Chrome)";
+          } else if (/macintosh|mac os x/i.test(ua)) {
+            deviceName = "Mac Browser";
+          } else if (/windows/i.test(ua)) {
+            deviceName = "Windows Browser";
+          }
+
+          await registerDeviceToken(token, deviceName);
           await syncDeviceStatus();
           setPushFeedback({
             type: "success",
-            message: "Push notifications enabled and device synced! This device will now receive staff check-in and check-out alerts.",
+            message: `Push notifications enabled and device synced as "${deviceName}"! This device will now receive staff check-in and check-out alerts.`,
           });
         } else {
           setPushFeedback({
@@ -135,16 +162,50 @@ export default function NotificationsPage() {
     setIsTestingPush(true);
     setPushFeedback(null);
     try {
-      // 1. Ensure current device token is active in backend database
-      try {
-        const token = await requestForToken();
-        if (token) {
-          await registerDeviceToken(token);
-          await syncDeviceStatus();
+      if (typeof window !== "undefined" && "Notification" in window) {
+        if (Notification.permission !== "granted") {
+          const perm = await Notification.requestPermission();
+          setDevicePermission(perm);
+          if (perm !== "granted") {
+            setPushFeedback({
+              type: "error",
+              message: "Please allow notification permission in your browser to receive push notifications.",
+            });
+            setIsTestingPush(false);
+            return;
+          }
         }
-      } catch (tokenErr) {
-        console.warn("Could not sync token prior to test push:", tokenErr);
       }
+
+      // 1. Ensure current device token is active in backend database
+      const token = await requestForToken();
+      if (!token) {
+        setPushFeedback({
+          type: "error",
+          message: "Could not generate device registration token on this device. Please check browser permissions.",
+        });
+        setIsTestingPush(false);
+        return;
+      }
+
+      let deviceName = "Web Browser";
+      if (typeof window !== "undefined") {
+        const ua = window.navigator.userAgent;
+        const isIos = /iphone|ipad|ipod/i.test(ua);
+        const isAndroid = /android/i.test(ua);
+        const isStandalone =
+          window.matchMedia("(display-mode: standalone)").matches ||
+          (window.navigator as unknown as { standalone?: boolean }).standalone === true;
+
+        if (isIos) {
+          deviceName = isStandalone ? "iPhone (App)" : "iPhone (Safari)";
+        } else if (isAndroid) {
+          deviceName = isStandalone ? "Android (App)" : "Android (Chrome)";
+        }
+      }
+
+      await registerDeviceToken(token, deviceName);
+      await syncDeviceStatus();
 
       // 2. Dispatch the test notification
       const res = await sendTestNotification();

@@ -1072,10 +1072,10 @@ async def _auto_mark_employee(
         background_tasks.add_task(
             NotificationService.send_company_fcm,
             company.id,
-            "Employee Checked Out",
+            "Staff Checked Out",
             f"{employee.name} has checked out.",
             "employee_checkout",
-            {"employee_id": str(employee.id)}
+            {"employee_id": str(employee.id), "employee_name": employee.name}
         )
 
         return AttendanceAutoMarkResponse(
@@ -1151,10 +1151,10 @@ async def _auto_mark_employee(
     background_tasks.add_task(
         NotificationService.send_company_fcm,
         company.id,
-        "Employee Checked In",
+        "Staff Checked In",
         f"{employee.name} has checked in{status_msg}.",
         "employee_checkin",
-        {"employee_id": str(employee.id)}
+        {"employee_id": str(employee.id), "employee_name": employee.name}
     )
 
     return AttendanceAutoMarkResponse(
@@ -1171,6 +1171,7 @@ async def _auto_mark_employee(
 @router.put("/manual", response_model=AttendanceDashboardRecord)
 async def upsert_manual_attendance(
     payload: AttendanceManualUpdate,
+    background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("super_admin", "admin", "hr", "branch_manager")),
 ) -> AttendanceDashboardRecord:
@@ -1286,6 +1287,20 @@ async def upsert_manual_attendance(
     attendance.notification_status = "manual"
     await session.commit()
     await session.refresh(attendance)
+
+    if subject_employee_id is not None and status_value == "present":
+        action_title = "Staff Checked In" if not check_out else "Staff Attendance Updated"
+        action_msg = f"{subject.name} recorded present: in at {display_time(check_in)}"
+        if check_out:
+            action_msg += f", out at {display_time(check_out)}"
+        background_tasks.add_task(
+            NotificationService.send_company_fcm,
+            current_user.company_id,
+            action_title,
+            action_msg,
+            "employee_attendance_update",
+            {"employee_id": str(subject_employee_id), "employee_name": subject.name}
+        )
 
     return build_dashboard_record(subject, attendance, payload.attendance_date)
 

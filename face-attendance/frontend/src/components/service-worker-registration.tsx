@@ -1,17 +1,19 @@
 "use client";
 
 import { useEffect } from "react";
+import { getOrRegisterServiceWorker } from "@/lib/firebase";
 
 export function ServiceWorkerRegistration() {
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker
-        .register("/sw.js")
+    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+      void getOrRegisterServiceWorker()
         .then((reg) => {
-          console.log("SW registered:", reg.scope);
+          if (reg) {
+            console.log("[PWA] Unified service worker active at scope:", reg.scope);
+          }
         })
         .catch((err) => {
-          console.warn("SW registration failed:", err);
+          console.warn("[PWA] Service worker registration error:", err);
         });
     }
   }, []);

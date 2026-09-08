@@ -706,6 +706,43 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Pending:
   - Rotate Google/Firebase Web API key in Google Cloud Console / Firebase Console and dismiss the GitHub secret scanning alert.
 
+## 2026-09-09 — Mobile FCM Push Notification & Unified Service Worker Architecture
+- Completed:
+  - Resolved mobile device registration failure ("No registered devices found for your account") on mobile devices and PWAs.
+  - Eliminated conflicting dual service workers (`/sw.js` vs `/firebase-messaging-sw.js`) by consolidating into a single unified service worker.
+  - Added rich Web Push notification payloads and automated stale token cleanup in backend.
+  - Added instant push notifications for staff check-in and check-out (both automatic face scan and manual updates) sent to all organization members except viewers.
+- Changed:
+  - `face-attendance/frontend/public/firebase-messaging-sw.js`:
+    - Unified PWA offline shell caching (`install`, `activate`, `fetch`) and Firebase Cloud Messaging into one worker.
+    - Added `self.skipWaiting()` and `self.clients.claim()` for immediate activation.
+    - Added native `push` event fallback handler to guarantee notification display across mobile OSs (Android, iOS PWA) even if Firebase compat scripts are slow to initialize.
+  - `face-attendance/frontend/public/sw.js`:
+    - Updated legacy worker to self-unregister immediately and yield control to `/firebase-messaging-sw.js`.
+  - `face-attendance/frontend/src/components/service-worker-registration.tsx`:
+    - Updated to register the unified `/firebase-messaging-sw.js` and clean up old `/sw.js` registrations.
+  - `face-attendance/frontend/src/lib/firebase.ts`:
+    - Added safe non-secret defaults for public Firebase identifiers (`projectId`, `messagingSenderId`, `authDomain`, `appId`, `vapidKey`).
+    - Added clean postMessage synchronization of config to the active service worker.
+    - Provided explicit, descriptive error messages for iOS non-PWA restrictions, missing permissions, and missing keys.
+  - `face-attendance/frontend/src/components/FirebaseNotifications.tsx`:
+    - Added client-side device name detection (`iPhone (App)`, `Android (App)`, `Chrome Desktop`, etc.).
+    - Handled iOS Safari tab restrictions (avoids prompt if iOS non-standalone PWA).
+  - `face-attendance/frontend/src/app/(dashboard)/notifications/page.tsx`:
+    - In `handleSendTestPush`: checks permission, ensures active device token registration, and shows clear actionable errors if browser permissions are missing.
+    - Enhanced `handleEnablePush` with device detection and descriptive feedback.
+  - `face-attendance/backend/app/services/notification_service.py`:
+    - Added `WebpushConfig` with `WebpushNotification` (`icon`, `badge`, `vibrate`) and `WebpushFCMOptions(link="/dashboard")` in `send_fcm_push`.
+    - Added automatic pruning of expired/unregistered FCM tokens from `UserDeviceToken`.
+  - `face-attendance/backend/app/routers/attendance.py`:
+    - Standardized staff check-in/out notification titles to "Staff Checked In" / "Staff Checked Out".
+    - Added `background_tasks.add_task(NotificationService.send_company_fcm, ...)` to `upsert_manual_attendance` for employee attendance updates.
+- Verified:
+  - Backend tests: `pytest` passed (41/41 tests passing).
+  - Frontend typecheck: `tsc --noEmit` passed (0 errors).
+  - Frontend lint: `eslint` passed (0 errors, 0 warnings).
+  - Frontend build: `next build` passed (23 routes generated, Turbopack production build exit 0).
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

@@ -86,12 +86,27 @@ class NotificationService:
             logger.error("Cannot send FCM message: Firebase not initialized.")
             return False
             
+        # Web push configuration for rich notifications on mobile Chrome, Android, and iOS PWA
+        webpush_config = messaging.WebpushConfig(
+            notification=messaging.WebpushNotification(
+                title=title,
+                body=body,
+                icon="/images/face-attendance-logo.png",
+                badge="/images/face-attendance-logo.png",
+                vibrate=[100, 50, 100],
+            ),
+            fcm_options=messaging.WebpushFCMOptions(
+                link="/dashboard",
+            ),
+        )
+
         message = messaging.Message(
             notification=messaging.Notification(
                 title=title,
                 body=body,
             ),
-            data=data or {},
+            webpush=webpush_config,
+            data={str(k): str(v) for k, v in (data or {}).items()},
             token=token,
         )
         
@@ -106,6 +121,27 @@ class NotificationService:
             error_msg = str(e)
             logger.error(f"Error sending FCM message: {e}")
             success = False
+
+            # Automatically prune unregistered or invalid tokens
+            if "not a valid FCM registration token" in error_msg or "UNREGISTERED" in error_msg.upper() or "404" in error_msg:
+                try:
+                    from sqlalchemy import delete
+                    from app.models.user_device_token import UserDeviceToken
+                    if db is not None:
+                        await db.execute(
+                            delete(UserDeviceToken).where(UserDeviceToken.fcm_token == token)
+                        )
+                        await db.commit()
+                    else:
+                        from app.core.database import SessionLocal
+                        async with SessionLocal() as session:
+                            await session.execute(
+                                delete(UserDeviceToken).where(UserDeviceToken.fcm_token == token)
+                            )
+                            await session.commit()
+                    logger.info(f"Pruned stale/unregistered device token: {token[:12]}...")
+                except Exception as cleanup_err:
+                    logger.debug(f"Device token cleanup note: {cleanup_err}")
             
         await NotificationService.log_notification(
             company_id=company_id,
