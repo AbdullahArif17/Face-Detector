@@ -743,6 +743,28 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
   - Frontend lint: `eslint` passed (0 errors, 0 warnings).
   - Frontend build: `next build` passed (23 routes generated, Turbopack production build exit 0).
 
+## 2026-09-09 — Back Camera Support for Kiosk Attendance & Face Enrollment
+- Completed:
+  - Enabled switching between front and back/environment cameras in Kiosk attendance (`/kiosk`).
+  - Enabled switching between front and back cameras in student face enrollment (`StudentFaceEnrollModal`) and employee face enrollment (`FaceEnrollModal`).
+  - Added persistent camera preference storage in `localStorage` (`kiosk_camera_facing_mode`).
+  - Automatically configured non-mirrored view for back camera (`mirrored={facingMode === 'user'}`).
+- Changed:
+  - `face-attendance/frontend/src/app/kiosk/page.tsx`:
+    - Added `facingMode` state (`"user"` | `"environment"`), initialized from `localStorage`.
+    - Added floating camera flip button (`SwitchCamera`) to the bottom action bar.
+    - Added camera flip pill button in top header overlay indicating active camera mode.
+    - Updated `<Webcam>` video constraints to `{ facingMode: { ideal: facingMode } }` and dynamic `mirrored`.
+    - Updated manual photo capture input to match selected `facingMode`.
+  - `face-attendance/frontend/src/components/students/StudentFaceEnrollModal.tsx`:
+    - Added camera flip button in camera preview and dynamic facingMode constraints.
+  - `face-attendance/frontend/src/components/employees/FaceEnrollModal.tsx`:
+    - Added camera flip button in camera preview and dynamic facingMode constraints.
+- Verified:
+  - Frontend typecheck: `tsc --noEmit` passed (0 errors).
+  - Frontend lint: `eslint` passed (0 errors, 0 warnings).
+  - Frontend build: `next build` passed (23 routes generated, exit code 0).
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

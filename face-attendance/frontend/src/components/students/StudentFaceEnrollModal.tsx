@@ -2,6 +2,7 @@
 
 import { useRef, useState, type ChangeEvent } from "react";
 import Webcam from "react-webcam";
+import { SwitchCamera } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -20,9 +21,11 @@ import {
   optimizeImageFile,
 } from "@/lib/images";
 
-const videoConstraints = {
-  facingMode: "user",
-};
+function buildVideoConstraints(facingMode: "user" | "environment") {
+  return {
+    facingMode: { ideal: facingMode },
+  };
+}
 
 function getErrorMessage(error: unknown): string {
   return getApiErrorMessage(
@@ -51,6 +54,7 @@ export function StudentFaceEnrollModal({
   );
   const [isCameraActive, setIsCameraActive] = useState(true);
   const [isCameraReady, setIsCameraReady] = useState(false);
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -220,28 +224,47 @@ export function StudentFaceEnrollModal({
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-lg border bg-muted">
+          <div className="relative overflow-hidden rounded-lg border bg-muted">
             {isCameraActive ? (
-              <Webcam
-                ref={webcamRef}
-                audio={false}
-                mirrored
-                playsInline
-                screenshotFormat="image/jpeg"
-                videoConstraints={videoConstraints}
-                className="aspect-video w-full object-cover"
-                onUserMedia={() => {
-                  setIsCameraReady(true);
-                  setCameraError(null);
-                }}
-                onUserMediaError={() => {
-                  setIsCameraActive(false);
-                  setIsCameraReady(false);
-                  setCameraError(
-                    "Camera access is unavailable. Allow camera permission in your browser, make sure this page uses HTTPS, or add photos from this device instead.",
-                  );
-                }}
-              />
+              <>
+                <Webcam
+                  key={facingMode}
+                  ref={webcamRef}
+                  audio={false}
+                  mirrored={facingMode === "user"}
+                  playsInline
+                  screenshotFormat="image/jpeg"
+                  videoConstraints={buildVideoConstraints(facingMode)}
+                  className="aspect-video w-full object-cover"
+                  onUserMedia={() => {
+                    setIsCameraReady(true);
+                    setCameraError(null);
+                  }}
+                  onUserMediaError={() => {
+                    setIsCameraActive(false);
+                    setIsCameraReady(false);
+                    setCameraError(
+                      "Camera access is unavailable. Allow camera permission in your browser, make sure this page uses HTTPS, or add photos from this device instead.",
+                    );
+                  }}
+                />
+                {isCameraReady ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="absolute right-2 top-2 gap-1.5 bg-black/60 text-white backdrop-blur-md hover:bg-black/80"
+                    onClick={() => {
+                      setFacingMode((prev) => (prev === "user" ? "environment" : "user"));
+                      setIsCameraReady(false);
+                    }}
+                    title="Flip camera"
+                  >
+                    <SwitchCamera className="size-4" />
+                    <span>{facingMode === "environment" ? "Back" : "Front"}</span>
+                  </Button>
+                ) : null}
+              </>
             ) : previewImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img

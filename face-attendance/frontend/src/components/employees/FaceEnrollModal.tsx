@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import Webcam from "react-webcam";
+import { SwitchCamera } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -21,9 +22,11 @@ interface FaceEnrollModalProps {
   onEnrolled: (employeeId: number, headshotUrl: string) => void;
 }
 
-const videoConstraints = {
-  facingMode: "user",
-};
+function buildVideoConstraints(facingMode: "user" | "environment") {
+  return {
+    facingMode: { ideal: facingMode },
+  };
+}
 
 const MAX_UPLOAD_BYTES = 2_000_000;
 
@@ -59,6 +62,7 @@ export function FaceEnrollModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(true);
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -160,16 +164,32 @@ export function FaceEnrollModal({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="overflow-hidden rounded-lg border bg-muted">
+          <div className="relative overflow-hidden rounded-lg border bg-muted">
             {isCameraActive ? (
-              <Webcam
-                ref={webcamRef}
-                audio={false}
-                mirrored
-                screenshotFormat="image/jpeg"
-                videoConstraints={videoConstraints}
-                className="aspect-video w-full object-cover"
-              />
+              <>
+                <Webcam
+                  key={facingMode}
+                  ref={webcamRef}
+                  audio={false}
+                  mirrored={facingMode === "user"}
+                  screenshotFormat="image/jpeg"
+                  videoConstraints={buildVideoConstraints(facingMode)}
+                  className="aspect-video w-full object-cover"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="absolute right-2 top-2 gap-1.5 bg-black/60 text-white backdrop-blur-md hover:bg-black/80"
+                  onClick={() => {
+                    setFacingMode((prev) => (prev === "user" ? "environment" : "user"));
+                  }}
+                  title="Flip camera"
+                >
+                  <SwitchCamera className="size-4" />
+                  <span>{facingMode === "environment" ? "Back" : "Front"}</span>
+                </Button>
+              </>
             ) : capturedImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img

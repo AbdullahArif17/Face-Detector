@@ -8,6 +8,7 @@ import {
   Clock3,
   LoaderCircle,
   RefreshCcw,
+  SwitchCamera,
   Upload,
   XCircle,
 } from "lucide-react";
@@ -36,11 +37,13 @@ import { cn } from "@/lib/utils";
 const AUTO_SCAN_INTERVAL_MS = 3_000;
 const KIOSK_STATUS_INTERVAL_MS = 15_000;
 
-const videoConstraints = {
-  facingMode: "user",
-  width: { ideal: 1920 },
-  height: { ideal: 1080 },
-};
+function buildVideoConstraints(facingMode: "user" | "environment") {
+  return {
+    facingMode: { ideal: facingMode },
+    width: { ideal: 1920 },
+    height: { ideal: 1080 },
+  };
+}
 
 // Camera state is tracked inline via cameraReady / cameraError booleans.
 
@@ -223,6 +226,25 @@ export default function KioskPage() {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [cameraAttempt, setCameraAttempt] = useState(0);
+  const [facingMode, setFacingMode] = useState<"user" | "environment">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("kiosk_camera_facing_mode");
+      if (saved === "environment" || saved === "user") return saved;
+    }
+    return "user";
+  });
+
+  const toggleCameraFacingMode = useCallback(() => {
+    setFacingMode((prev) => {
+      const next = prev === "user" ? "environment" : "user";
+      if (typeof window !== "undefined") {
+        localStorage.setItem("kiosk_camera_facing_mode", next);
+      }
+      return next;
+    });
+    setIsCameraReady(false);
+    setCameraAttempt((prev) => prev + 1);
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -470,14 +492,14 @@ export default function KioskPage() {
       <div className="absolute inset-0 z-0">
         {shouldStartCamera ? (
           <Webcam
-            key={cameraAttempt}
+            key={`${cameraAttempt}-${facingMode}`}
             ref={webcamRef}
             audio={false}
-            mirrored
+            mirrored={facingMode === "user"}
             playsInline
             screenshotFormat="image/jpeg"
             screenshotQuality={0.8}
-            videoConstraints={videoConstraints}
+            videoConstraints={buildVideoConstraints(facingMode)}
             className="size-full object-cover opacity-90"
             onUserMedia={() => {
               setCameraError(null);
@@ -599,6 +621,17 @@ export default function KioskPage() {
                   {kioskInfo.student_count} students
                 </span>
               ) : null}
+
+              {/* Camera Switch Pill Button */}
+              <button
+                type="button"
+                onClick={toggleCameraFacingMode}
+                className="inline-flex items-center gap-1 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 px-2 py-0.5 text-[10px] sm:text-xs font-medium text-white/90 backdrop-blur-md transition-all active:scale-95"
+                title={facingMode === "user" ? "Switch to Back Camera" : "Switch to Front Camera"}
+              >
+                <SwitchCamera aria-hidden="true" className="size-3 text-cyan-300" />
+                <span>{facingMode === "environment" ? "Back Camera" : "Front Camera"}</span>
+              </button>
             </div>
           </div>
         </div>
@@ -627,7 +660,7 @@ export default function KioskPage() {
           ref={captureInputRef}
           type="file"
           accept="image/jpeg,image/png,image/webp"
-          capture="user"
+          capture={facingMode === "environment" ? "environment" : "user"}
           className="hidden"
           onChange={(event) => void handleFileCapture(event)}
         />
@@ -643,6 +676,17 @@ export default function KioskPage() {
       {/* Bottom Floating Action Buttons */}
       {attendanceActive && (
         <div className="absolute bottom-6 right-6 z-20 flex flex-col gap-3 sm:flex-row">
+          <Button
+            type="button"
+            disabled={fallbackDisabled}
+            size="icon"
+            className="size-12 rounded-full bg-white/20 text-white shadow-xl backdrop-blur-md hover:bg-white/30 transition-transform active:scale-95"
+            onClick={toggleCameraFacingMode}
+            title={facingMode === "user" ? "Switch to Back Camera" : "Switch to Front Camera"}
+            aria-label={facingMode === "user" ? "Switch to Back Camera" : "Switch to Front Camera"}
+          >
+            <SwitchCamera aria-hidden="true" className="size-5" />
+          </Button>
           <Button
             type="button"
             disabled={fallbackDisabled}
