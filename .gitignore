@@ -5,3 +5,12 @@ face-attendance/ai-service/hf-face-attendance-ai/
 .playwright-mcp
 face-attendance/backend/test_emails.py
 face-attendance/backend/test_weekly_emails.py
+
+# Environment & secret files
+.env
+.env.*
+*.env
+*.env.*
+*.local
+**/service-account*.json
+
