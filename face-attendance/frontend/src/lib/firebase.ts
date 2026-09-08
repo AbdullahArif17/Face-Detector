@@ -11,9 +11,7 @@ export const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:105856043784:web:99dc89ab65e5725f07babd",
 };
 
-export const DEFAULT_VAPID_KEY =
-  process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY ||
-  "BBqhdovTyApLjCA6bf8ayaMI26TBGBaqAfWQ9qR5lBBViwX8XcqOj9L8zBj0LXHLlMHgW_P3NxkXiZEL-zwB4dQ";
+export const DEFAULT_VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY?.trim() || undefined;
 
 let app: FirebaseApp | null = null;
 let messaging: Messaging | null = null;
@@ -123,10 +121,42 @@ export const requestForToken = async (): Promise<string | null> => {
       throw new Error("Failed to register background notification service worker.");
     }
 
-    const currentToken = await getToken(messaging, {
-      vapidKey: DEFAULT_VAPID_KEY,
-      serviceWorkerRegistration: swRegistration,
-    });
+    const vapidKey = DEFAULT_VAPID_KEY;
+    let currentToken: string | null = null;
+
+    try {
+      currentToken = await getToken(messaging, {
+        ...(vapidKey ? { vapidKey } : {}),
+        serviceWorkerRegistration: swRegistration,
+      });
+    } catch (tokenErr: unknown) {
+      console.warn("[FCM] Initial getToken attempt failed:", tokenErr);
+
+      // If a custom VAPID key was provided and failed, try fallback without custom VAPID key
+      if (vapidKey) {
+        try {
+          console.log("[FCM] Retrying getToken without custom VAPID key...");
+          currentToken = await getToken(messaging, {
+            serviceWorkerRegistration: swRegistration,
+          });
+        } catch (fallbackErr) {
+          console.warn("[FCM] Fallback getToken without VAPID key also failed:", fallbackErr);
+        }
+      }
+
+      if (!currentToken) {
+        const rawMsg = tokenErr instanceof Error ? tokenErr.message : String(tokenErr);
+        if (
+          rawMsg.includes("messaging/token-subscribe-failed") ||
+          rawMsg.includes("token-subscribe-failed")
+        ) {
+          throw new Error(
+            "Push subscription failed (token-subscribe-failed). In Firebase Console > Project Settings > Cloud Messaging > Web configuration > Web Push certificates, click 'Generate key pair' (or copy your key pair) and set NEXT_PUBLIC_FIREBASE_VAPID_KEY in Vercel environment variables. Also ensure the 'FCM Registration API' is enabled in Google Cloud Console."
+          );
+        }
+        throw tokenErr;
+      }
+    }
 
     if (currentToken) {
       console.log("[FCM] Device token successfully retrieved.");

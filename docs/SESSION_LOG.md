@@ -786,6 +786,20 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
   - Frontend lint: `eslint .` passed (0 errors, 0 warnings).
   - Frontend build: `next build` passed (23 routes generated, exit code 0).
 
+## 2026-09-09 — FCM Token Subscription Error Resolution
+- Completed:
+  - Diagnosed `messaging/token-subscribe-failed` ("Internal error encountered") shown on mobile devices during device registration.
+  - Removed obsolete hardcoded placeholder VAPID key from `face-attendance/frontend/src/lib/firebase.ts` that caused Google FCM registration endpoints to reject subscription requests.
+  - Added graceful fallback to registration without custom VAPID key and detailed actionable diagnostic guidance for missing/mismatched Web Push certificates in Firebase.
+- Changed:
+  - `face-attendance/frontend/src/lib/firebase.ts`:
+    - Changed `DEFAULT_VAPID_KEY` to rely solely on `process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY?.trim()`.
+    - Added retry/fallback inside `requestForToken()` to handle token subscription edge cases.
+    - Improved user-facing error message with specific instructions for generating Web Push certificates in Firebase Console.
+- Verified:
+  - Frontend typecheck: `tsc --noEmit` passed (0 errors).
+  - Frontend lint: `eslint .` passed (0 errors, 0 warnings).
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title
