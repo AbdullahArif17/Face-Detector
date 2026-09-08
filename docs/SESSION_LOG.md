@@ -800,6 +800,18 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
   - Frontend typecheck: `tsc --noEmit` passed (0 errors).
   - Frontend lint: `eslint .` passed (0 errors, 0 warnings).
 
+## 2026-09-09 — Firebase Migration & Environment Security Hardening
+- Completed:
+  - Cleaned all residual hardcoded project fallbacks from `face-attendance/frontend/src/lib/firebase.ts`.
+  - Added strict environment protection rules in root `.gitignore` to block all `.env`, `.env.*`, `*.local`, and service account JSONs from git tracking.
+  - Formatted backend `.env` `FIREBASE_CREDENTIALS_JSON` to minified single-line JSON to ensure cross-platform newline safety.
+  - Verified live frontend (`face-detector-seven.vercel.app`) with new project `face-detector-26452` and proxy communication with backend (`face-detector-k4dl.vercel.app`).
+  - Verified automated push notification dispatch on kiosk check-in/out and automated weekly report cron.
+- Verified:
+  - Frontend typecheck: `tsc --noEmit` passed (0 errors).
+  - Python admin cert check: `firebase-admin` initialized successfully.
+  - Git working tree: clean.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title
