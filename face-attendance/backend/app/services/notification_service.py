@@ -15,27 +15,44 @@ logger = logging.getLogger(__name__)
 
 # Initialize Firebase Admin
 _firebase_initialized = False
+_firebase_init_error: str | None = None
 
 def init_firebase():
-    global _firebase_initialized
+    global _firebase_initialized, _firebase_init_error
     if _firebase_initialized:
         return
     
     try:
+        raw_json = settings.firebase_credentials_json
         if settings.firebase_credentials_path:
             cred = credentials.Certificate(settings.firebase_credentials_path)
             firebase_admin.initialize_app(cred)
             _firebase_initialized = True
+            _firebase_init_error = None
             logger.info("Firebase Admin initialized from path.")
-        elif settings.firebase_credentials_json:
-            cert_dict = json.loads(settings.firebase_credentials_json)
+        elif raw_json:
+            # Handle potential wrapping quotes from environment variable managers
+            cleaned_json = raw_json.strip()
+            if (cleaned_json.startswith("'") and cleaned_json.endswith("'")) or (
+                cleaned_json.startswith('"') and cleaned_json.endswith('"')
+            ):
+                cleaned_json = cleaned_json[1:-1].strip()
+            
+            cert_dict = json.loads(cleaned_json)
+            # Ensure private_key newline formatting
+            if "private_key" in cert_dict and "\\n" in cert_dict["private_key"]:
+                cert_dict["private_key"] = cert_dict["private_key"].replace("\\n", "\n")
+
             cred = credentials.Certificate(cert_dict)
             firebase_admin.initialize_app(cred)
             _firebase_initialized = True
+            _firebase_init_error = None
             logger.info("Firebase Admin initialized from JSON.")
         else:
+            _firebase_init_error = "FIREBASE_CREDENTIALS_JSON environment variable is not set."
             logger.warning("Firebase credentials not configured. FCM will be disabled.")
     except Exception as e:
+        _firebase_init_error = f"Firebase initialization error: {e}"
         logger.error(f"Failed to initialize Firebase Admin: {e}")
 
 class NotificationService:
@@ -44,6 +61,12 @@ class NotificationService:
         init_firebase()
         global _firebase_initialized
         return _firebase_initialized
+
+    @staticmethod
+    def get_init_error() -> str | None:
+        init_firebase()
+        global _firebase_init_error
+        return _firebase_init_error
 
     @staticmethod
     async def log_notification(

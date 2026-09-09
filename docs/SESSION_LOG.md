@@ -832,6 +832,14 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
   - Backend tests: `pytest` passed (41/41 passing).
   - Database token count: exactly 1 active device (`cZ0IBQK...`) remaining.
 
+## 2026-09-10 — Backend Firebase Credentials Quote Sanitization & Diagnostic Error Routing
+- Completed:
+  - Added automatic quote stripping and newline sanitization for `FIREBASE_CREDENTIALS_JSON` in `init_firebase()`.
+  - Added `get_init_error()` helper to capture initialization failures.
+  - Surfaced explicit diagnostic error in `/notifications/test` so backend configuration issues are immediately actionable.
+- Verified:
+  - Backend tests: `pytest` passed (41/41 passing).
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

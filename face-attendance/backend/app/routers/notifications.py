@@ -133,9 +133,10 @@ async def send_test_notification(
         .where(UserDeviceToken.user_id == current_user.id)
     )
     if not NotificationService.is_initialized():
+        err_detail = NotificationService.get_init_error() or "Firebase Admin is not configured on the backend server."
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Firebase Admin is not configured on the backend server. Please verify that FIREBASE_CREDENTIALS_JSON is set in the backend environment variables on Vercel.",
+            detail=f"{err_detail} Please verify that FIREBASE_CREDENTIALS_JSON is set in your backend environment variables on Vercel.",
         )
 
     tokens = result.scalars().all()
