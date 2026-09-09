@@ -87,6 +87,10 @@ class NotificationService:
             return False
             
         # Web push configuration for rich notifications on mobile Chrome, Android, and iOS PWA
+        https_origin = next(
+            (o.rstrip("/") for o in getattr(settings, "frontend_origins", []) if o.startswith("https://")),
+            "https://face-detector-seven.vercel.app",
+        )
         webpush_config = messaging.WebpushConfig(
             notification=messaging.WebpushNotification(
                 title=title,
@@ -96,7 +100,7 @@ class NotificationService:
                 vibrate=[100, 50, 100],
             ),
             fcm_options=messaging.WebpushFCMOptions(
-                link="/dashboard",
+                link=f"{https_origin}/dashboard",
             ),
         )
 

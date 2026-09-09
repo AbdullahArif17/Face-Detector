@@ -812,6 +812,16 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
   - Python admin cert check: `firebase-admin` initialized successfully.
   - Git working tree: clean.
 
+## 2026-09-10 — FCM Web Push Link Validation Fix
+- Completed:
+  - Diagnosed "Test notification dispatched to 0 of 4 device(s)" reported by user.
+  - Resolved `ValueError: WebpushFCMOptions.link must be a HTTPS URL.` in `face-attendance/backend/app/services/notification_service.py`.
+  - Replaced relative path `/dashboard` with dynamic full HTTPS URL (`https_origin/dashboard`).
+  - Successfully dispatched live test push notification directly to user's registered Android device.
+- Verified:
+  - Backend tests: `pytest` passed (41/41 passing).
+  - FCM live delivery: Message confirmed delivered to user device via project `face-detector-26452`.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title
