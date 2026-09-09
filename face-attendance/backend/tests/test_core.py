@@ -482,6 +482,10 @@ def test_cron_auth_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     valid_req = Request(scope={"type": "http", "headers": [(b"x-cron-secret", b"test-secret")]})
     attendance._check_cron_auth(valid_req)
 
+    # Vercel sends `Authorization: Bearer <CRON_SECRET>`
+    vercel_req = Request(scope={"type": "http", "headers": [(b"authorization", b"Bearer test-secret")]})
+    attendance._check_cron_auth(vercel_req)
+
 
 @pytest.mark.asyncio
 async def test_viewer_excluded_from_push_notifications() -> None:

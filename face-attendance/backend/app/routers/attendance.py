@@ -1764,7 +1764,7 @@ def _check_cron_auth(request: Request) -> None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid cron secret")
 
 
-@router.post("/cron/end-sessions", status_code=status.HTTP_200_OK)
+@router.api_route("/cron/end-sessions", methods=["GET", "POST"], status_code=status.HTTP_200_OK)
 async def cron_end_sessions(
     request: Request,
     session: AsyncSession = Depends(get_db),
@@ -2128,7 +2128,7 @@ async def send_weekly_staff_reports_internal(
     return emails_queued
 
 
-@router.post("/cron/weekly-parent-reports", status_code=status.HTTP_200_OK)
+@router.api_route("/cron/weekly-parent-reports", methods=["GET", "POST"], status_code=status.HTTP_200_OK)
 async def cron_weekly_parent_reports(
     request: Request,
     background_tasks: BackgroundTasks,
@@ -2145,7 +2145,7 @@ async def cron_weekly_parent_reports(
     }
 
 
-@router.post("/cron/weekly-staff-reports", status_code=status.HTTP_200_OK)
+@router.api_route("/cron/weekly-staff-reports", methods=["GET", "POST"], status_code=status.HTTP_200_OK)
 async def cron_weekly_staff_reports(
     request: Request,
     background_tasks: BackgroundTasks,
@@ -2161,7 +2161,7 @@ async def cron_weekly_staff_reports(
     }
 
 
-@router.post("/cron/weekly-reports", status_code=status.HTTP_200_OK)
+@router.api_route("/cron/weekly-reports", methods=["GET", "POST"], status_code=status.HTTP_200_OK)
 async def cron_weekly_reports(
     request: Request,
     background_tasks: BackgroundTasks,
