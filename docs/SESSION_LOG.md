@@ -839,6 +839,7 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
   - Surfaced explicit diagnostic error in `/notifications/test` so backend configuration issues are immediately actionable.
 - Verified:
   - Backend tests: `pytest` passed (41/41 passing).
+  - Production delivery confirmed: Test push notifications successfully delivering to registered devices in production (`face-detector-k4dl` backend to `face-detector-seven` client).
 
 ## Entry Template
 ```markdown
