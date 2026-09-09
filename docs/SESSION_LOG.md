@@ -822,6 +822,16 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
   - Backend tests: `pytest` passed (41/41 passing).
   - FCM live delivery: Message confirmed delivered to user device via project `face-detector-26452`.
 
+## 2026-09-10 — Stale Token Pruning & Diagnostic Notification Routing
+- Completed:
+  - Pruned 3 stale tokens originating from previous Firebase project from database.
+  - Added backend initialization verification check in `/notifications/test` route.
+  - Broadened token auto-cleanup in `notification_service.py` to immediately prune `NotRegistered` and `UnregisteredError` tokens during FCM dispatch.
+  - Passed database session directly to `send_fcm_push` in test route to guarantee automatic cleanup.
+- Verified:
+  - Backend tests: `pytest` passed (41/41 passing).
+  - Database token count: exactly 1 active device (`cZ0IBQK...`) remaining.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

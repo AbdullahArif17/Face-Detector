@@ -40,6 +40,12 @@ def init_firebase():
 
 class NotificationService:
     @staticmethod
+    def is_initialized() -> bool:
+        init_firebase()
+        global _firebase_initialized
+        return _firebase_initialized
+
+    @staticmethod
     async def log_notification(
         company_id: int,
         notification_type: str,
@@ -127,7 +133,15 @@ class NotificationService:
             success = False
 
             # Automatically prune unregistered or invalid tokens
-            if "not a valid FCM registration token" in error_msg or "UNREGISTERED" in error_msg.upper() or "404" in error_msg:
+            clean_err = error_msg.upper()
+            if (
+                "NOT A VALID FCM REGISTRATION TOKEN" in clean_err
+                or "UNREGISTERED" in clean_err
+                or "NOTREGISTERED" in clean_err
+                or "NOT_FOUND" in clean_err
+                or "404" in clean_err
+                or "INVALID_ARGUMENT" in clean_err
+            ):
                 try:
                     from sqlalchemy import delete
                     from app.models.user_device_token import UserDeviceToken

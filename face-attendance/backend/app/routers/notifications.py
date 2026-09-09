@@ -132,6 +132,12 @@ async def send_test_notification(
         select(UserDeviceToken.fcm_token)
         .where(UserDeviceToken.user_id == current_user.id)
     )
+    if not NotificationService.is_initialized():
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Firebase Admin is not configured on the backend server. Please verify that FIREBASE_CREDENTIALS_JSON is set in the backend environment variables on Vercel.",
+        )
+
     tokens = result.scalars().all()
     if not tokens:
         raise HTTPException(
@@ -148,12 +154,18 @@ async def send_test_notification(
             body=f"Push notifications are active for {current_user.name} ({current_user.role.replace('_', ' ').title()}).",
             event_type="test_notification",
             data={"user_id": str(current_user.id)},
+            db=db,
         )
         if sent:
             success_count += 1
 
+    if success_count > 0:
+        msg = f"Test notification delivered to {success_count} of {len(tokens)} device(s)."
+    else:
+        msg = f"Delivery failed for {len(tokens)} device(s). Please tap 'Re-sync Device' to refresh your device token."
+
     return {
-        "message": f"Test notification dispatched to {success_count} of {len(tokens)} device(s).",
+        "message": msg,
         "devices_targeted": len(tokens),
         "devices_reached": success_count,
     }
