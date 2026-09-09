@@ -841,6 +841,20 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
   - Backend tests: `pytest` passed (41/41 passing).
   - Production delivery confirmed: Test push notifications successfully delivering to registered devices in production (`face-detector-k4dl` backend to `face-detector-seven` client).
 
+## 2026-09-10 — Cron Job Verification & Vercel Compatibility
+- Completed:
+  - Verified `crons` definitions in `face-attendance/backend/vercel.json` (`/attendance/cron/end-sessions` daily at 01:00 UTC and `/attendance/cron/weekly-reports` Sundays at 18:00 UTC).
+  - Enhanced router decorators in `app/routers/attendance.py` to support both `GET` and `POST` methods via `api_route` (Vercel Cron natively dispatches HTTP `GET` requests; previously were `POST`-only which would yield 405 Method Not Allowed).
+  - Added unit test in `test_core.py` validating `Authorization: Bearer <CRON_SECRET>` header handling as sent by Vercel.
+- Changed:
+  - `face-attendance/backend/app/routers/attendance.py`: `@router.api_route` for `/cron/end-sessions`, `/cron/weekly-parent-reports`, `/cron/weekly-staff-reports`, and `/cron/weekly-reports`.
+  - `face-attendance/backend/tests/test_core.py`: Added test assertion for Bearer token auth in `test_cron_auth_validation`.
+- Verified:
+  - Pytest test suite: 41/41 passing.
+  - Pushed to `main` for Vercel auto-deployment.
+- Pending:
+  - Ensure `CRON_SECRET` env var matches between Vercel project settings if strict cron auth is desired (falls back gracefully if unset).
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title
@@ -849,5 +863,6 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified:
 - Pending:
 ```
+
 
 
