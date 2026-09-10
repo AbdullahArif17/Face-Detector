@@ -486,6 +486,17 @@ def test_cron_auth_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     vercel_req = Request(scope={"type": "http", "headers": [(b"authorization", b"Bearer test-secret")]})
     attendance._check_cron_auth(vercel_req)
 
+    # In production without cron_secret, unauthenticated access is rejected
+    monkeypatch.setattr(
+        attendance,
+        "settings",
+        type("TestSettings", (), {"cron_secret": None, "app_env": "production"})(),
+    )
+    unauth_req = Request(scope={"type": "http", "headers": []})
+    with pytest.raises(HTTPException) as exc_prod:
+        attendance._check_cron_auth(unauth_req)
+    assert exc_prod.value.status_code == 401
+
 
 @pytest.mark.asyncio
 async def test_viewer_excluded_from_push_notifications() -> None:

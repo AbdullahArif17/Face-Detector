@@ -466,7 +466,9 @@ export default function NotificationsPage() {
                     </span>
                   </div>
                   
-                  <div className="text-sm text-muted-foreground mb-2 line-clamp-2" dangerouslySetInnerHTML={{ __html: log.message_content }} />
+                  <div className="text-sm text-muted-foreground mb-2 line-clamp-2">
+                    {log.message_content}
+                  </div>
                   
                   <div className="flex flex-wrap items-center gap-4 text-xs">
                     <div className="flex items-center gap-1.5">

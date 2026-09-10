@@ -1758,9 +1758,16 @@ async def send_absent_notification(
 
 def _check_cron_auth(request: Request) -> None:
     cron_secret = settings.cron_secret
+    if not cron_secret and settings.app_env.lower() == "production":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Cron authentication is required in production",
+        )
     if cron_secret:
-        provided_secret = request.headers.get("X-Cron-Secret") or request.headers.get("Authorization", "").removeprefix("Bearer ")
-        if not hmac.compare_digest(provided_secret or "", cron_secret):
+        auth_header = request.headers.get("Authorization", "")
+        bearer_secret = auth_header.removeprefix("Bearer ").strip() if auth_header.startswith("Bearer ") else ""
+        provided_secret = request.headers.get("X-Cron-Secret", "").strip() or bearer_secret
+        if not provided_secret or not hmac.compare_digest(provided_secret, cron_secret):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid cron secret")
 
 

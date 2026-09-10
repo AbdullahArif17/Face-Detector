@@ -867,6 +867,25 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Pending:
   - None.
 
+## 2026-09-11 — Security Audit Hardening & Notification XSS Remediation
+- Completed:
+  - Addressed findings from comprehensive project audit prior to school distribution.
+  - Eliminated stored XSS vulnerability on `/notifications` log viewer by replacing `dangerouslySetInnerHTML` with safe text rendering.
+  - Hardened backend cron authentication: required `CRON_SECRET` at production startup in `validate_runtime_configuration()` and rejected unauthorized invocation attempts in `_check_cron_auth()`.
+  - Added unit test coverage for production `CRON_SECRET` validation.
+- Changed:
+  - `face-attendance/frontend/src/app/(dashboard)/notifications/page.tsx`: Safe text rendering for notification message contents.
+  - `face-attendance/backend/main.py`: Enforce `CRON_SECRET` in `validate_runtime_configuration()` in production.
+  - `face-attendance/backend/app/routers/attendance.py`: Fallback rejection when `CRON_SECRET` is unset in production; clean Bearer token extraction.
+  - `face-attendance/backend/tests/test_core.py`: Added assertions for cron authentication in production.
+- Verified:
+  - Frontend typecheck: `tsc --noEmit` passed (0 errors).
+  - Frontend lint: `eslint .` passed (0 errors).
+  - Frontend build: `next build` passed (all 23 routes generated cleanly).
+  - Backend tests: `pytest` passed (41/41 passing).
+- Pending:
+  - Configure `CRON_SECRET` in Vercel backend environment variables before deploying to production.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title

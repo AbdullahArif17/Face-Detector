@@ -99,6 +99,8 @@ def validate_runtime_configuration() -> None:
         raise RuntimeError("AUTH_COOKIE_SECURE must be true in production")
     if not settings.ai_api_key:
         raise RuntimeError("AI_API_KEY is required in production")
+    if not settings.cron_secret:
+        raise RuntimeError("CRON_SECRET is required in production")
     _validate_fernet_key(
         "BIOMETRIC_ENCRYPTION_KEY",
         settings.biometric_encryption_key,
