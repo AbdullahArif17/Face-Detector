@@ -855,6 +855,18 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Pending:
   - Ensure `CRON_SECRET` env var matches between Vercel project settings if strict cron auth is desired (falls back gracefully if unset).
 
+## 2026-09-11 — Update Cron Schedules for School Local Time (PKT)
+- Completed:
+  - Adjusted cron job schedules in `face-attendance/backend/vercel.json` to match user's school operations timezone (PKT, UTC+5).
+  - Daily session closing & absent processing (`/attendance/cron/end-sessions`): Set to 8:00 PM PKT (`0 15 * * *` UTC).
+  - Weekly attendance reports (`/attendance/cron/weekly-reports`): Set to 5:00 PM PKT Sunday (`0 12 * * 0` UTC).
+- Changed:
+  - `face-attendance/backend/vercel.json`: Updated `schedule` fields for both crons.
+- Verified:
+  - Pytest test suite: 41/41 passing.
+- Pending:
+  - None.
+
 ## Entry Template
 ```markdown
 ## YYYY-MM-DD — Short session title
@@ -863,6 +875,7 @@ Keep recent entries concise. Summarize durable state in `PROJECT_CONTEXT.md`.
 - Verified:
 - Pending:
 ```
+
 
 
 

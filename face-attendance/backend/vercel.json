@@ -9,11 +9,11 @@
   "crons": [
     {
       "path": "/attendance/cron/end-sessions",
-      "schedule": "0 1 * * *"
+      "schedule": "0 15 * * *"
     },
     {
       "path": "/attendance/cron/weekly-reports",
-      "schedule": "0 18 * * 0"
+      "schedule": "0 12 * * 0"
     }
   ]
 }
